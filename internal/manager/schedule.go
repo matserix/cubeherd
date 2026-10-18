@@ -14,7 +14,7 @@ import (
 const catchUpDelay = 2 * time.Minute
 
 // NextBackup returns the next scheduled run after last (zero if the plan is off).
-// Runs that are already overdue are moved to now+catchUpDelay.
+// An overdue run is returned as it is (in the past); catchUp delays those after a start.
 func NextBackup(p server.BackupPlan, last, now time.Time) time.Time {
 	step := map[string]time.Duration{"6h": 6 * time.Hour, "daily": 24 * time.Hour, "weekly": 24 * time.Hour}[p.Interval]
 	if step == 0 {
@@ -31,8 +31,15 @@ func NextBackup(p server.BackupPlan, last, now time.Time) time.Time {
 	for !t.After(from) || (p.Interval == "weekly" && t.Weekday() != time.Monday) {
 		t = t.Add(step)
 	}
-	if t.Before(now) {
-		return now.Add(catchUpDelay)
+	return t
+}
+
+// catchUp moves runs that were missed while Cubeherd was down to shortly after its start, so a restart
+// does not begin backing everything up at once. A fixed anchor (not "now") is essential: otherwise an
+// overdue run would be pushed back each time the scheduler looks at it and never become due.
+func catchUp(t, started time.Time) time.Time {
+	if min := started.Add(catchUpDelay); !t.IsZero() && t.Before(min) {
+		return min
 	}
 	return t
 }
@@ -77,7 +84,7 @@ func (m *Manager) lastScheduled(s *server.Server) time.Time {
 // NextBackupFor is shown in the UI.
 func (m *Manager) NextBackupFor(s *server.Server) time.Time {
 	loc := m.Loc()
-	return NextBackup(s.Plan(), m.lastScheduled(s).In(loc), time.Now().In(loc))
+	return catchUp(NextBackup(s.Plan(), m.lastScheduled(s).In(loc), time.Now().In(loc)), m.started)
 }
 
 // RunScheduler sleeps until the next due backup; it does no periodic polling.
@@ -89,7 +96,7 @@ func (m *Manager) RunScheduler(ctx context.Context) {
 		var next time.Time
 		var due []*server.Server
 		for _, s := range list {
-			t := NextBackup(s.Plan(), m.lastScheduled(s).In(loc), now)
+			t := catchUp(NextBackup(s.Plan(), m.lastScheduled(s).In(loc), now), m.started)
 			switch {
 			case t.IsZero():
 			case !t.After(now):
