@@ -3,16 +3,17 @@
   <form class="panel" method="post" action="{{.Data.Action}}">
     <div class="brand">{{template "logo"}}<b>Forgecraft</b></div>
     {{if .Data.Setup}}
-    <div><h1>Einrichten</h1><p class="muted" style="margin-top:4px">Lege das Passwort für das Admin-Konto fest. Forgecraft nur im LAN oder per VPN erreichbar machen.</p></div>
-    <label class="field"><span>Passwort</span><input class="input" name="password" type="password" autocomplete="new-password" minlength="10" required autofocus><small>Mindestens 10 Zeichen.</small></label>
-    <label class="field"><span>Passwort wiederholen</span><input class="input" name="password2" type="password" autocomplete="new-password" minlength="10" required></label>
+    <div><h1>{{t "Einrichten"}}</h1><p class="muted" style="margin-top:4px">{{t "Lege das Passwort für das Admin-Konto fest. Forgecraft nur im LAN oder per VPN erreichbar machen."}}</p></div>
+    <label class="field"><span>{{t "Sprache"}}</span><select class="input" name="language">{{range languages}}<option value="{{.Code}}" {{if eq .Code lang}}selected{{end}}>{{.Name}}</option>{{end}}</select></label>
+    <label class="field"><span>{{t "Passwort"}}</span><input class="input" name="password" type="password" autocomplete="new-password" minlength="10" required autofocus><small>{{t "Mindestens 10 Zeichen."}}</small></label>
+    <label class="field"><span>{{t "Passwort wiederholen"}}</span><input class="input" name="password2" type="password" autocomplete="new-password" minlength="10" required></label>
     {{with .Data.Error}}<p class="err">{{.}}</p>{{end}}
-    <button class="btn primary" type="submit">Passwort speichern</button>
+    <button class="btn primary" type="submit">{{t "Passwort speichern"}}</button>
     {{else}}
-    <div><h1>Anmelden</h1><p class="muted" style="margin-top:4px">Admin-Konto dieses Dashboards.</p></div>
-    <label class="field"><span>Passwort</span><input class="input" name="password" type="password" autocomplete="current-password" required autofocus></label>
+    <div><h1>{{t "Anmelden"}}</h1><p class="muted" style="margin-top:4px">{{t "Admin-Konto dieses Dashboards."}}</p></div>
+    <label class="field"><span>{{t "Passwort"}}</span><input class="input" name="password" type="password" autocomplete="current-password" required autofocus></label>
     {{with .Data.Error}}<p class="err">{{.}}</p>{{end}}
-    <button class="btn primary" type="submit">Anmelden</button>
+    <button class="btn primary" type="submit">{{t "Anmelden"}}</button>
     {{end}}
   </form>
 </div>

@@ -81,10 +81,10 @@ func (m *Manager) Import(ctx context.Context, containerID, name string) (*server
 	}
 	id := server.Slug(name)
 	if id == "" {
-		return nil, errors.New("Name fehlt")
+		return nil, errors.New(m.t("Name fehlt"))
 	}
 	if m.Store.Exists(id) {
-		return nil, fmt.Errorf("Die ID „%s“ ist schon vergeben", id)
+		return nil, fmt.Errorf(m.t("Die ID „%s“ ist schon vergeben"), id)
 	}
 	env := ci.EnvMap()
 	s := &server.Server{
@@ -170,7 +170,7 @@ func (m *Manager) Import(ctx context.Context, containerID, name string) (*server
 		}
 	}
 	if s.DataDir == "" && s.DataVol == "" {
-		return nil, errors.New("Container hat kein /data-Volume; Daten würden verloren gehen")
+		return nil, errors.New(m.t("Container hat kein /data-Volume; Daten würden verloren gehen"))
 	}
 	if err := m.Store.Save(s, m.globals()); err != nil {
 		return nil, err
@@ -180,7 +180,7 @@ func (m *Manager) Import(ctx context.Context, containerID, name string) (*server
 	err = m.run(s.ID, server.StatusUpdating, func(o *Op) error {
 		ctx, cancel := context.WithTimeout(context.Background(), 20*time.Minute)
 		defer cancel()
-		o.add("[forgecraft] Stoppe " + oldName)
+		o.add("[forgecraft] " + m.t("Stoppe %s", oldName))
 		if err := m.Docker.Stop(ctx, ci.ID, time.Minute); err != nil {
 			return err
 		}
@@ -189,15 +189,15 @@ func (m *Manager) Import(ctx context.Context, containerID, name string) (*server
 			return err
 		}
 		if err := m.compose(ctx, s, o, "up", "-d"); err != nil {
-			o.add("[forgecraft] Übernahme fehlgeschlagen, stelle alten Container wieder her")
+			o.add("[forgecraft] " + m.t("Übernahme fehlgeschlagen, stelle alten Container wieder her"))
 			_ = m.Docker.Rename(ctx, ci.ID, oldName)
 			_ = m.Docker.Start(ctx, ci.ID)
 			_ = m.Store.RemoveDefinition(s.ID)
 			return err
 		}
-		o.add("[forgecraft] Entferne alten Container " + backup)
+		o.add("[forgecraft] " + m.t("Entferne alten Container %s", backup))
 		if err := m.Docker.Remove(ctx, ci.ID, false); err != nil && !errors.Is(err, docker.ErrNotFound) {
-			o.add("[forgecraft] Alter Container bleibt als " + backup + " erhalten: " + err.Error())
+			o.add("[forgecraft] " + m.t("Alter Container bleibt als %s erhalten: %s", backup, err.Error()))
 		}
 		return nil
 	})

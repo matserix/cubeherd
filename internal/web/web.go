@@ -21,6 +21,7 @@ import (
 	"forgecraft/internal/auth"
 	"forgecraft/internal/config"
 	"forgecraft/internal/host"
+	"forgecraft/internal/i18n"
 	"forgecraft/internal/manager"
 )
 
@@ -41,7 +42,7 @@ type App struct {
 
 	sess  auth.Sessions
 	lim   *auth.Limiter
-	pages map[string]*template.Template
+	pages map[string]map[string]*template.Template // language → page → templates
 	start time.Time
 }
 
@@ -65,25 +66,39 @@ func New(m *manager.Manager, cfg *config.Store, h *host.Reader, dataDir, listen 
 	return a, nil
 }
 
+// loadTemplates parses one template set per language, each with its own formatting functions.
 func (a *App) loadTemplates() error {
-	base := template.New("base").Funcs(funcs)
-	base, err := base.ParseFS(templateFS, "templates/layout.html", "templates/partials.html")
-	if err != nil {
-		return err
-	}
-	a.pages = map[string]*template.Template{}
-	for _, p := range []string{"login", "overview", "wizard", "server", "settings"} {
-		t, err := base.Clone()
+	a.pages = map[string]map[string]*template.Template{}
+	for _, l := range i18n.Languages {
+		base, err := template.New("base").Funcs(newFuncs(l.Code)).ParseFS(templateFS, "templates/layout.html", "templates/partials.html")
 		if err != nil {
 			return err
 		}
-		if _, err := t.ParseFS(templateFS, "templates/"+p+".html"); err != nil {
-			return fmt.Errorf("%s: %w", p, err)
+		a.pages[l.Code] = map[string]*template.Template{}
+		for _, p := range []string{"login", "overview", "wizard", "server", "settings"} {
+			t, err := base.Clone()
+			if err != nil {
+				return err
+			}
+			if _, err := t.ParseFS(templateFS, "templates/"+p+".html"); err != nil {
+				return fmt.Errorf("%s: %w", p, err)
+			}
+			a.pages[l.Code][p] = t
 		}
-		a.pages[p] = t
 	}
 	return nil
 }
+
+// lang is the interface language; installs from before i18n have none set and stay German.
+func (a *App) lang() string {
+	if l := a.Cfg.Get().Language; i18n.Valid(l) {
+		return l
+	}
+	return i18n.Source
+}
+
+// t translates a German source text into the interface language.
+func (a *App) t(key string, args ...any) string { return i18n.T(a.lang(), key, args...) }
 
 // Handler wires all routes behind auth and CSRF checks.
 func (a *App) Handler() http.Handler {
@@ -171,7 +186,7 @@ func (a *App) security(next http.Handler) http.Handler {
 		}
 		// CSRF: state-changing requests must come from htmx or carry our own origin.
 		if r.Method != http.MethodGet && r.Method != http.MethodHead && !sameOrigin(r) {
-			http.Error(w, "Ungültige Herkunft der Anfrage", http.StatusForbidden)
+			http.Error(w, a.t("Ungültige Herkunft der Anfrage"), http.StatusForbidden)
 			return
 		}
 		setup := a.Cfg.Get().PasswordHash == ""
@@ -229,7 +244,7 @@ func (a *App) render(w http.ResponseWriter, r *http.Request, page string, p Page
 		p.Rack, _ = a.M.Views(r.Context(), false)
 	}
 	var buf bytes.Buffer
-	if err := a.pages[page].ExecuteTemplate(&buf, "layout", p); err != nil {
+	if err := a.pages[a.lang()][page].ExecuteTemplate(&buf, "layout", p); err != nil {
 		log.Printf("render %s: %v", page, err)
 		http.Error(w, "Darstellungsfehler: "+err.Error(), http.StatusInternalServerError)
 		return
@@ -242,7 +257,7 @@ func (a *App) render(w http.ResponseWriter, r *http.Request, page string, p Page
 // partial renders a named template (from any page set; partials are shared).
 func (a *App) partial(w http.ResponseWriter, page, name string, data any) {
 	var buf bytes.Buffer
-	if err := a.pages[page].ExecuteTemplate(&buf, name, data); err != nil {
+	if err := a.pages[a.lang()][page].ExecuteTemplate(&buf, name, data); err != nil {
 		log.Printf("partial %s/%s: %v", page, name, err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -254,7 +269,7 @@ func (a *App) partial(w http.ResponseWriter, page, name string, data any) {
 
 func (a *App) renderString(page, name string, data any) (string, error) {
 	var buf bytes.Buffer
-	err := a.pages[page].ExecuteTemplate(&buf, name, data)
+	err := a.pages[a.lang()][page].ExecuteTemplate(&buf, name, data)
 	return buf.String(), err
 }
 
@@ -283,6 +298,14 @@ func asciiJSON(s string) string {
 		}
 	}
 	return b.String()
+}
+
+// fail reports a translated error as toast without swapping content.
+func (a *App) fail(w http.ResponseWriter, key string, args ...any) { fail(w, a.t(key, args...)) }
+
+// toast shows a translated message.
+func (a *App) toast(w http.ResponseWriter, kind, key string, args ...any) {
+	toast(w, a.t(key, args...), kind)
 }
 
 // fail reports an error as toast without swapping content.

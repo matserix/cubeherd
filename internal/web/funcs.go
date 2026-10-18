@@ -10,117 +10,162 @@ import (
 	"strings"
 	"time"
 
+	"forgecraft/internal/i18n"
 	"forgecraft/internal/server"
 )
 
 // displayLoc is the time zone used for dates in the UI (set by New).
 var displayLoc = func() *time.Location { return time.Local }
 
-var funcs = template.FuncMap{
-	"static":   staticURL,
-	"typeName": server.TypeName,
-	"types":    func() any { return server.Types },
-	"de":       de,
-	"gb":       gb,
-	"gbOf":     func(n int) string { return strconv.Itoa(n) + " GB" },
-	"pct":      pct,
-	"level":    level,
-	"since":    since,
-	"avatar":   avatar,
-	"num":      num,
-	"add":      func(a, b int) int { return a + b },
-	"join":     strings.Join,
-	"lower":    strings.ToLower,
-	"eq2":      func(a, b, c string) bool { return a == b || a == c },
-	"dict": func(kv ...any) map[string]any {
-		m := map[string]any{}
-		for i := 0; i+1 < len(kv); i += 2 {
-			m[kv[i].(string)] = kv[i+1]
-		}
-		return m
-	},
-	"list":     func(v ...string) []string { return v },
-	"joinPath": joinRel,
-	"idleName": func(m string) string {
-		return map[string]string{"pause": "Pausieren (Autopause)", "stop": "Stoppen (Autostop)", "none": "Weiterlaufen"}[m]
-	},
-	"size": func(n int64) string {
-		switch {
-		case n >= 1<<30:
-			return de(float64(n)/(1<<30)) + " GB"
-		case n >= 1<<20:
-			return de(float64(n)/(1<<20)) + " MB"
-		case n >= 1<<10:
-			return de(float64(n)/(1<<10)) + " KB"
-		}
-		return strconv.FormatInt(n, 10) + " B"
-	},
-	"addonSrcName": func(s string) string {
-		return map[string]string{"modrinth": "Modrinth", "curseforge": "CurseForge", "spiget": "Spigot"}[s]
-	},
-	// jsonVals builds an hx-vals object from key/value pairs.
-	"jsonVals": func(kv ...string) string {
-		m := map[string]string{}
-		for i := 0; i+1 < len(kv); i += 2 {
-			m[kv[i]] = kv[i+1]
-		}
-		b, _ := json.Marshal(m)
-		return string(b)
-	},
-	"dt": func(t time.Time) string {
-		if t.IsZero() {
-			return ""
-		}
-		loc := displayLoc()
-		t = t.In(loc)
-		now := time.Now().In(loc)
-		switch {
-		case t.YearDay() == now.YearDay() && t.Year() == now.Year():
-			return "Heute, " + t.Format("15:04")
-		case t.YearDay() == now.AddDate(0, 0, -1).YearDay() && t.Year() == now.AddDate(0, 0, -1).Year():
-			return "Gestern, " + t.Format("15:04")
-		case t.YearDay() == now.AddDate(0, 0, 1).YearDay() && t.Year() == now.AddDate(0, 0, 1).Year():
-			return "Morgen, " + t.Format("15:04")
-		}
-		return t.Format("02.01.2006, 15:04")
-	},
-	"mb": func(n int64) string {
-		if n >= 1<<30 {
-			return de(float64(n)/(1<<30)) + " GB"
-		}
-		return de(float64(n)/(1<<20)) + " MB"
-	},
-	"intervalName": func(i string) string {
-		return map[string]string{"off": "Aus", "6h": "Alle 6 Stunden", "daily": "Täglich", "weekly": "Wöchentlich"}[i]
-	},
-	"keepOptions": func() []int { return []int{3, 5, 7, 14, 30} },
-	"initial": func(s string) string {
-		for _, r := range s {
-			return string(r)
-		}
-		return "?"
-	},
-	"mulGB": func(n int) uint64 { return uint64(n) << 30 },
-	// Rounded half up like Number.toFixed in app.js, so live and rendered values match.
-	"heapGB": func(gb int, modded bool) string {
-		return de(math.Round(float64(server.HeapMB(gb, modded))/1024*10) / 10)
-	},
-	"modeName": func(m string) string {
-		return map[string]string{"survival": "Überleben", "creative": "Kreativ", "adventure": "Abenteuer", "spectator": "Zuschauer"}[m]
-	},
-	"diffName": func(d string) string {
-		return map[string]string{"peaceful": "friedlich", "easy": "leicht", "normal": "normal", "hard": "schwer"}[d]
-	},
-	"srcName": func(s string) string {
-		return map[string]string{server.KindModrinth: "Modrinth", server.KindCurseForge: "CurseForge"}[s]
-	},
+// decimal formats a float with one decimal in the language's style (3,1 vs 3.1).
+func decimal(lang string, f float64) string {
+	s := strconv.FormatFloat(f, 'f', 1, 64)
+	if decimalSep(lang) == "," {
+		s = strings.Replace(s, ".", ",", 1)
+	}
+	return s
 }
 
-// de formats a float with one decimal and a German comma.
-func de(f float64) string { return strings.Replace(strconv.FormatFloat(f, 'f', 1, 64), ".", ",", 1) }
+func decimalSep(lang string) string {
+	if lang == "de" {
+		return ","
+	}
+	return "."
+}
 
-// gb formats a byte count (any integer type) as gigabytes.
-func gb(b any) string { return de(toF(b) / (1 << 30)) }
+// newFuncs builds the template functions for one language.
+func newFuncs(lang string) template.FuncMap {
+	t := func(key string, args ...any) string { return i18n.T(lang, key, args...) }
+	dec := func(f float64) string { return decimal(lang, f) }
+	gbf := func(b any) string { return dec(toF(b) / (1 << 30)) }
+	return template.FuncMap{
+		"t":         t,
+		"lang":      func() string { return lang },
+		"languages": func() []i18n.Lang { return i18n.Languages },
+		"decimal":   func() string { return decimalSep(lang) },
+		"static":    staticURL,
+		"typeName":  server.TypeName,
+		"types":     func() any { return server.Types },
+		"de":        dec,
+		"gb":        gbf,
+		"pct":       pct,
+		"level":     level,
+		"avatar":    avatar,
+		"dict": func(kv ...any) map[string]any {
+			m := map[string]any{}
+			for i := 0; i+1 < len(kv); i += 2 {
+				m[kv[i].(string)] = kv[i+1]
+			}
+			return m
+		},
+		"list":     func(v ...string) []string { return v },
+		"joinPath": joinRel,
+		"since": func(tm time.Time) string {
+			if tm.IsZero() {
+				return ""
+			}
+			d := time.Since(tm)
+			switch {
+			case d < time.Minute:
+				return t("gerade eben")
+			case d < time.Hour:
+				return fmt.Sprintf("%d min", int(d.Minutes()))
+			case d < 24*time.Hour:
+				return t("%d Std %d min", int(d.Hours()), int(d.Minutes())%60)
+			}
+			return t("%d T %d Std", int(d.Hours())/24, int(d.Hours())%24)
+		},
+		// num formats large counts like downloads ("9,8 Mio" / "9.8M").
+		"num": func(n int64) string {
+			switch {
+			case n >= 1_000_000:
+				return t("%s Mio", dec(float64(n)/1e6))
+			case n >= 10_000:
+				return t("%d Tsd", n/1000)
+			}
+			return strconv.FormatInt(n, 10)
+		},
+		"size": func(n int64) string {
+			switch {
+			case n >= 1<<30:
+				return dec(float64(n)/(1<<30)) + " GB"
+			case n >= 1<<20:
+				return dec(float64(n)/(1<<20)) + " MB"
+			case n >= 1<<10:
+				return dec(float64(n)/(1<<10)) + " KB"
+			}
+			return strconv.FormatInt(n, 10) + " B"
+		},
+		"mb": func(n int64) string {
+			if n >= 1<<30 {
+				return dec(float64(n)/(1<<30)) + " GB"
+			}
+			return dec(float64(n)/(1<<20)) + " MB"
+		},
+		"dt": func(tm time.Time) string {
+			if tm.IsZero() {
+				return ""
+			}
+			loc := displayLoc()
+			tm = tm.In(loc)
+			now := time.Now().In(loc)
+			same := func(a, b time.Time) bool { return a.YearDay() == b.YearDay() && a.Year() == b.Year() }
+			switch {
+			case same(tm, now):
+				return t("Heute, %s", tm.Format("15:04"))
+			case same(tm, now.AddDate(0, 0, -1)):
+				return t("Gestern, %s", tm.Format("15:04"))
+			case same(tm, now.AddDate(0, 0, 1)):
+				return t("Morgen, %s", tm.Format("15:04"))
+			}
+			if lang == "de" {
+				return tm.Format("02.01.2006, 15:04")
+			}
+			return tm.Format("2006-01-02 15:04")
+		},
+		"addonSrcName": func(s string) string {
+			return map[string]string{"modrinth": "Modrinth", "curseforge": "CurseForge", "spiget": "Spigot"}[s]
+		},
+		"srcName": func(s string) string {
+			return map[string]string{server.KindModrinth: "Modrinth", server.KindCurseForge: "CurseForge"}[s]
+		},
+		// jsonVals builds an hx-vals object from key/value pairs.
+		"jsonVals": func(kv ...string) string {
+			m := map[string]string{}
+			for i := 0; i+1 < len(kv); i += 2 {
+				m[kv[i]] = kv[i+1]
+			}
+			b, _ := json.Marshal(m)
+			return string(b)
+		},
+		"keepOptions": func() []int { return []int{3, 5, 7, 14, 30} },
+		"initial": func(s string) string {
+			for _, r := range s {
+				return string(r)
+			}
+			return "?"
+		},
+		"mulGB": func(n int) uint64 { return uint64(n) << 30 },
+		// Rounded half up like Number.toFixed in app.js, so live and rendered values match.
+		"heapGB": func(gb int, modded bool) string {
+			return dec(math.Round(float64(server.HeapMB(gb, modded))/1024*10) / 10)
+		},
+		"modeName":     func(m string) string { return t(modeNames[m]) },
+		"diffName":     func(d string) string { return t(diffNames[d]) },
+		"diffTitle":    func(d string) string { return t(diffTitles[d]) },
+		"intervalName": func(i string) string { return t(intervalNames[i]) },
+		"idleName":     func(m string) string { return t(idleNames[m]) },
+	}
+}
+
+// Display names; the values are translation keys (see i18n test).
+var (
+	modeNames     = map[string]string{"survival": "Überleben", "creative": "Kreativ", "adventure": "Abenteuer", "spectator": "Zuschauer"}
+	diffNames     = map[string]string{"peaceful": "friedlich", "easy": "leicht", "normal": "normal", "hard": "schwer"}
+	diffTitles    = map[string]string{"peaceful": "Friedlich", "easy": "Leicht", "normal": "Normal", "hard": "Schwer"}
+	intervalNames = map[string]string{"off": "Aus", "6h": "Alle 6 Stunden", "daily": "Täglich", "weekly": "Wöchentlich"}
+	idleNames     = map[string]string{"pause": "Pausieren (Autopause)", "stop": "Stoppen (Autostop)", "none": "Weiterlaufen"}
+)
 
 func pct(a, b any) float64 {
 	x, y := toF(a), toF(b)
@@ -156,33 +201,6 @@ func level(p float64) string {
 		return "warn"
 	}
 	return "ok"
-}
-
-// num formats large counts like Modrinth downloads ("9,8 Mio").
-func num(n int64) string {
-	switch {
-	case n >= 1_000_000:
-		return de(float64(n)/1e6) + " Mio"
-	case n >= 10_000:
-		return strconv.FormatInt(n/1000, 10) + " Tsd"
-	}
-	return strconv.FormatInt(n, 10)
-}
-
-func since(t time.Time) string {
-	if t.IsZero() {
-		return ""
-	}
-	d := time.Since(t)
-	switch {
-	case d < time.Minute:
-		return "gerade eben"
-	case d < time.Hour:
-		return fmt.Sprintf("%d min", int(d.Minutes()))
-	case d < 24*time.Hour:
-		return fmt.Sprintf("%d Std %d min", int(d.Hours()), int(d.Minutes())%60)
-	}
-	return fmt.Sprintf("%d T %d Std", int(d.Hours())/24, int(d.Hours())%24)
 }
 
 var avatarColors = []string{"#c58b4f", "#5f9bc5", "#7fb069", "#b56576", "#9a7fc4", "#d4a843", "#4fa39a"}

@@ -16,6 +16,7 @@ import (
 	"forgecraft/internal/config"
 	"forgecraft/internal/docker"
 	"forgecraft/internal/host"
+	"forgecraft/internal/i18n"
 	"forgecraft/internal/manager"
 	"forgecraft/internal/server"
 	"forgecraft/internal/sources"
@@ -45,11 +46,11 @@ func main() {
 
 	cfg, err := config.Load(dataDir)
 	if err != nil {
-		log.Fatalf("Einstellungen laden: %v", err)
+		log.Fatalf("loading settings: %v", err)
 	}
 	store, err := server.NewStore(dataDir)
 	if err != nil {
-		log.Fatalf("Datenverzeichnis: %v", err)
+		log.Fatalf("data directory: %v", err)
 	}
 	dc, err := docker.New()
 	if err != nil {
@@ -57,12 +58,18 @@ func main() {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	if err := dc.Ping(ctx); err != nil {
-		log.Printf("Warnung: Docker nicht erreichbar über %s: %v", dc.Host, err)
+		log.Printf("warning: Docker not reachable via %s: %v", dc.Host, err)
 	}
 	cancel()
 
 	src := sources.New(func() string { return cfg.Get().CFAPIKey })
 	m := manager.New(dc, store, cfg, src)
+	m.Lang = func() string {
+		if l := cfg.Get().Language; i18n.Valid(l) {
+			return l
+		}
+		return i18n.Source
+	}
 	schedCtx, stopSched := context.WithCancel(context.Background())
 	defer stopSched()
 	go m.RunScheduler(schedCtx)
@@ -78,9 +85,9 @@ func main() {
 		IdleTimeout:       90 * time.Second,
 	}
 	go func() {
-		log.Printf("Dashboard auf %s · Daten in %s · Docker über %s", listen, dataDir, dc.Host)
+		log.Printf("dashboard on %s · data in %s · Docker via %s", listen, dataDir, dc.Host)
 		if cfg.Get().PasswordHash == "" {
-			log.Printf("Erster Start: Passwort im Browser unter /setup festlegen")
+			log.Printf("first start: set the password in the browser at /setup")
 		}
 		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			log.Fatal(err)

@@ -26,7 +26,7 @@ func (a *App) serverEvents(w http.ResponseWriter, r *http.Request) {
 	}
 	fl, ok := w.(http.Flusher)
 	if !ok {
-		http.Error(w, "Streaming nicht unterstützt", http.StatusInternalServerError)
+		http.Error(w, a.t("Streaming nicht unterstützt"), http.StatusInternalServerError)
 		return
 	}
 	h := w.Header()

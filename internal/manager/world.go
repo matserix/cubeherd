@@ -51,7 +51,7 @@ func (m *Manager) WorldDirs(ctx context.Context, s *server.Server) []string {
 func (m *Manager) WorldZip(ctx context.Context, s *server.Server, w io.Writer) error {
 	dirs := m.WorldDirs(ctx, s)
 	if len(dirs) == 0 {
-		return errors.New("Keine Welt gefunden")
+		return errors.New(m.t("Keine Welt gefunden"))
 	}
 	if v := m.View(ctx, s, false); v.Status.Live() {
 		if _, err := m.RCON(ctx, s, "save-off"); err == nil {
@@ -110,6 +110,9 @@ func tarToZip(r io.Reader, w io.Writer) error {
 	return zw.Close()
 }
 
+// ErrNoWorld is returned for ZIPs without level.dat (translated where it is shown).
+var ErrNoWorld = errors.New("Die ZIP-Datei enthält keine level.dat und ist deshalb keine Minecraft-Welt")
+
 // WorldRoot finds the folder inside a ZIP that contains level.dat (e.g. "My World/" or "").
 func WorldRoot(zr *zip.Reader) (string, error) {
 	best := ""
@@ -128,7 +131,7 @@ func WorldRoot(zr *zip.Reader) (string, error) {
 		}
 	}
 	if !found {
-		return "", errors.New("Die ZIP-Datei enthält keine level.dat und ist deshalb keine Minecraft-Welt")
+		return "", ErrNoWorld
 	}
 	if best != "" {
 		best += "/"
@@ -179,7 +182,7 @@ func (m *Manager) ImportWorld(s *server.Server, zipPath string) error {
 	zr, err := zip.OpenReader(zipPath)
 	if err != nil {
 		os.Remove(zipPath)
-		return errors.New("Die Datei ist kein gültiges ZIP-Archiv")
+		return errors.New(m.t("Die Datei ist kein gültiges ZIP-Archiv"))
 	}
 	root, err := WorldRoot(&zr.Reader)
 	if err != nil {
@@ -195,13 +198,13 @@ func (m *Manager) ImportWorld(s *server.Server, zipPath string) error {
 		c := m.inspect(ctx, s)
 		wasUp := c != nil && c.State.Running
 		if wasUp {
-			o.add("[forgecraft] Server wird gestoppt")
+			o.add("[forgecraft] " + m.t("Server wird gestoppt"))
 			if err := m.Docker.Stop(ctx, s.Container(), time.Minute); err != nil {
 				return err
 			}
 		}
 		if _, err := m.backup(ctx, s, o, ReasonUpload, m.BackupDir(s), ""); err != nil {
-			return fmt.Errorf("Sicherung der bisherigen Welt fehlgeschlagen, nichts geändert: %w", err)
+			return fmt.Errorf(m.t("Sicherung der bisherigen Welt fehlgeschlagen, nichts geändert: %w"), err)
 		}
 		name := m.LevelName(ctx, s)
 		o.add("[forgecraft] Ersetze Welt „" + name + "“")
@@ -210,9 +213,9 @@ func (m *Manager) ImportWorld(s *server.Server, zipPath string) error {
 		script := `set -e; cd /data; rm -rf -- "$N" "${N}_nether" "${N}_the_end"; tar -xf - --no-same-permissions; chown -R 1000:1000 "$N"`
 		var out bytes.Buffer
 		if err := m.dataShell(ctx, s, script, map[string]string{"N": name}, pr, &out, false); err != nil {
-			return fmt.Errorf("Entpacken fehlgeschlagen: %w", err)
+			return fmt.Errorf(m.t("Entpacken fehlgeschlagen: %w"), err)
 		}
-		o.add("[forgecraft] Welt eingespielt")
+		o.add("[forgecraft] " + m.t("Welt eingespielt"))
 		if wasUp {
 			if err := m.Store.Save(s, m.globals()); err != nil {
 				return err

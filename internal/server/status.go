@@ -37,6 +37,26 @@ var statusLabel = map[Status]string{
 
 func (s Status) Label() string { return statusLabel[s] }
 
+// StatusLabels returns all status texts (translation keys).
+func StatusLabels() []string {
+	var out []string
+	for _, v := range statusLabel {
+		out = append(out, v)
+	}
+	return out
+}
+
+// CrashHints returns the hint texts of the crash patterns (translation keys).
+func CrashHints() []string {
+	var out []string
+	for _, p := range crashPatterns {
+		if p.hint != "" {
+			out = append(out, p.hint)
+		}
+	}
+	return out
+}
+
 // CSS maps the status to the prototype's pill classes.
 func (s Status) CSS() string {
 	switch s {

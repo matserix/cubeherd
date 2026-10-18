@@ -40,6 +40,15 @@ var reasonLabel = map[string]string{
 
 func (b Backup) Label() string { return reasonLabel[b.Reason] }
 
+// ReasonLabels returns all backup reason texts (translation keys).
+func ReasonLabels() []string {
+	var out []string
+	for _, v := range reasonLabel {
+		out = append(out, v)
+	}
+	return out
+}
+
 // Automatic backups are pruned by the plan's Keep value; manual ones stay until deleted.
 func (b Backup) Automatic() bool { return b.Reason != ReasonManual }
 
@@ -164,15 +173,15 @@ func (m *Manager) backup(ctx context.Context, s *server.Server, o *Op, reason, d
 			if _, err := m.RCON(ctx, s, "save-off"); err == nil {
 				defer func() {
 					if _, err := m.RCON(context.Background(), s, "save-on"); err != nil {
-						o.add("[forgecraft] Warnung: save-on fehlgeschlagen: " + err.Error())
+						o.add("[forgecraft] " + m.t("Warnung: save-on fehlgeschlagen: %s", err.Error()))
 					}
 				}()
-				o.add("[forgecraft] Automatisches Speichern pausiert, Welt wird geschrieben")
+				o.add("[forgecraft] " + m.t("Automatisches Speichern pausiert, Welt wird geschrieben"))
 				if _, err := m.RCON(ctx, s, "save-all flush"); err != nil {
-					o.add("[forgecraft] Warnung: save-all fehlgeschlagen: " + err.Error())
+					o.add("[forgecraft] " + m.t("Warnung: save-all fehlgeschlagen: %s", err.Error()))
 				}
 			} else {
-				o.add("[forgecraft] RCON nicht erreichbar, sichere den aktuellen Stand auf der Platte")
+				o.add("[forgecraft] " + m.t("RCON nicht erreichbar, sichere den aktuellen Stand auf der Platte"))
 			}
 		}
 		cmd = exec.CommandContext(ctx, "docker", append([]string{"exec", s.Container(), "nice"}, tarArgs...)...)
@@ -180,7 +189,7 @@ func (m *Manager) backup(ctx context.Context, s *server.Server, o *Op, reason, d
 		cmd = exec.CommandContext(ctx, "docker", append([]string{"run", "--rm", "--entrypoint", "nice",
 			"-v", m.dataMount(s) + ":/data:ro", s.ImageRef()}, tarArgs...)...)
 	}
-	o.add("[forgecraft] Erstelle Backup " + name)
+	o.add("[forgecraft] " + m.t("Erstelle Backup %s", name))
 
 	f, err := os.Create(tmp)
 	if err != nil {
@@ -194,7 +203,7 @@ func (m *Manager) backup(ctx context.Context, s *server.Server, o *Op, reason, d
 	var ee *exec.ExitError
 	if runErr != nil && !(errors.As(runErr, &ee) && ee.ExitCode() == 1) {
 		os.Remove(tmp)
-		return Backup{}, fmt.Errorf("Backup fehlgeschlagen: %s", firstLine(stderr.String(), runErr))
+		return Backup{}, fmt.Errorf(m.t("Backup fehlgeschlagen: %s"), firstLine(stderr.String(), runErr))
 	}
 	if closeErr != nil {
 		os.Remove(tmp)
@@ -208,10 +217,10 @@ func (m *Manager) backup(ctx context.Context, s *server.Server, o *Op, reason, d
 	if info != nil {
 		b.Size = info.Size()
 	}
-	o.add(fmt.Sprintf("[forgecraft] Backup fertig: %s (%.1f MB, %s)", name, float64(b.Size)/(1<<20), time.Since(now).Round(time.Second)))
+	o.add("[forgecraft] " + m.t("Backup fertig: %s (%.1f MB, %s)", name, float64(b.Size)/(1<<20), time.Since(now).Round(time.Second)))
 	if prefix == "" && b.Automatic() {
 		if n := m.prune(s); n > 0 {
-			o.add(fmt.Sprintf("[forgecraft] %d alte automatische Backups gelöscht", n))
+			o.add("[forgecraft] " + m.t("%d alte automatische Backups gelöscht", n))
 		}
 	}
 	return b, nil
@@ -264,7 +273,7 @@ func (m *Manager) Restore(id, name string) error {
 		return err
 	}
 	if _, err := m.BackupPath(s, name); err != nil {
-		return fmt.Errorf("Backup nicht gefunden")
+		return errors.New(m.t("Backup nicht gefunden"))
 	}
 	return m.run(id, server.StatusRestoring, func(o *Op) error {
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Hour)
@@ -272,23 +281,23 @@ func (m *Manager) Restore(id, name string) error {
 		c := m.inspect(ctx, s)
 		wasUp := c != nil && c.State.Running
 		if wasUp {
-			o.add("[forgecraft] Server wird gestoppt")
+			o.add("[forgecraft] " + m.t("Server wird gestoppt"))
 			if err := m.Docker.Stop(ctx, s.Container(), time.Minute); err != nil {
 				return err
 			}
 		}
 		if _, err := m.backup(ctx, s, o, ReasonRestore, m.BackupDir(s), ""); err != nil {
-			return fmt.Errorf("Sicherung des aktuellen Stands fehlgeschlagen, Wiederherstellung abgebrochen: %w", err)
+			return fmt.Errorf(m.t("Sicherung des aktuellen Stands fehlgeschlagen, Wiederherstellung abgebrochen: %w"), err)
 		}
-		o.add("[forgecraft] Stelle " + name + " wieder her")
+		o.add("[forgecraft] " + m.t("Stelle %s wieder her", name))
 		cmd := exec.CommandContext(ctx, "docker", "run", "--rm", "-e", "F="+name, "-v", m.dataMount(s)+":/data",
 			"-v", m.BackupDir(s)+":/b:ro", "--entrypoint", "sh", s.ImageRef(), "-c", restoreScript)
 		var stderr bytes.Buffer
 		cmd.Stdout, cmd.Stderr = io.Discard, &stderr
 		if err := cmd.Run(); err != nil {
-			return fmt.Errorf("Wiederherstellung fehlgeschlagen: %s", firstLine(stderr.String(), err))
+			return fmt.Errorf(m.t("Wiederherstellung fehlgeschlagen: %s"), firstLine(stderr.String(), err))
 		}
-		o.add("[forgecraft] Wiederherstellung abgeschlossen")
+		o.add("[forgecraft] " + m.t("Wiederherstellung abgeschlossen"))
 		if wasUp {
 			if err := m.Store.Save(s, m.globals()); err != nil {
 				return err

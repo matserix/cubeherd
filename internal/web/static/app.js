@@ -12,8 +12,11 @@
     host.appendChild(t); setTimeout(() => t.remove(), 4200);
   }
   document.body.addEventListener('fc-toast', e => toast(e.detail.msg, e.detail.kind || ''));
-  document.body.addEventListener('htmx:responseError', () => toast('Anfrage fehlgeschlagen. Ist Forgecraft erreichbar?', 'crit'));
-  document.body.addEventListener('htmx:sendError', () => toast('Keine Verbindung zu Forgecraft.', 'crit'));
+  // Translated texts and number format come from data attributes on <body>.
+  const msg = k => document.body.dataset['t' + k] || k;
+  const decimalSep = document.body.dataset.decimal || '.';
+  document.body.addEventListener('htmx:responseError', () => toast(msg('Reqfail'), 'crit'));
+  document.body.addEventListener('htmx:sendError', () => toast(msg('Noconn'), 'crit'));
 
   /* ---------------- Modal ---------------- */
   const modal = () => $('#modal');
@@ -48,7 +51,7 @@
   const ramLabel = el => {
     if (!el.dataset.heap) return el.value + ' GB';
     const modded = el.dataset.heap === 'auto' ? wizModded() : el.dataset.heap === '1';
-    return el.value + ' GB · Heap ' + heapGB(+el.value, modded).toFixed(1).replace('.', ',') + ' GB';
+    return el.value + ' GB · Heap ' + heapGB(+el.value, modded).toFixed(1).replace('.', decimalSep) + ' GB';
   };
   document.addEventListener('change', e => {
     if (e.target.name === 'kind' || e.target.name === 'type') { const r = document.getElementById('w-ram'); if (r) document.getElementById(r.dataset.out).textContent = ramLabel(r); }

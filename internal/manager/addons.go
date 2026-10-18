@@ -131,7 +131,7 @@ func (m *Manager) removeDataFile(ctx context.Context, s *server.Server, rel stri
 // UploadAddon stores a JAR in the mods/plugins folder and remembers it as uploaded.
 func (m *Manager) UploadAddon(ctx context.Context, s *server.Server, name string, r io.Reader) error {
 	if !ValidJarName(name) {
-		return errors.New("Ungültiger Dateiname; erlaubt sind .jar-Dateien ohne Pfad")
+		return errors.New(m.t("Ungültiger Dateiname; erlaubt sind .jar-Dateien ohne Pfad"))
 	}
 	if err := m.writeDataFile(ctx, s, s.AddonDir()+"/"+name, r); err != nil {
 		return err
@@ -158,7 +158,7 @@ func (m *Manager) DeleteUpload(ctx context.Context, s *server.Server, name strin
 		rest = append(rest, u)
 	}
 	if !found || !ValidJarName(name) {
-		return errors.New("Nur hochgeladene Dateien lassen sich hier löschen")
+		return errors.New(m.t("Nur hochgeladene Dateien lassen sich hier löschen"))
 	}
 	if err := m.removeDataFile(ctx, s, s.AddonDir()+"/"+name); err != nil {
 		return err

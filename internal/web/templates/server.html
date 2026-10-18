@@ -3,7 +3,7 @@
 <section class="view" hx-ext="sse" sse-connect="/servers/{{$s.ID}}/events?tab={{$d.Tab}}">
   <div id="srv-head" sse-swap="status">{{template "srvHead" $d}}</div>
   <div class="tabs" role="tablist">
-    {{range $d.Tabs}}<a role="tab" class="tab" href="/servers/{{$s.ID}}?tab={{.Key}}" aria-selected="{{eq $d.Tab .Key}}">{{.Label}}{{if .V2}} <span class="v2">v2</span>{{end}}</a>{{end}}
+    {{range $d.Tabs}}<a role="tab" class="tab" href="/servers/{{$s.ID}}?tab={{.Key}}" aria-selected="{{eq $d.Tab .Key}}">{{t .Label}}{{if .V2}} <span class="v2">v2</span>{{end}}</a>{{end}}
   </div>
   <div id="tab-body">
     {{if eq $d.Tab "console"}}{{template "tabConsole" $d}}
@@ -20,12 +20,12 @@
 {{$s := .V.S}}{{$live := .V.Status.Live}}
 <div class="console-grid">
   <div class="panel console">
-    <div class="console-head"><span class="live">Live</span><span class="muted">Stream nur, solange diese Seite offen ist</span></div>
+    <div class="console-head"><span class="live">Live</span><span class="muted">{{t "Stream nur, solange diese Seite offen ist"}}</span></div>
     <div class="log" id="log" sse-swap="log" hx-swap="beforeend"></div>
     <form class="cmd" id="cmd-form" hx-post="/servers/{{$s.ID}}/command" hx-target="#log" hx-swap="beforeend">
       <span class="prompt">&gt;</span>
-      <input id="cmd-input" name="cmd" placeholder="Befehl per RCON senden, z. B. list" autocomplete="off" maxlength="400">
-      <button class="btn sm">Senden</button>
+      <input id="cmd-input" name="cmd" placeholder="{{t "Befehl per RCON senden, z. B. list"}}" autocomplete="off" maxlength="400">
+      <button class="btn sm">{{t "Senden"}}</button>
     </form>
     <div class="quick">
       {{range list "list" "save-all" "weather clear" "time set day"}}<button class="btn sm ghost" hx-post="/servers/{{$s.ID}}/command" hx-vals='{"cmd":"{{.}}"}' hx-target="#log" hx-swap="beforeend">{{.}}</button>{{end}}
@@ -42,48 +42,48 @@
 {{$s := .V.S}}{{$p := $s.Props}}
 <form class="stack" hx-post="/servers/{{$s.ID}}/settings">
 <div class="panel form-sections">
-  <div class="form-sec"><div class="intro"><h2>Spielwelt</h2><p>Landet als Umgebungsvariablen im Container und von dort in <span class="mono">server.properties</span>.</p></div>
+  <div class="form-sec"><div class="intro"><h2>{{t "Spielwelt"}}</h2><p>{{t "Landet als Umgebungsvariablen im Container und von dort in server.properties."}}</p></div>
     <div class="body">
-      <label class="field"><span>Nachricht im Serverbrowser (MOTD)</span><input class="input" name="motd" value="{{$p.MOTD}}" maxlength="120"></label>
+      <label class="field"><span>{{t "Nachricht im Serverbrowser (MOTD)"}}</span><input class="input" name="motd" value="{{$p.MOTD}}" maxlength="120"></label>
       <div class="grid-3">
-        <label class="field"><span>Spielmodus</span><select class="input" name="mode">{{range list "survival" "creative" "adventure" "spectator"}}<option value="{{.}}" {{if eq . $p.Mode}}selected{{end}}>{{modeName .}}</option>{{end}}</select></label>
-        <label class="field"><span>Schwierigkeit</span><select class="input" name="difficulty">{{range list "peaceful" "easy" "normal" "hard"}}<option value="{{.}}" {{if eq . $p.Difficulty}}selected{{end}}>{{diffName .}}</option>{{end}}</select></label>
-        <label class="field"><span>Max. Spieler</span><input class="input num" name="maxPlayers" type="number" min="1" max="1000" value="{{$p.MaxPlayers}}"></label>
-        <label class="field"><span>Sichtweite (Chunks)</span><input class="input num" name="viewDistance" type="number" min="2" max="32" value="{{if $p.ViewDistance}}{{$p.ViewDistance}}{{end}}" placeholder="10"></label>
-        <label class="field"><span>Simulationsweite</span><input class="input num" name="simDistance" type="number" min="2" max="32" value="{{if $p.SimDistance}}{{$p.SimDistance}}{{end}}" placeholder="10"></label>
-        <label class="field"><span>Seed</span><input class="input mono" name="seed" value="{{$p.Seed}}" placeholder="zufällig" maxlength="64"><small>Nur bei neuer Welt wirksam.</small></label>
+        <label class="field"><span>{{t "Spielmodus"}}</span><select class="input" name="mode">{{range list "survival" "creative" "adventure" "spectator"}}<option value="{{.}}" {{if eq . $p.Mode}}selected{{end}}>{{modeName .}}</option>{{end}}</select></label>
+        <label class="field"><span>{{t "Schwierigkeit"}}</span><select class="input" name="difficulty">{{range list "peaceful" "easy" "normal" "hard"}}<option value="{{.}}" {{if eq . $p.Difficulty}}selected{{end}}>{{diffName .}}</option>{{end}}</select></label>
+        <label class="field"><span>{{t "Max. Spieler"}}</span><input class="input num" name="maxPlayers" type="number" min="1" max="1000" value="{{$p.MaxPlayers}}"></label>
+        <label class="field"><span>{{t "Sichtweite (Chunks)"}}</span><input class="input num" name="viewDistance" type="number" min="2" max="32" value="{{if $p.ViewDistance}}{{$p.ViewDistance}}{{end}}" placeholder="10"></label>
+        <label class="field"><span>{{t "Simulationsweite"}}</span><input class="input num" name="simDistance" type="number" min="2" max="32" value="{{if $p.SimDistance}}{{$p.SimDistance}}{{end}}" placeholder="10"></label>
+        <label class="field"><span>Seed</span><input class="input mono" name="seed" value="{{$p.Seed}}" placeholder="{{t "zufällig"}}" maxlength="64"><small>{{t "Nur bei neuer Welt wirksam."}}</small></label>
       </div>
       <div class="grid-2">
-        <label class="switch"><input type="checkbox" name="pvp" {{if $p.PVP}}checked{{end}}><span class="txt">PvP<small>Spieler können sich gegenseitig verletzen.</small></span></label>
-        <label class="switch"><input type="checkbox" name="whitelist" {{if $p.Whitelist}}checked{{end}}><span class="txt">Whitelist aktiv<small>Nur eingetragene Spieler dürfen beitreten.</small></span></label>
+        <label class="switch"><input type="checkbox" name="pvp" {{if $p.PVP}}checked{{end}}><span class="txt">PvP<small>{{t "Spieler können sich gegenseitig verletzen."}}</small></span></label>
+        <label class="switch"><input type="checkbox" name="whitelist" {{if $p.Whitelist}}checked{{end}}><span class="txt">{{t "Whitelist aktiv"}}<small>{{t "Nur eingetragene Spieler dürfen beitreten."}}</small></span></label>
       </div>
     </div></div>
-  <div class="form-sec"><div class="intro"><h2>Ressourcen</h2><p>Der Arbeitsspeicher ist das Limit des Containers. Java bekommt davon etwas weniger, der Rest bleibt für {{if $s.Modded}}Mods, {{end}}Threads und System.</p></div>
+  <div class="form-sec"><div class="intro"><h2>{{t "Ressourcen"}}</h2><p>{{if $s.Modded}}{{t "Der Arbeitsspeicher ist das Limit des Containers. Java bekommt davon etwas weniger, der Rest bleibt für Mods, Threads und System."}}{{else}}{{t "Der Arbeitsspeicher ist das Limit des Containers. Java bekommt davon etwas weniger, der Rest bleibt für Threads und System."}}{{end}}</p></div>
     <div class="body">
-      <label class="field"><span>Arbeitsspeicher (Container-Limit)</span><div class="range-row"><input type="range" name="memory" min="1" max="{{.MaxRAM}}" value="{{$s.MemoryGB}}" data-out="p-ram-out" data-heap="{{if $s.Modded}}1{{else}}0{{end}}"><output id="p-ram-out" style="min-width:150px">{{$s.MemoryGB}} GB · Heap {{heapGB $s.MemoryGB $s.Modded}} GB</output></div>
-        <small>Docker stellt insgesamt {{.HostRAM}} GB bereit.</small></label>
+      <label class="field"><span>{{t "Arbeitsspeicher (Container-Limit)"}}</span><div class="range-row"><input type="range" name="memory" min="1" max="{{.MaxRAM}}" value="{{$s.MemoryGB}}" data-out="p-ram-out" data-heap="{{if $s.Modded}}1{{else}}0{{end}}"><output id="p-ram-out" style="min-width:150px">{{$s.MemoryGB}} GB · Heap {{heapGB $s.MemoryGB $s.Modded}} GB</output></div>
+        <small>{{t "Docker stellt insgesamt %s GB bereit." .HostRAM}}</small></label>
       <div class="grid-3">
-        <label class="field"><span>CPU-Limit</span><select class="input" name="cpus">{{range .CPUOptions}}<option value="{{.Value}}" {{if eq .Value $.CPUValue}}selected{{end}}>{{.Label}}</option>{{end}}</select><small>Harte Grenze auf Docker-Ebene. Schützt die anderen Server vor einem, der alles beansprucht.</small></label>
-        <label class="field"><span>Bei Leerlauf</span><select class="input" name="idle">{{range list "pause" "stop" "none"}}<option value="{{.}}" {{if eq . $s.IdleMode}}selected{{end}}>{{idleName .}}</option>{{end}}</select><small>Pausieren wacht beim Verbinden von selbst auf; Stoppen gibt auch den Arbeitsspeicher frei, danach startest du von Hand.</small></label>
-        <label class="field"><span>Stoppen nach (Minuten)</span><input class="input num" name="idleMinutes" type="number" min="5" max="1440" value="{{$s.IdleMinutes}}"><small>Gilt nur für „Stoppen“.</small></label>
+        <label class="field"><span>{{t "CPU-Limit"}}</span><select class="input" name="cpus">{{range .CPUOptions}}<option value="{{.Value}}" {{if eq .Value $.CPUValue}}selected{{end}}>{{.Label}}</option>{{end}}</select><small>{{t "Harte Grenze auf Docker-Ebene. Schützt die anderen Server vor einem, der alles beansprucht."}}</small></label>
+        <label class="field"><span>{{t "Bei Leerlauf"}}</span><select class="input" name="idle">{{range list "pause" "stop" "none"}}<option value="{{.}}" {{if eq . $s.IdleMode}}selected{{end}}>{{idleName .}}</option>{{end}}</select><small>{{t "Pausieren wacht beim Verbinden von selbst auf; Stoppen gibt auch den Arbeitsspeicher frei, danach startest du von Hand."}}</small></label>
+        <label class="field"><span>{{t "Stoppen nach (Minuten)"}}</span><input class="input num" name="idleMinutes" type="number" min="5" max="1440" value="{{$s.IdleMinutes}}"><small>{{t "Gilt nur für „Stoppen“."}}</small></label>
       </div>
       <div class="grid-2">
-        <label class="switch"><input type="checkbox" name="aikar" {{if $s.Aikar}}checked{{end}}><span class="txt">Aikar-Flags<small>Bewährte GC-Einstellungen für Minecraft.</small></span></label>
-        <label class="switch"><input type="checkbox" name="autostart" {{if $s.Autostart}}checked{{end}}><span class="txt">Mit dem Host starten<small>Restart-Policy „unless-stopped“. Bei „Stoppen bei Leerlauf“ automatisch aus, sonst würde Docker den Server sofort wieder starten.</small></span></label>
+        <label class="switch"><input type="checkbox" name="aikar" {{if $s.Aikar}}checked{{end}}><span class="txt">{{t "Aikar-Flags"}}<small>{{t "Bewährte GC-Einstellungen für Minecraft."}}</small></span></label>
+        <label class="switch"><input type="checkbox" name="autostart" {{if $s.Autostart}}checked{{end}}><span class="txt">{{t "Mit dem Host starten"}}<small>{{t "Restart-Policy „unless-stopped“. Bei „Stoppen bei Leerlauf“ automatisch aus, sonst würde Docker den Server sofort wieder starten."}}</small></span></label>
       </div>
     </div></div>
-  <div class="form-sec"><div class="intro"><h2>Netzwerk</h2></div>
+  <div class="form-sec"><div class="intro"><h2>{{t "Netzwerk"}}</h2></div>
     <div class="body"><div class="grid-2">
       <label class="field"><span>Port</span><input class="input mono" name="port" value="{{$s.Port}}" inputmode="numeric"></label>
-      <label class="switch"><input type="checkbox" name="onlineMode" {{if $p.OnlineMode}}checked{{end}}><span class="txt">Online-Modus<small>Accounts bei Mojang prüfen.</small></span></label>
+      <label class="switch"><input type="checkbox" name="onlineMode" {{if $p.OnlineMode}}checked{{end}}><span class="txt">{{t "Online-Modus"}}<small>{{t "Accounts bei Mojang prüfen."}}</small></span></label>
     </div></div></div>
-  <div class="form-sec"><div class="intro"><h2>Zusätzliche Variablen</h2><p>Alles, was das itzg-Image versteht, eine Variable pro Zeile. Gleichnamige Werte überschreiben die Felder oben.</p></div>
+  <div class="form-sec"><div class="intro"><h2>{{t "Zusätzliche Variablen"}}</h2><p>{{t "Alles, was das itzg-Image versteht, eine Variable pro Zeile. Gleichnamige Werte überschreiben die Felder oben."}}</p></div>
     <div class="body">
-      <textarea class="input" name="extraEnv" rows="5" spellcheck="false" placeholder="z. B. SPAWN_PROTECTION=0">{{.ExtraEnv}}</textarea>
-      <details><summary class="muted" style="cursor:pointer;font-size:13px">Erzeugte Umgebung ansehen</summary><pre class="code" style="margin-top:10px">{{.FullEnv}}</pre></details>
+      <textarea class="input" name="extraEnv" rows="5" spellcheck="false" placeholder="{{t "z. B. SPAWN_PROTECTION=0"}}">{{.ExtraEnv}}</textarea>
+      <details><summary class="muted" style="cursor:pointer;font-size:13px">{{t "Erzeugte Umgebung ansehen"}}</summary><pre class="code" style="margin-top:10px">{{.FullEnv}}</pre></details>
     </div></div>
 </div>
-<div class="savebar"><span class="muted">Änderungen greifen nach einem Neustart des Containers.</span><div class="actions"><button class="btn" name="apply" value="0">Speichern</button><button class="btn primary" name="apply" value="1">Speichern & neu starten</button></div></div>
+<div class="savebar"><span class="muted">{{t "Änderungen greifen nach einem Neustart des Containers."}}</span><div class="actions"><button class="btn" name="apply" value="0">{{t "Speichern"}}</button><button class="btn primary" name="apply" value="1">{{t "Speichern & neu starten"}}</button></div></div>
 </form>
 {{end}}
 
@@ -93,7 +93,7 @@
 
 {{define "playersBody"}}
 {{$s := .V.S}}
-<p class="muted">{{if .V.Status.Live}}Änderungen gehen sofort per RCON an den laufenden Server und gelten auch nach jedem Neustart.{{else}}Der Server läuft nicht. Whitelist und Operatoren werden beim nächsten Start übernommen, Bans erst wieder, wenn er läuft.{{end}}</p>
+<p class="muted">{{if .V.Status.Live}}{{t "Änderungen gehen sofort per RCON an den laufenden Server und gelten auch nach jedem Neustart."}}{{else}}{{t "Der Server läuft nicht. Whitelist und Operatoren werden beim nächsten Start übernommen, Bans erst wieder, wenn er läuft."}}{{end}}</p>
 <div class="lists-3">
   {{template "playerBox" dict "ID" $s.ID "Key" "whitelist" "Title" "Whitelist" "Hint" "Niemand eingetragen." "Items" $s.Whitelist "Enabled" true}}
   {{template "playerBox" dict "ID" $s.ID "Key" "ops" "Title" "Operatoren" "Hint" "Keine Operatoren." "Items" $s.Ops "Enabled" true}}
@@ -102,12 +102,12 @@
 {{end}}
 
 {{define "playerBox"}}
-<div class="panel"><div class="panel-head"><h2>{{.Title}} <span class="muted num" style="font-weight:400">{{len .Items}}</span></h2></div>
+<div class="panel"><div class="panel-head"><h2>{{t .Title}} <span class="muted num" style="font-weight:400">{{len .Items}}</span></h2></div>
   <div class="panel-pad" style="display:flex;flex-direction:column;gap:12px">
     <form class="add-row" hx-post="/servers/{{.ID}}/players/{{.Key}}/add" hx-target="#players-tab">
-      <input class="input" name="player" placeholder="Spielername" autocomplete="off" pattern="[A-Za-z0-9_]{2,16}" required {{if not .Enabled}}disabled{{end}}><button class="btn" {{if not .Enabled}}disabled{{end}}>Hinzufügen</button></form>
-    {{if .Items}}<ul class="plist">{{range .Items}}<li><span class="who">{{avatar .}}<span>{{.}}</span></span><button class="btn sm ghost" hx-post="/servers/{{$.ID}}/players/{{$.Key}}/remove" hx-vals='{"player":"{{.}}"}' hx-target="#players-tab" {{if not $.Enabled}}disabled{{end}}>Entfernen</button></li>{{end}}</ul>
-    {{else}}<p class="empty">{{.Hint}}</p>{{end}}
+      <input class="input" name="player" placeholder="{{t "Spielername"}}" autocomplete="off" pattern="[A-Za-z0-9_]{2,16}" required {{if not .Enabled}}disabled{{end}}><button class="btn" {{if not .Enabled}}disabled{{end}}>{{t "Hinzufügen"}}</button></form>
+    {{if .Items}}<ul class="plist">{{range .Items}}<li><span class="who">{{avatar .}}<span>{{.}}</span></span><button class="btn sm ghost" hx-post="/servers/{{$.ID}}/players/{{$.Key}}/remove" hx-vals='{"player":"{{.}}"}' hx-target="#players-tab" {{if not $.Enabled}}disabled{{end}}>{{t "Entfernen"}}</button></li>{{end}}</ul>
+    {{else}}<p class="empty">{{t .Hint}}</p>{{end}}
   </div></div>
 {{end}}
 
@@ -115,20 +115,20 @@
 {{$p := .Plan}}
 <div class="stack">
   <form class="panel" hx-post="/servers/{{.ID}}/backups/plan" hx-target="#backup-list">
-    <div class="panel-head"><h2>Zeitplan</h2><button class="btn primary" type="button" hx-post="/servers/{{.ID}}/backups" hx-target="#backup-list">Jetzt sichern</button></div>
+    <div class="panel-head"><h2>{{t "Zeitplan"}}</h2><button class="btn primary" type="button" hx-post="/servers/{{.ID}}/backups" hx-target="#backup-list">{{t "Jetzt sichern"}}</button></div>
     <div class="panel-pad stack">
       <div class="grid-3">
-        <label class="field"><span>Intervall</span><select class="input" name="interval">{{range list "off" "6h" "daily" "weekly"}}<option value="{{.}}" {{if eq . $p.Interval}}selected{{end}}>{{intervalName .}}</option>{{end}}</select></label>
-        <label class="field"><span>Uhrzeit</span><input class="input mono" name="time" value="{{$p.Time}}" pattern="([01][0-9]|2[0-3]):[0-5][0-9]" placeholder="04:00"><small>Bei „Alle 6 Stunden“ der erste Lauf des Tages, bei „Wöchentlich“ montags.</small></label>
-        <label class="field"><span>Aufbewahren</span><select class="input" name="keep">{{range $k := keepOptions}}<option value="{{$k}}" {{if eq $k $p.Keep}}selected{{end}}>{{$k}} automatische Backups</option>{{end}}</select><small>Manuelle Backups werden nie automatisch gelöscht.</small></label>
+        <label class="field"><span>{{t "Intervall"}}</span><select class="input" name="interval">{{range list "off" "6h" "daily" "weekly"}}<option value="{{.}}" {{if eq . $p.Interval}}selected{{end}}>{{intervalName .}}</option>{{end}}</select></label>
+        <label class="field"><span>{{t "Uhrzeit"}}</span><input class="input mono" name="time" value="{{$p.Time}}" pattern="([01][0-9]|2[0-3]):[0-5][0-9]" placeholder="04:00"><small>{{t "Bei „Alle 6 Stunden“ der erste Lauf des Tages, bei „Wöchentlich“ montags."}}</small></label>
+        <label class="field"><span>{{t "Aufbewahren"}}</span><select class="input" name="keep">{{range $k := keepOptions}}<option value="{{$k}}" {{if eq $k $p.Keep}}selected{{end}}>{{t "%d automatische Backups" $k}}</option>{{end}}</select><small>{{t "Manuelle Backups werden nie automatisch gelöscht."}}</small></label>
       </div>
       <div class="grid-2">
-        <label class="switch"><input type="checkbox" name="beforeUpdate" {{if $p.BeforeUpdate}}checked{{end}}><span class="txt">Vor jedem Update sichern<small>Ermöglicht den Rückweg, falls ein Update die Welt beschädigt.</small></span></label>
-        <label class="switch"><input type="checkbox" name="onlyIfActive" {{if $p.OnlyIfActive}}checked{{end}}><span class="txt">Nur sichern, wenn der Server läuft<small>Gestoppte oder pausierte Server ändern sich nicht.</small></span></label>
+        <label class="switch"><input type="checkbox" name="beforeUpdate" {{if $p.BeforeUpdate}}checked{{end}}><span class="txt">{{t "Vor jedem Update sichern"}}<small>{{t "Ermöglicht den Rückweg, falls ein Update die Welt beschädigt."}}</small></span></label>
+        <label class="switch"><input type="checkbox" name="onlyIfActive" {{if $p.OnlyIfActive}}checked{{end}}><span class="txt">{{t "Nur sichern, wenn der Server läuft"}}<small>{{t "Gestoppte oder pausierte Server ändern sich nicht."}}</small></span></label>
       </div>
       <div class="actions" style="justify-content:space-between">
-        <p class="muted" style="font-size:12px">Ablauf: <span class="mono">save-off</span> → Archiv (zstd, niedrige Priorität) → <span class="mono">save-on</span>. Spieler bleiben verbunden.{{if .List}}{{else}} Welt, Konfiguration und Plugins werden gesichert{{end}}</p>
-        <button class="btn">Zeitplan speichern</button>
+        <p class="muted" style="font-size:12px">{{t "Ablauf:"}} <span class="mono">save-off</span> → {{t "Archiv (zstd, niedrige Priorität)"}} → <span class="mono">save-on</span>. {{t "Spieler bleiben verbunden."}}</p>
+        <button class="btn">{{t "Zeitplan speichern"}}</button>
       </div>
     </div>
   </form>
@@ -138,47 +138,47 @@
 
 {{define "backupList"}}
 <div class="panel" {{if .Busy}}hx-get="/servers/{{.ID}}/backups/list" hx-trigger="every 3s" hx-target="#backup-list"{{end}}>
-  <div class="panel-head"><h2>Vorhandene Backups <span class="muted num" style="font-weight:400">{{len .List}}</span></h2>
-    <span class="muted" style="font-size:12px">{{if .List}}{{mb .Total}} belegt · {{end}}{{if .Next.IsZero}}Kein Zeitplan{{else}}Nächstes geplant: {{dt .Next}}{{end}}{{if .Busy}} · <span class="spin-on-req" style="display:inline-block;vertical-align:-2px"></span> Aktion läuft{{end}}</span></div>
-  <div class="tbl-wrap"><table class="tbl"><thead><tr><th>Zeitpunkt</th><th>Anlass</th><th class="hide-sm">Größe</th><th class="right"></th></tr></thead><tbody>
-  {{range .List}}<tr><td class="num">{{dt .Time}}</td><td>{{.Label}}</td><td class="hide-sm num">{{mb .Size}}</td>
+  <div class="panel-head"><h2>{{t "Vorhandene Backups"}} <span class="muted num" style="font-weight:400">{{len .List}}</span></h2>
+    <span class="muted" style="font-size:12px">{{if .List}}{{t "%s belegt" (mb .Total)}} · {{end}}{{if .Next.IsZero}}{{t "Kein Zeitplan"}}{{else}}{{t "Nächstes geplant: %s" (dt .Next)}}{{end}}{{if .Busy}} · <span class="spin-on-req" style="display:inline-block;vertical-align:-2px"></span> {{t "Aktion läuft"}}{{end}}</span></div>
+  <div class="tbl-wrap"><table class="tbl"><thead><tr><th>{{t "Zeitpunkt"}}</th><th>{{t "Anlass"}}</th><th class="hide-sm">{{t "Größe"}}</th><th class="right"></th></tr></thead><tbody>
+  {{range .List}}<tr><td class="num">{{dt .Time}}</td><td>{{t .Label}}</td><td class="hide-sm num">{{mb .Size}}</td>
     <td class="right"><div class="actions" style="justify-content:flex-end">
-      <button class="btn sm" hx-get="/servers/{{$.ID}}/backups/{{.Name}}/restore" hx-target="#modal-card" {{if $.Busy}}disabled{{end}}>Wiederherstellen</button>
-      <a class="btn sm ghost" href="/servers/{{$.ID}}/backups/{{.Name}}" download style="text-decoration:none">Herunterladen</a>
-      <button class="btn sm ghost" hx-post="/servers/{{$.ID}}/backups/{{.Name}}/delete" hx-target="#backup-list" {{if $.Busy}}disabled{{end}}>Löschen</button>
+      <button class="btn sm" hx-get="/servers/{{$.ID}}/backups/{{.Name}}/restore" hx-target="#modal-card" {{if $.Busy}}disabled{{end}}>{{t "Wiederherstellen"}}</button>
+      <a class="btn sm ghost" href="/servers/{{$.ID}}/backups/{{.Name}}" download style="text-decoration:none">{{t "Herunterladen"}}</a>
+      <button class="btn sm ghost" hx-post="/servers/{{$.ID}}/backups/{{.Name}}/delete" hx-target="#backup-list" {{if $.Busy}}disabled{{end}}>{{t "Löschen"}}</button>
     </div></td></tr>
-  {{else}}<tr><td colspan="4" class="muted">Noch keine Backups. „Jetzt sichern“ erstellt das erste.</td></tr>{{end}}
+  {{else}}<tr><td colspan="4" class="muted">{{t "Noch keine Backups. „Jetzt sichern“ erstellt das erste."}}</td></tr>{{end}}
   </tbody></table></div>
 </div>
 {{end}}
 
 {{define "restoreModal"}}
-<div class="modal-head"><h2>Backup wiederherstellen</h2><button class="btn sm ghost" data-close aria-label="Schließen">✕</button></div>
+<div class="modal-head"><h2>{{t "Backup wiederherstellen"}}</h2><button class="btn sm ghost" data-close aria-label="{{t "Schließen"}}">✕</button></div>
 <form hx-post="/servers/{{.S.ID}}/backups/{{.B.Name}}/restore">
 <div class="modal-body">
-  <p>{{.S.Name}} wird gestoppt, und Welt sowie Konfiguration werden durch den Stand vom <b>{{dt .B.Time}}</b> ({{.B.Label}}) ersetzt.</p>
-  <div class="callout info"><div><b>Vorher wird gesichert</b><span class="muted">Vom aktuellen Stand entsteht automatisch ein Backup „Vor Wiederherstellung“.{{if .Pack}} Die Mods des Modpacks bleiben unverändert.{{end}}</span></div></div>
+  <p>{{t "%s wird gestoppt, und Welt sowie Konfiguration werden durch den Stand vom %s (%s) ersetzt." .S.Name (dt .B.Time) (t .B.Label)}}</p>
+  <div class="callout info"><div><b>{{t "Vorher wird gesichert"}}</b><span class="muted">{{t "Vom aktuellen Stand entsteht automatisch ein Backup „Vor Wiederherstellung“."}}{{if .Pack}} {{t "Die Mods des Modpacks bleiben unverändert."}}{{end}}</span></div></div>
 </div>
-<div class="modal-foot"><button class="btn ghost" type="button" data-close>Abbrechen</button><button class="btn primary">Wiederherstellen <span class="spin-on-req"></span></button></div>
+<div class="modal-foot"><button class="btn ghost" type="button" data-close>{{t "Abbrechen"}}</button><button class="btn primary">{{t "Wiederherstellen"}} <span class="spin-on-req"></span></button></div>
 </form>
 {{end}}
 
 {{define "tabMods"}}
 {{$s := .S}}
 {{if not $s.SupportsAddons}}
-<div class="callout info"><div><b>Vanilla lädt keine Mods oder Plugins</b><span class="muted">Über „Update“ kannst du die Server-Software wechseln, z. B. auf Paper (Plugins) oder Fabric (Mods). Die Welt bleibt erhalten.</span></div></div>
+<div class="callout info"><div><b>{{t "Vanilla lädt keine Mods oder Plugins"}}</b><span class="muted">{{t "Über „Update“ kannst du die Server-Software wechseln, z. B. auf Paper (Plugins) oder Fabric (Mods). Die Welt bleibt erhalten."}}</span></div></div>
 {{else}}
 <div class="stack">
   <div id="addons-installed">{{template "addonInstalled" .}}</div>
   <div class="panel">
-    <div class="panel-head"><h2>{{.Word}} hinzufügen</h2><span class="muted" style="font-size:12px">Gefiltert auf {{typeName $s.Type}} {{$s.Version}}</span></div>
+    <div class="panel-head"><h2>{{t "%s hinzufügen" (t .Word)}}</h2><span class="muted" style="font-size:12px">{{t "Gefiltert auf %s" (print (typeName $s.Type) " " $s.Version)}}</span></div>
     <form class="panel-pad stack" hx-get="/servers/{{$s.ID}}/addons/search" hx-trigger="load, keyup changed delay:350ms from:find input[name=q], change, submit" hx-target="#addon-results" hx-sync="this:replace">
       <div class="actions" style="justify-content:space-between">
         <div class="seg">{{range $i, $src := .Sources}}<label><input type="radio" name="src" value="{{$src.Key}}" {{if eq $i 0}}checked{{end}}>{{$src.Label}}</label>{{end}}</div>
-        {{if not .HasCFKey}}<span class="muted" style="font-size:12px">CurseForge-Suche braucht einen API-Key (Einstellungen).</span>{{end}}
+        {{if not .HasCFKey}}<span class="muted" style="font-size:12px">{{t "CurseForge-Suche braucht einen API-Key (Einstellungen)."}}</span>{{end}}
       </div>
-      <div class="search"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="7" cy="7" r="4.5"/><path d="m10.5 10.5 3.5 3.5"/></svg><input class="input" type="search" name="q" placeholder="{{.Word}} durchsuchen" autocomplete="off"></div>
-      <div id="addon-results"><p class="empty">Lade beliebte {{.Word}} …</p></div>
+      <div class="search"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="7" cy="7" r="4.5"/><path d="m10.5 10.5 3.5 3.5"/></svg><input class="input" type="search" name="q" placeholder="{{t "%s durchsuchen" (t .Word)}}" autocomplete="off"></div>
+      <div id="addon-results"><p class="empty">{{t "Lade beliebte %s …" (t .Word)}}</p></div>
     </form>
   </div>
 </div>
@@ -186,30 +186,30 @@
 {{end}}
 
 {{define "addonInstalled"}}
-{{$s := .S}}
+{{$s := .S}}{{$word := t .Word}}
 {{if .Pending}}
-<div class="callout warn" style="margin-bottom:16px"><div><b>Änderungen werden beim nächsten Start übernommen</b><span class="muted">itzg lädt neue {{.Word}} beim Start herunter und entfernt ausgetragene.</span></div>
-  <div class="actions" style="flex:none"><button class="btn sm primary" hx-post="/servers/{{$s.ID}}/action/restart" hx-target="#srv-head">Jetzt neu starten</button></div></div>
+<div class="callout warn" style="margin-bottom:16px"><div><b>{{t "Änderungen werden beim nächsten Start übernommen"}}</b><span class="muted">{{t "itzg lädt neue %s beim Start herunter und entfernt ausgetragene." $word}}</span></div>
+  <div class="actions" style="flex:none"><button class="btn sm primary" hx-post="/servers/{{$s.ID}}/action/restart" hx-target="#srv-head">{{t "Jetzt neu starten"}}</button></div></div>
 {{end}}
 <div class="panel">
-  <div class="panel-head"><h2>Eingetragene {{.Word}} <span class="muted num" style="font-weight:400">{{len $s.Addons}}</span></h2>
+  <div class="panel-head"><h2>{{t "Eingetragene %s" $word}} <span class="muted num" style="font-weight:400">{{len $s.Addons}}</span></h2>
     <form hx-post="/servers/{{$s.ID}}/addons/upload" hx-encoding="multipart/form-data" hx-trigger="change" hx-target="#addons-installed">
-      <label class="btn sm"><input type="file" name="jar" accept=".jar" hidden>JAR hochladen <span class="spin-on-req"></span></label>
+      <label class="btn sm"><input type="file" name="jar" accept=".jar" hidden>{{t "JAR hochladen"}} <span class="spin-on-req"></span></label>
     </form></div>
-  {{with $s.Pack}}<div class="panel-pad" style="padding-bottom:0"><p class="muted" style="font-size:13px">{{.Name}} bringt seine Mods selbst mit. Hier stehen nur zusätzliche {{$.Word}}.</p></div>{{end}}
-  <div class="tbl-wrap"><table class="tbl"><thead><tr><th>Name</th><th>Quelle</th><th class="hide-sm">Version</th><th class="right"></th></tr></thead><tbody>
+  {{with $s.Pack}}<div class="panel-pad" style="padding-bottom:0"><p class="muted" style="font-size:13px">{{t "%s bringt seine Mods selbst mit. Hier stehen nur zusätzliche %s." .Name $word}}</p></div>{{end}}
+  <div class="tbl-wrap"><table class="tbl"><thead><tr><th>{{t "Name"}}</th><th>{{t "Quelle"}}</th><th class="hide-sm">{{t "Version"}}</th><th class="right"></th></tr></thead><tbody>
   {{range $s.Addons}}<tr>
     <td><span class="who" style="display:flex;align-items:center;gap:10px">{{if .IconURL}}<img src="{{.IconURL}}" alt="" width="22" height="22" style="border-radius:4px" loading="lazy" referrerpolicy="no-referrer">{{end}}<b>{{.Name}}</b></span></td>
     <td><span class="chip src-{{.Source}}">{{addonSrcName .Source}}</span></td>
-    <td class="hide-sm muted">{{if .Version}}<span class="mono">{{.Version}}</span>{{else}}neueste passende, beim Start{{end}}</td>
-    <td class="right"><button class="btn sm ghost" hx-post="/servers/{{$s.ID}}/addons/remove" hx-vals='{{jsonVals "src" .Source "ref" .Ref}}' hx-target="#addons-installed">Entfernen</button></td></tr>
+    <td class="hide-sm muted">{{if .Version}}<span class="mono">{{.Version}}</span>{{else}}{{t "neueste passende, beim Start"}}{{end}}</td>
+    <td class="right"><button class="btn sm ghost" hx-post="/servers/{{$s.ID}}/addons/remove" hx-vals='{{jsonVals "src" .Source "ref" .Ref}}' hx-target="#addons-installed">{{t "Entfernen"}}</button></td></tr>
   {{end}}
   {{range .Files}}{{if .Uploaded}}<tr>
     <td><b class="mono" style="font-weight:500">{{.Name}}</b></td><td><span class="chip">Upload</span></td><td class="hide-sm muted">{{mb .Size}}</td>
-    <td class="right"><button class="btn sm ghost" hx-post="/servers/{{$s.ID}}/addons/uploads/delete" hx-vals='{{jsonVals "file" .Name}}' hx-target="#addons-installed">Löschen</button></td></tr>{{end}}{{end}}
-  {{if and (not $s.Addons) (not $s.Uploads)}}<tr><td colspan="4" class="muted">Noch keine zusätzlichen {{.Word}}. Unten suchen oder eine JAR hochladen.</td></tr>{{end}}
+    <td class="right"><button class="btn sm ghost" hx-post="/servers/{{$s.ID}}/addons/uploads/delete" hx-vals='{{jsonVals "file" .Name}}' hx-target="#addons-installed">{{t "Löschen"}}</button></td></tr>{{end}}{{end}}
+  {{if and (not $s.Addons) (not $s.Uploads)}}<tr><td colspan="4" class="muted">{{t "Noch keine zusätzlichen %s. Unten suchen oder eine JAR hochladen." $word}}</td></tr>{{end}}
   </tbody></table></div>
-  {{if .Others}}<details class="panel-pad" style="border-top:1px solid var(--line)"><summary class="muted" style="cursor:pointer;font-size:13px">{{.Others}} {{if eq .Others 1}}weitere Datei{{else}}weitere Dateien{{end}} im Ordner <span class="mono">{{$s.AddonDir}}/</span> (von itzg{{if $s.Pack}} oder dem Modpack{{end}} verwaltet)</summary>
+  {{if .Others}}<details class="panel-pad" style="border-top:1px solid var(--line)"><summary class="muted" style="cursor:pointer;font-size:13px">{{if eq .Others 1}}{{t "1 weitere Datei im Ordner %s/" $s.AddonDir}}{{else}}{{t "%d weitere Dateien im Ordner %s/" .Others $s.AddonDir}}{{end}} ({{if $s.Pack}}{{t "von itzg oder dem Modpack verwaltet"}}{{else}}{{t "von itzg verwaltet"}}{{end}})</summary>
     <ul class="plist" style="margin-top:8px">{{range .Files}}{{if not .Uploaded}}<li><span class="mono" style="font-size:12.5px">{{.Name}}</span><span class="muted num" style="font-size:12px">{{mb .Size}}</span></li>{{end}}{{end}}</ul></details>{{end}}
 </div>
 {{end}}
@@ -220,9 +220,9 @@
   <li><span class="who" style="gap:12px">{{if .IconURL}}<img src="{{.IconURL}}" alt="" width="32" height="32" style="border-radius:6px;flex:none" loading="lazy" referrerpolicy="no-referrer">{{else}}<span class="ico" style="width:32px;height:32px;border-radius:6px;background:var(--surface-3);display:grid;place-items:center;flex:none">{{initial .Title}}</span>{{end}}
     <span style="display:flex;flex-direction:column;min-width:0"><b>{{.Title}}</b><span class="muted" style="font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{.Desc}}</span></span></span>
     <span class="actions" style="flex:none"><span class="muted num hide-sm" style="font-size:12px">{{num .Downloads}}</span>
-      {{if index $.Installed $key}}<button class="btn sm" disabled>Eingetragen</button>
-      {{else}}<button class="btn sm" type="button" hx-post="/servers/{{$.S.ID}}/addons/add" hx-vals='{{jsonVals "src" .Source "ref" .Ref "name" .Title "icon" .IconURL}}' hx-target="#addons-installed">Hinzufügen</button>{{end}}</span></li>
-{{else}}<li class="empty">Nichts gefunden.</li>{{end}}</ul>
+      {{if index $.Installed $key}}<button class="btn sm" disabled>{{t "Eingetragen"}}</button>
+      {{else}}<button class="btn sm" type="button" hx-post="/servers/{{$.S.ID}}/addons/add" hx-vals='{{jsonVals "src" .Source "ref" .Ref "name" .Title "icon" .IconURL}}' hx-target="#addons-installed">{{t "Hinzufügen"}}</button>{{end}}</span></li>
+{{else}}<li class="empty">{{t "Nichts gefunden."}}</li>{{end}}</ul>
 {{end}}
 {{end}}
 
@@ -230,16 +230,16 @@
 {{$s := .V.S}}
 <div class="stack">
   <div class="actions">
-    <a class="btn" href="/servers/{{$s.ID}}/world.zip" download style="text-decoration:none">Welt herunterladen (ZIP)</a>
-    <form hx-post="/servers/{{$s.ID}}/world" hx-encoding="multipart/form-data" hx-trigger="change" hx-confirm="Die aktuelle Welt wird durch die hochgeladene ersetzt. Vorher entsteht automatisch ein Backup. Fortfahren?">
-      <label class="btn"><input type="file" name="world" accept=".zip" hidden>Welt hochladen (ZIP) <span class="spin-on-req"></span></label>
+    <a class="btn" href="/servers/{{$s.ID}}/world.zip" download style="text-decoration:none">{{t "Welt herunterladen (ZIP)"}}</a>
+    <form hx-post="/servers/{{$s.ID}}/world" hx-encoding="multipart/form-data" hx-trigger="change" hx-confirm="{{t "Die aktuelle Welt wird durch die hochgeladene ersetzt. Vorher entsteht automatisch ein Backup. Fortfahren?"}}">
+      <label class="btn"><input type="file" name="world" accept=".zip" hidden>{{t "Welt hochladen (ZIP)"}} <span class="spin-on-req"></span></label>
     </form>
-    <span class="muted" style="font-size:12px">Singleplayer-Welten funktionieren direkt. Vor dem Ersetzen wird automatisch gesichert.</span>
+    <span class="muted" style="font-size:12px">{{t "Singleplayer-Welten funktionieren direkt. Vor dem Ersetzen wird automatisch gesichert."}}</span>
   </div>
   <div class="panel files">
-    <div class="tree" id="file-tree" hx-get="/servers/{{$s.ID}}/files/list?path=" hx-trigger="load"><p class="empty" style="padding:8px">Lade …</p></div>
-    <div class="editor" id="file-editor"><div class="editor-head"><span class="muted">Keine Datei geöffnet</span></div>
-      <div class="v2-panel"><p class="muted">Links eine Datei wählen. Textdateien bis 1 MB lassen sich hier bearbeiten, alles andere herunterladen.</p></div></div>
+    <div class="tree" id="file-tree" hx-get="/servers/{{$s.ID}}/files/list?path=" hx-trigger="load"><p class="empty" style="padding:8px">{{t "Lade …"}}</p></div>
+    <div class="editor" id="file-editor"><div class="editor-head"><span class="muted">{{t "Keine Datei geöffnet"}}</span></div>
+      <div class="v2-panel"><p class="muted">{{t "Links eine Datei wählen. Textdateien bis 1 MB lassen sich hier bearbeiten, alles andere herunterladen."}}</p></div></div>
   </div>
 </div>
 {{end}}
@@ -250,11 +250,11 @@
 {{range .Entries}}{{$p := joinPath $.Path .Name}}
   {{if .Dir}}<button class="dir" type="button" hx-get="/servers/{{$.ID}}/files/list?path={{urlquery $p}}" hx-target="#file-tree"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M1.5 4h5l1.5 1.5h6.5v8h-13z"/></svg>{{.Name}}/</button>
   {{else}}<button type="button" hx-get="/servers/{{$.ID}}/files/view?path={{urlquery $p}}" hx-target="#file-editor"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M3.5 1.5h6l3 3v10h-9z"/></svg>{{.Name}}<span class="sz">{{size .Size}}</span></button>{{end}}
-{{else}}{{if not .Error}}<p class="empty" style="padding:8px">Leerer Ordner.</p>{{end}}{{end}}
-{{if .Truncated}}<p class="muted" style="padding:8px;font-size:12px">Nur die ersten 1000 Einträge werden angezeigt.</p>{{end}}
+{{else}}{{if not .Error}}<p class="empty" style="padding:8px">{{t "Leerer Ordner."}}</p>{{end}}{{end}}
+{{if .Truncated}}<p class="muted" style="padding:8px;font-size:12px">{{t "Nur die ersten 1000 Einträge werden angezeigt."}}</p>{{end}}
 <form class="tree-upload" hx-post="/servers/{{.ID}}/files/upload" hx-encoding="multipart/form-data" hx-trigger="change" hx-target="#file-tree">
   <input type="hidden" name="path" value="{{.Path}}">
-  <label class="btn sm ghost"><input type="file" name="file" hidden>Datei hierher hochladen <span class="spin-on-req"></span></label>
+  <label class="btn sm ghost"><input type="file" name="file" hidden>{{t "Datei hierher hochladen"}} <span class="spin-on-req"></span></label>
 </form>
 {{end}}
 
@@ -263,56 +263,56 @@
   <input type="hidden" name="path" value="{{.Path}}">
   <div class="editor-head"><span class="mono" style="overflow-wrap:anywhere">/data/{{.Path}}</span>
     <div class="actions">
-      <a class="btn sm ghost" href="/servers/{{.ID}}/files/download?path={{.Path}}" download style="text-decoration:none">Herunterladen</a>
-      <button class="btn sm ghost danger" type="button" hx-post="/servers/{{.ID}}/files/delete" hx-vals='{{jsonVals "path" .Path}}' hx-confirm="{{.Entry.Name}} wirklich löschen?">Löschen</button>
-      {{if .IsText}}<button class="btn sm primary">Speichern</button>{{end}}
+      <a class="btn sm ghost" href="/servers/{{.ID}}/files/download?path={{.Path}}" download style="text-decoration:none">{{t "Herunterladen"}}</a>
+      <button class="btn sm ghost danger" type="button" hx-post="/servers/{{.ID}}/files/delete" hx-vals='{{jsonVals "path" .Path}}' hx-confirm="{{t "%s wirklich löschen?" .Entry.Name}}">{{t "Löschen"}}</button>
+      {{if .IsText}}<button class="btn sm primary">{{t "Speichern"}}</button>{{end}}
     </div></div>
-  {{with .Hint}}<div class="callout info" style="margin:12px 14px"><div><span class="muted">{{.}}</span></div></div>{{end}}
-  {{if .IsText}}<textarea name="content" spellcheck="false" aria-label="Inhalt von {{.Entry.Name}}">{{.Text}}</textarea>
-  {{else}}<div class="v2-panel"><b>{{.Entry.Name}}</b><p class="muted">{{size .Entry.Size}} · {{if gt .Entry.Size 1048576}}zu groß für den Editor{{else}}keine Textdatei{{end}}. Du kannst die Datei herunterladen.</p></div>{{end}}
+  {{with .Hint}}<div class="callout info" style="margin:12px 14px"><div><span class="muted">{{t .}}</span></div></div>{{end}}
+  {{if .IsText}}<textarea name="content" spellcheck="false" aria-label="{{t "Inhalt von %s" .Entry.Name}}">{{.Text}}</textarea>
+  {{else}}<div class="v2-panel"><b>{{.Entry.Name}}</b><p class="muted">{{size .Entry.Size}} · {{if gt .Entry.Size 1048576}}{{t "zu groß für den Editor"}}{{else}}{{t "keine Textdatei"}}{{end}}. {{t "Du kannst die Datei herunterladen."}}</p></div>{{end}}
 </form>
 {{end}}
 
 {{/* ---------- Modals ---------- */}}
 {{define "updateModal"}}
 {{$s := .S}}
-<div class="modal-head"><h2>{{$s.Name}} aktualisieren</h2><button class="btn sm ghost" data-close aria-label="Schließen">✕</button></div>
+<div class="modal-head"><h2>{{t "%s aktualisieren" $s.Name}}</h2><button class="btn sm ghost" data-close aria-label="{{t "Schließen"}}">✕</button></div>
 <form hx-post="/servers/{{$s.ID}}/update">
 <div class="modal-body">
   <div class="seg">
-    {{range .Modes}}<label><input type="radio" name="mode" value="{{.Key}}" hx-get="/servers/{{$s.ID}}/update?mode={{.Key}}" hx-target="#modal-card" hx-trigger="change" {{if eq .Key $.Mode}}checked{{end}}>{{.Label}}</label>{{end}}
+    {{range .Modes}}<label><input type="radio" name="mode" value="{{.Key}}" hx-get="/servers/{{$s.ID}}/update?mode={{.Key}}" hx-target="#modal-card" hx-trigger="change" {{if eq .Key $.Mode}}checked{{end}}>{{t .Label}}</label>{{end}}
   </div>
   {{if .Error}}<p class="err">{{.Error}}</p>{{end}}
   {{if eq .Mode "mc"}}
-    <div class="field"><span>Minecraft-Version</span><div class="ver-flow"><span class="cur">{{$s.Version}}</span><span class="muted">→</span>
-      <select class="input" name="version">{{range $i, $v := .Releases}}<option value="{{$v}}" {{if eq $v $.Target}}selected{{end}}>{{$v}}{{if eq $i 0}} (neueste){{end}}</option>{{end}}</select></div></div>
-    <label class="field"><span>Server-Software</span><select class="input" name="type">{{range types}}<option value="{{.ID}}" {{if eq .ID $s.Type}}selected{{end}}>{{.Name}}</option>{{end}}</select><small>Ein Wechsel des Loaders (z. B. Paper → Fabric) macht vorhandene Plugins und Mods unbrauchbar.</small></label>
-    <div class="callout warn"><div><b>Kein Downgrade</b><span class="muted">Welten lassen sich nicht auf ältere Versionen zurückführen. Forgecraft lässt Downgrades nur mit ausdrücklicher Bestätigung zu.</span></div></div>
-    <label class="switch"><input type="checkbox" name="allowDowngrade"><span class="txt">Downgrade trotzdem erlauben<small>Nur wenn du ein Backup der Welt hast.</small></span></label>
+    <div class="field"><span>{{t "Minecraft-Version"}}</span><div class="ver-flow"><span class="cur">{{$s.Version}}</span><span class="muted">→</span>
+      <select class="input" name="version">{{range $i, $v := .Releases}}<option value="{{$v}}" {{if eq $v $.Target}}selected{{end}}>{{$v}}{{if eq $i 0}} ({{t "neueste"}}){{end}}</option>{{end}}</select></div></div>
+    <label class="field"><span>{{t "Server-Software"}}</span><select class="input" name="type">{{range types}}<option value="{{.ID}}" {{if eq .ID $s.Type}}selected{{end}}>{{.Name}}</option>{{end}}</select><small>{{t "Ein Wechsel des Loaders (z. B. Paper → Fabric) macht vorhandene Plugins und Mods unbrauchbar."}}</small></label>
+    <div class="callout warn"><div><b>{{t "Kein Downgrade"}}</b><span class="muted">{{t "Welten lassen sich nicht auf ältere Versionen zurückführen. Forgecraft lässt Downgrades nur mit ausdrücklicher Bestätigung zu."}}</span></div></div>
+    <label class="switch"><input type="checkbox" name="allowDowngrade"><span class="txt">{{t "Downgrade trotzdem erlauben"}}<small>{{t "Nur wenn du ein Backup der Welt hast."}}</small></span></label>
   {{else if eq .Mode "pack"}}
     <div class="field"><span>{{$s.Pack.Name}}</span><div class="ver-flow"><span class="cur">{{$s.Pack.VersionLabel}}</span><span class="muted">→</span>
-      <select class="input" name="packVersion">{{range $i, $v := .PackVersions}}<option value="{{$v.ID}}" {{if eq $v.ID $s.Pack.Version}}selected{{end}}>{{$v.Name}}{{with $v.MC}} · MC {{.}}{{end}}{{if eq $i 0}} (neueste){{end}}</option>{{end}}</select></div>
-      <small>Minecraft- und Loader-Version gibt das Modpack vor.</small></div>
-    <div class="callout info"><div><b>Was passiert</b><span class="muted">Das itzg-Image lädt die neue Pack-Version, ersetzt die Mods und behält Welt und eigene Konfiguration.</span></div></div>
+      <select class="input" name="packVersion">{{range $i, $v := .PackVersions}}<option value="{{$v.ID}}" {{if eq $v.ID $s.Pack.Version}}selected{{end}}>{{$v.Name}}{{with $v.MC}} · MC {{.}}{{end}}{{if eq $i 0}} ({{t "neueste"}}){{end}}</option>{{end}}</select></div>
+      <small>{{t "Minecraft- und Loader-Version gibt das Modpack vor."}}</small></div>
+    <div class="callout info"><div><b>{{t "Was passiert"}}</b><span class="muted">{{t "Das itzg-Image lädt die neue Pack-Version, ersetzt die Mods und behält Welt und eigene Konfiguration."}}</span></div></div>
   {{else}}
-    <div class="field"><span>Image</span><div class="ver-flow"><span class="cur">{{$s.ImageRef}}</span></div><small>Holt die neueste Fassung des itzg-Images (Fehlerbehebungen, Hilfsprogramme). Die Minecraft-Version bleibt gleich.</small></div>
+    <div class="field"><span>Image</span><div class="ver-flow"><span class="cur">{{$s.ImageRef}}</span></div><small>{{t "Holt die neueste Fassung des itzg-Images (Fehlerbehebungen, Hilfsprogramme). Die Minecraft-Version bleibt gleich."}}</small></div>
   {{end}}
-  <label class="switch"><input type="checkbox" name="backupFirst" {{if .S.Plan.BeforeUpdate}}checked{{end}}><span class="txt">Vorher Backup erstellen<small>Welt und Konfiguration im aktuellen Stand, für den Rückweg.</small></span></label>
+  <label class="switch"><input type="checkbox" name="backupFirst" {{if .S.Plan.BeforeUpdate}}checked{{end}}><span class="txt">{{t "Vorher Backup erstellen"}}<small>{{t "Welt und Konfiguration im aktuellen Stand, für den Rückweg."}}</small></span></label>
 </div>
-<div class="modal-foot"><button class="btn ghost" type="button" data-close>Abbrechen</button><button class="btn primary">Update ausführen <span class="spin-on-req"></span></button></div>
+<div class="modal-foot"><button class="btn ghost" type="button" data-close>{{t "Abbrechen"}}</button><button class="btn primary">{{t "Update ausführen"}} <span class="spin-on-req"></span></button></div>
 </form>
 {{end}}
 
 {{define "uninstallModal"}}
 {{$s := .S}}
-<div class="modal-head"><h2>{{$s.Name}} deinstallieren</h2><button class="btn sm ghost" data-close aria-label="Schließen">✕</button></div>
+<div class="modal-head"><h2>{{t "%s deinstallieren" $s.Name}}</h2><button class="btn sm ghost" data-close aria-label="{{t "Schließen"}}">✕</button></div>
 <form hx-post="/servers/{{$s.ID}}/uninstall">
 <div class="modal-body">
-  <label class="radio-card"><input type="radio" name="mode" value="keep" checked><span>Container entfernen, Daten behalten<small>Welt und Konfiguration bleiben in <span class="mono">{{.Dir}}.removed</span>{{if $s.DataVol}} bzw. im Volume <span class="mono">{{$s.DataVol}}</span>{{end}}.</small></span></label>
-  <label class="radio-card"><input type="radio" name="mode" value="backup"><span>Backup erstellen, dann alles löschen<small>Ein letztes Archiv bleibt in <span class="mono">{{.Archive}}</span>, der Rest wird gelöscht.</small></span></label>
-  <label class="radio-card"><input type="radio" name="mode" value="all"><span>Alles löschen<small>Container und Ordner {{if $s.DataDir}}(die Daten unter <span class="mono">{{$s.DataDir}}</span> bleiben, sie liegen außerhalb von Forgecraft){{else if $s.DataVol}}(das Volume <span class="mono">{{$s.DataVol}}</span> bleibt erhalten){{else}}inklusive Welt{{end}}. Nicht umkehrbar.</small></span></label>
-  <label class="field"><span>Zum Bestätigen <span class="mono">{{$s.ID}}</span> eingeben</span><input class="input mono" name="confirm" autocomplete="off" data-confirm="{{$s.ID}}" data-confirm-btn="un-go" autofocus></label>
+  <label class="radio-card"><input type="radio" name="mode" value="keep" checked><span>{{t "Container entfernen, Daten behalten"}}<small>{{t "Welt und Konfiguration bleiben erhalten:"}} <span class="mono">{{.Dir}}.removed</span>{{if $s.DataVol}} · Volume <span class="mono">{{$s.DataVol}}</span>{{end}}</small></span></label>
+  <label class="radio-card"><input type="radio" name="mode" value="backup"><span>{{t "Backup erstellen, dann alles löschen"}}<small>{{t "Ein letztes Archiv bleibt erhalten, der Rest wird gelöscht:"}} <span class="mono">{{.Archive}}</span></small></span></label>
+  <label class="radio-card"><input type="radio" name="mode" value="all"><span>{{t "Alles löschen"}}<small>{{if $s.DataDir}}{{t "Container und Ordner. Die Daten außerhalb von Forgecraft bleiben:"}} <span class="mono">{{$s.DataDir}}</span>{{else if $s.DataVol}}{{t "Container und Ordner. Das Volume bleibt erhalten:"}} <span class="mono">{{$s.DataVol}}</span>{{else}}{{t "Container und Ordner inklusive Welt."}}{{end}} {{t "Nicht umkehrbar."}}</small></span></label>
+  <label class="field"><span>{{t "Zum Bestätigen eingeben:"}} <span class="mono">{{$s.ID}}</span></span><input class="input mono" name="confirm" autocomplete="off" data-confirm="{{$s.ID}}" data-confirm-btn="un-go" autofocus></label>
 </div>
-<div class="modal-foot"><button class="btn ghost" type="button" data-close>Abbrechen</button><button class="btn danger-solid" id="un-go" disabled>Deinstallieren <span class="spin-on-req"></span></button></div>
+<div class="modal-foot"><button class="btn ghost" type="button" data-close>{{t "Abbrechen"}}</button><button class="btn danger-solid" id="un-go" disabled>{{t "Deinstallieren"}} <span class="spin-on-req"></span></button></div>
 </form>
 {{end}}

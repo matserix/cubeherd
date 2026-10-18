@@ -126,11 +126,11 @@ func (m *Manager) scheduledBackup(ctx context.Context, s *server.Server) {
 	m.mu.Unlock()
 	v := m.View(ctx, s, false)
 	if s.Plan().OnlyIfActive && (!v.Status.Up() || v.Status == server.StatusPaused) {
-		log.Printf("%s: geplantes Backup übersprungen (%s)", s.ID, v.Status.Label())
+		log.Printf("%s: scheduled backup skipped (%s)", s.ID, v.Status)
 		return
 	}
 	if err := m.BackupNow(s.ID, ReasonSchedule); err != nil {
-		log.Printf("%s: geplantes Backup nicht gestartet: %v", s.ID, err)
+		log.Printf("%s: scheduled backup not started: %v", s.ID, err)
 		return
 	}
 	// Run scheduled backups one after another to keep the load low.
@@ -147,7 +147,7 @@ func (m *Manager) scheduledBackup(ctx context.Context, s *server.Server) {
 			}
 		}
 		if o.Err != nil {
-			log.Printf("%s: geplantes Backup fehlgeschlagen: %v", s.ID, o.Err)
+			log.Printf("%s: scheduled backup failed: %v", s.ID, o.Err)
 		}
 	}
 }

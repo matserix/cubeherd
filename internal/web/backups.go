@@ -47,14 +47,14 @@ func (a *App) backupCreate(w http.ResponseWriter, r *http.Request) {
 	}
 	live := a.M.View(r.Context(), s, false).Status.Live()
 	if err := a.M.BackupNow(s.ID, manager.ReasonManual); err != nil {
-		fail(w, err.Error())
+		fail(w, a.t(err.Error()))
 		return
 	}
-	msg := "Backup läuft."
 	if live {
-		msg = "Backup läuft. Spieler bleiben verbunden."
+		a.toast(w, "", "Backup läuft. Spieler bleiben verbunden.")
+	} else {
+		a.toast(w, "", "Backup läuft.")
 	}
-	toast(w, msg, "")
 	time.Sleep(150 * time.Millisecond)
 	a.backupList(w, r)
 }
@@ -73,24 +73,24 @@ func (a *App) backupPlan(w http.ResponseWriter, r *http.Request) {
 	switch p.Interval {
 	case "off", "6h", "daily", "weekly":
 	default:
-		fail(w, "Unbekanntes Intervall.")
+		a.fail(w, "Unbekanntes Intervall.")
 		return
 	}
 	if !clock.MatchString(p.Time) {
-		fail(w, "Uhrzeit bitte als HH:MM angeben, z. B. 04:00.")
+		a.fail(w, "Uhrzeit bitte als HH:MM angeben, z. B. 04:00.")
 		return
 	}
 	s.Backup = &p
 	if err := a.M.Apply(s, false, false); err != nil {
-		fail(w, err.Error())
+		fail(w, a.t(err.Error()))
 		return
 	}
 	a.M.WakeScheduler()
-	msg := "Zeitplan gespeichert."
 	if next := a.M.NextBackupFor(s); !next.IsZero() {
-		msg = "Zeitplan gespeichert. Nächstes Backup: " + next.Format("02.01. 15:04") + " Uhr."
+		a.toast(w, "ok", "Zeitplan gespeichert. Nächstes Backup: %s.", next.In(a.M.Loc()).Format("2006-01-02 15:04"))
+	} else {
+		a.toast(w, "ok", "Zeitplan gespeichert.")
 	}
-	toast(w, msg, "ok")
 	a.partial(w, "server", "backupList", a.backupsData(s, a.M.View(r.Context(), s, false).Status))
 }
 
@@ -122,10 +122,10 @@ func (a *App) backupDelete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := a.M.DeleteBackup(s, r.PathValue("name")); err != nil {
-		fail(w, "Löschen fehlgeschlagen: "+err.Error())
+		a.fail(w, "Löschen fehlgeschlagen: %s", err.Error())
 		return
 	}
-	toast(w, "Backup gelöscht.", "ok")
+	a.toast(w, "ok", "Backup gelöscht.")
 	a.backupList(w, r)
 }
 
@@ -142,7 +142,7 @@ func (a *App) restoreModal(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	fail(w, "Backup nicht gefunden.")
+	a.fail(w, "Backup nicht gefunden.")
 }
 
 func (a *App) restorePost(w http.ResponseWriter, r *http.Request) {
@@ -151,7 +151,7 @@ func (a *App) restorePost(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := a.M.Restore(s.ID, r.PathValue("name")); err != nil {
-		fail(w, err.Error())
+		fail(w, a.t(err.Error()))
 		return
 	}
 	redirect(w, r, "/servers/"+s.ID+"?tab=console")

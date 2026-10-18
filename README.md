@@ -57,6 +57,7 @@ Es gibt ein Admin-Konto (bcrypt), signierte Session-Cookies (`SameSite=Strict`),
   Funktioniert auch zusätzlich zu Modpacks.
 - **Dateien & Welten:** Datei-Browser mit Editor, Hochladen, Herunterladen, Löschen; Welt als ZIP exportieren und einspielen.
 - **Leerlauf & Limits:** pausieren oder ganz stoppen, wenn niemand spielt; CPU-Limit pro Server.
+- **Sprache & Zeitzone:** Oberfläche auf Deutsch oder Englisch, Zeitzone für Zeitpläne, Datumsangaben und Server-Logs.
 
 Jeder Server liegt als `servers/<id>/compose.yml` im Datenverzeichnis und lässt sich auch ohne Forgecraft mit `docker compose` betreiben.
 Details zur Architektur stehen in [ARCHITECTURE.md](ARCHITECTURE.md).

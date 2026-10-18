@@ -45,7 +45,7 @@ func joinRel(dir, name string) string { return path.Join(dir, name) }
 func (a *App) relParam(w http.ResponseWriter, r *http.Request) (string, bool) {
 	rel, err := manager.CleanRel(r.FormValue("path"))
 	if err != nil {
-		fail(w, err.Error())
+		fail(w, a.t(err.Error()))
 		return "", false
 	}
 	return rel, true
@@ -91,12 +91,12 @@ func (a *App) filesView(w http.ResponseWriter, r *http.Request) {
 	}
 	st, err := a.M.Stat(r.Context(), s, rel)
 	if err != nil || st.Dir {
-		fail(w, "Datei nicht gefunden.")
+		a.fail(w, "Datei nicht gefunden.")
 		return
 	}
 	text, isText, err := a.M.ReadText(r.Context(), s, rel)
 	if err != nil {
-		fail(w, "Datei nicht lesbar: "+err.Error())
+		a.fail(w, "Datei nicht lesbar: %s", err.Error())
 		return
 	}
 	a.partial(w, "server", "fileEditor", map[string]any{"ID": s.ID, "Path": rel, "Entry": st, "Text": text, "IsText": isText,
@@ -114,14 +114,14 @@ func (a *App) filesSave(w http.ResponseWriter, r *http.Request) {
 	}
 	content := strings.ReplaceAll(r.FormValue("content"), "\r\n", "\n")
 	if len(content) > manager.MaxEditSize {
-		fail(w, "Die Datei ist zu groß für den Editor.")
+		a.fail(w, "Die Datei ist zu groß für den Editor.")
 		return
 	}
 	if err := a.M.WriteFile(r.Context(), s, rel, strings.NewReader(content)); err != nil {
-		fail(w, "Speichern fehlgeschlagen: "+err.Error())
+		a.fail(w, "Speichern fehlgeschlagen: %s", err.Error())
 		return
 	}
-	toast(w, path.Base(rel)+" gespeichert.", "ok")
+	a.toast(w, "ok", "%s gespeichert.", path.Base(rel))
 	w.WriteHeader(http.StatusNoContent)
 }
 
@@ -133,25 +133,25 @@ func (a *App) filesUpload(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxUpload)
 	dir, err := manager.CleanRel(r.FormValue("path"))
 	if err != nil {
-		fail(w, err.Error())
+		fail(w, a.t(err.Error()))
 		return
 	}
 	f, hdr, err := r.FormFile("file")
 	if err != nil {
-		fail(w, "Upload fehlgeschlagen (maximal 256 MB): "+err.Error())
+		a.fail(w, "Upload fehlgeschlagen (maximal 256 MB): %s", err.Error())
 		return
 	}
 	defer f.Close()
 	name := filepath.Base(strings.ReplaceAll(hdr.Filename, "\\", "/"))
 	if name == "." || name == ".." || name == "/" || name == "" {
-		fail(w, "Ungültiger Dateiname.")
+		a.fail(w, "Ungültiger Dateiname.")
 		return
 	}
 	if err := a.M.WriteFile(r.Context(), s, joinRel(dir, name), f); err != nil {
-		fail(w, "Upload fehlgeschlagen: "+err.Error())
+		a.fail(w, "Upload fehlgeschlagen: %s", err.Error())
 		return
 	}
-	toast(w, name+" hochgeladen.", "ok")
+	a.toast(w, "ok", "%s hochgeladen.", name)
 	a.fileTree(w, r, s, dir)
 }
 
@@ -165,14 +165,14 @@ func (a *App) filesDelete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if rel == "" {
-		fail(w, "/data selbst lässt sich nicht löschen.")
+		a.fail(w, "/data selbst lässt sich nicht löschen.")
 		return
 	}
 	if err := a.M.Remove(r.Context(), s, rel); err != nil {
-		fail(w, "Löschen fehlgeschlagen: "+err.Error())
+		a.fail(w, "Löschen fehlgeschlagen: %s", err.Error())
 		return
 	}
-	toast(w, path.Base(rel)+" gelöscht.", "ok")
+	a.toast(w, "ok", "%s gelöscht.", path.Base(rel))
 	w.Header().Set("HX-Retarget", "#file-tree")
 	w.Header().Set("HX-Reswap", "innerHTML")
 	parent := path.Dir(rel)
@@ -230,7 +230,7 @@ func (a *App) worldUpload(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxWorldUpload)
 	mr, err := r.MultipartReader()
 	if err != nil {
-		fail(w, "Upload fehlgeschlagen: "+err.Error())
+		a.fail(w, "Upload fehlgeschlagen: %s", err.Error())
 		return
 	}
 	// Stream the ZIP to disk next to the server (not into /data) without buffering it in memory.
@@ -238,11 +238,11 @@ func (a *App) worldUpload(w http.ResponseWriter, r *http.Request) {
 	for {
 		part, err := mr.NextPart()
 		if errors.Is(err, io.EOF) {
-			fail(w, "Keine Datei empfangen.")
+			a.fail(w, "Keine Datei empfangen.")
 			return
 		}
 		if err != nil {
-			fail(w, "Upload fehlgeschlagen: "+err.Error())
+			a.fail(w, "Upload fehlgeschlagen: %s", err.Error())
 			return
 		}
 		if part.FormName() != "world" {
@@ -250,20 +250,20 @@ func (a *App) worldUpload(w http.ResponseWriter, r *http.Request) {
 		}
 		f, err := os.Create(tmp)
 		if err != nil {
-			fail(w, err.Error())
+			fail(w, a.t(err.Error()))
 			return
 		}
 		_, err = io.Copy(f, part)
 		f.Close()
 		if err != nil {
 			os.Remove(tmp)
-			fail(w, "Upload abgebrochen: "+err.Error())
+			a.fail(w, "Upload abgebrochen: %s", err.Error())
 			return
 		}
 		break
 	}
 	if err := a.M.ImportWorld(s, tmp); err != nil {
-		fail(w, err.Error())
+		fail(w, a.t(err.Error()))
 		return
 	}
 	redirect(w, r, "/servers/"+s.ID+"?tab=console")

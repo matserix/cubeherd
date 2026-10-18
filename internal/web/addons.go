@@ -71,11 +71,11 @@ func (a *App) addonSearch(w http.ResponseWriter, r *http.Request) {
 	msg := ""
 	switch {
 	case errors.Is(err, sources.ErrUnauthorized):
-		msg = "Für die CurseForge-Suche brauchst du einen API-Key in den Einstellungen."
+		msg = a.t("Für die CurseForge-Suche brauchst du einen API-Key in den Einstellungen.")
 	case err != nil && src == server.AddonSpiget:
-		msg = "Spigot antwortet gerade nicht. Viele Plugins gibt es auch bei Modrinth."
+		msg = a.t("Spigot antwortet gerade nicht. Viele Plugins gibt es auch bei Modrinth.")
 	case err != nil:
-		msg = "Suche fehlgeschlagen: " + err.Error()
+		msg = a.t("Suche fehlgeschlagen: %s", err.Error())
 	}
 	installed := map[string]bool{}
 	for _, ad := range s.Addons {
@@ -91,7 +91,7 @@ func (a *App) addonAdd(w http.ResponseWriter, r *http.Request) {
 	}
 	ad := server.Addon{Source: r.FormValue("src"), Ref: strings.TrimSpace(r.FormValue("ref")), Name: strings.TrimSpace(r.FormValue("name")), IconURL: r.FormValue("icon")}
 	if !server.ValidAddon(ad) {
-		fail(w, "Ungültiger Eintrag.")
+		a.fail(w, "Ungültiger Eintrag.")
 		return
 	}
 	if !strings.HasPrefix(ad.IconURL, "https://") {
@@ -102,16 +102,16 @@ func (a *App) addonAdd(w http.ResponseWriter, r *http.Request) {
 	}
 	for _, x := range s.Addons {
 		if x.Source == ad.Source && x.Ref == ad.Ref {
-			fail(w, ad.Name+" ist schon eingetragen.")
+			a.fail(w, "%s ist schon eingetragen.", ad.Name)
 			return
 		}
 	}
 	s.AddAddon(ad)
 	if err := a.M.Apply(s, false, false); err != nil {
-		fail(w, err.Error())
+		fail(w, a.t(err.Error()))
 		return
 	}
-	toast(w, ad.Name+" wird beim nächsten Start installiert.", "ok")
+	a.toast(w, "ok", "%s wird beim nächsten Start installiert.", ad.Name)
 	a.partial(w, "server", "addonInstalled", a.addonsData(r, s))
 }
 
@@ -131,19 +131,19 @@ func (a *App) addonRemove(w http.ResponseWriter, r *http.Request) {
 		rest = append(rest, x)
 	}
 	if name == "" {
-		fail(w, "Eintrag nicht gefunden.")
+		a.fail(w, "Eintrag nicht gefunden.")
 		return
 	}
 	s.Addons = rest
 	if err := a.M.Apply(s, false, false); err != nil {
-		fail(w, err.Error())
+		fail(w, a.t(err.Error()))
 		return
 	}
-	msg := name + " wird beim nächsten Start entfernt."
 	if src == server.AddonSpiget {
-		msg = name + " ist ausgetragen. Spigot-Plugins entfernt itzg nicht selbst; die JAR bleibt im plugins-Ordner."
+		a.toast(w, "ok", "%s ist ausgetragen. Spigot-Plugins entfernt itzg nicht selbst; die JAR bleibt im plugins-Ordner.", name)
+	} else {
+		a.toast(w, "ok", "%s wird beim nächsten Start entfernt.", name)
 	}
-	toast(w, msg, "ok")
 	a.partial(w, "server", "addonInstalled", a.addonsData(r, s))
 }
 
@@ -157,16 +157,16 @@ func (a *App) addonUpload(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxUpload)
 	f, hdr, err := r.FormFile("jar")
 	if err != nil {
-		fail(w, "Upload fehlgeschlagen (maximal 256 MB): "+err.Error())
+		a.fail(w, "Upload fehlgeschlagen (maximal 256 MB): %s", err.Error())
 		return
 	}
 	defer f.Close()
 	name := filepath.Base(hdr.Filename)
 	if err := a.M.UploadAddon(r.Context(), s, name, f); err != nil {
-		fail(w, err.Error())
+		fail(w, a.t(err.Error()))
 		return
 	}
-	toast(w, name+" hochgeladen. Wird beim nächsten Start geladen.", "ok")
+	a.toast(w, "ok", "%s hochgeladen. Wird beim nächsten Start geladen.", name)
 	a.partial(w, "server", "addonInstalled", a.addonsData(r, s))
 }
 
@@ -177,9 +177,9 @@ func (a *App) addonDeleteUpload(w http.ResponseWriter, r *http.Request) {
 	}
 	name := r.FormValue("file")
 	if err := a.M.DeleteUpload(r.Context(), s, name); err != nil {
-		fail(w, err.Error())
+		fail(w, a.t(err.Error()))
 		return
 	}
-	toast(w, name+" gelöscht.", "ok")
+	a.toast(w, "ok", "%s gelöscht.", name)
 	a.partial(w, "server", "addonInstalled", a.addonsData(r, s))
 }

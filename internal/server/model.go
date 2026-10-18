@@ -397,12 +397,17 @@ func ParseEnv(text string) ([]KV, error) {
 		k, v, ok := strings.Cut(line, "=")
 		k = strings.TrimSpace(k)
 		if !ok || !envKey.MatchString(k) {
-			return nil, fmt.Errorf("Zeile %d: erwartet KEY=WERT", i+1)
+			return nil, &EnvLineError{Line: i + 1}
 		}
 		out = append(out, KV{k, v})
 	}
 	return out, nil
 }
+
+// EnvLineError reports a malformed line in the extra environment.
+type EnvLineError struct{ Line int }
+
+func (e *EnvLineError) Error() string { return fmt.Sprintf("Zeile %d: erwartet KEY=WERT", e.Line) }
 
 func FormatEnv(kvs []KV) string {
 	var b strings.Builder

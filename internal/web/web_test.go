@@ -9,6 +9,7 @@ import (
 
 	"forgecraft/internal/auth"
 	"forgecraft/internal/config"
+	"forgecraft/internal/i18n"
 	"forgecraft/internal/manager"
 	"forgecraft/internal/server"
 	"forgecraft/internal/sources"
@@ -20,9 +21,9 @@ func TestASCIIJSON(t *testing.T) {
 	}
 }
 
-func TestGB(t *testing.T) {
-	if gb(int64(3<<30)) != "3,0" || gb(uint64(1<<29)) != "0,5" {
-		t.Errorf("gb: %s %s", gb(int64(3<<30)), gb(uint64(1<<29)))
+func TestDecimal(t *testing.T) {
+	if decimal("de", 3.14) != "3,1" || decimal("en", 0.5) != "0.5" {
+		t.Errorf("decimal: %s %s", decimal("de", 3.14), decimal("en", 0.5))
 	}
 }
 
@@ -91,7 +92,14 @@ func TestSecurityMiddleware(t *testing.T) {
 
 // Templates only fail at execution time, so render the partials with representative data.
 func TestRenderPartials(t *testing.T) {
-	a := &App{}
+	for _, l := range i18n.Languages {
+		t.Run(l.Code, func(t *testing.T) { renderPartials(t, l.Code) })
+	}
+}
+
+func renderPartials(t *testing.T, lang string) {
+	a := newTestApp(t, "")
+	a.Cfg.Update(func(s *config.Settings) { s.Language = lang })
 	if err := a.loadTemplates(); err != nil {
 		t.Fatal(err)
 	}

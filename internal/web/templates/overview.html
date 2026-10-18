@@ -1,19 +1,19 @@
 {{define "content"}}
 <section class="view">
   <div class="view-head">
-    <div><h1>Übersicht</h1><p class="sub" id="ov-sub">{{template "ovSub" .Data}}</p></div>
-    <div class="actions"><a class="btn primary" href="/servers/new" style="text-decoration:none"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M8 3v10M3 8h10"/></svg>Server anlegen</a></div>
+    <div><h1>{{t "Übersicht"}}</h1><p class="sub" id="ov-sub">{{template "ovSub" .Data}}</p></div>
+    <div class="actions"><a class="btn primary" href="/servers/new" style="text-decoration:none"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M8 3v10M3 8h10"/></svg>{{t "Server anlegen"}}</a></div>
   </div>
   <div id="ov-live" hx-get="/partials/overview" hx-trigger="every 5s" hx-swap="none">
   </div>
   <div class="host" id="host">{{template "hostTiles" .Data}}</div>
   {{range .Data.Unmanaged}}
   <div class="callout accent">
-    <div><b>Nicht verwalteter Container gefunden</b><span class="muted">„{{.Name}}“ nutzt {{.Image}} ({{typeName .Type}}{{with .Version}} {{.}}{{end}}{{with .Port}}, Port {{.}}{{end}}, {{.State}}). Beim Übernehmen wird er mit denselben Daten unter Forgecraft neu erstellt.</span></div>
+    <div><b>{{t "Nicht verwalteter Container gefunden"}}</b><span class="muted">{{t "„%s“ nutzt %s" .Name .Image}} ({{typeName .Type}}{{with .Version}} {{.}}{{end}}{{with .Port}}, Port {{.}}{{end}}, {{.State}}). {{t "Beim Übernehmen wird er mit denselben Daten unter Forgecraft neu erstellt."}}</span></div>
     <form class="inline-form" hx-post="/import" style="flex:none">
       <input type="hidden" name="container" value="{{.ID}}">
-      <input class="input" name="name" value="{{.Name}}" aria-label="Name in Forgecraft" required>
-      <button class="btn sm primary">Übernehmen <span class="spin-on-req"></span></button>
+      <input class="input" name="name" value="{{.Name}}" aria-label="{{t "Name in Forgecraft"}}" required>
+      <button class="btn sm primary">{{t "Übernehmen"}} <span class="spin-on-req"></span></button>
     </form>
   </div>
   {{end}}
@@ -21,7 +21,7 @@
 </section>
 {{end}}
 
-{{define "ovSub"}}{{.Running}} von {{len .Views}} Servern laufen · {{.Players}} Spieler online{{end}}
+{{define "ovSub"}}{{t "%d von %d Servern laufen · %d Spieler online" .Running (len .Views) .Players}}{{end}}
 
 {{define "ovLive"}}
 <p class="sub" id="ov-sub" hx-swap-oob="true">{{template "ovSub" .}}</p>
@@ -33,7 +33,7 @@
 <div class="panel" id="ov-table" hx-swap-oob="true">
   <div class="tbl-wrap">
     <table class="tbl">
-      <thead><tr><th>Server</th><th>Status</th><th class="hide-sm">Spieler</th><th class="hide-sm">RAM</th><th class="hide-sm">Port</th><th class="right">Aktion</th></tr></thead>
+      <thead><tr><th>Server</th><th>{{t "Status"}}</th><th class="hide-sm">{{t "Spieler"}}</th><th class="hide-sm">RAM</th><th class="hide-sm">Port</th><th class="right">{{t "Aktion"}}</th></tr></thead>
       <tbody>{{template "serverRows" .Views}}</tbody>
     </table>
   </div>

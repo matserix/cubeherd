@@ -16,6 +16,7 @@ import (
 	"forgecraft/internal/config"
 	"forgecraft/internal/docker"
 	"forgecraft/internal/host"
+	"forgecraft/internal/i18n"
 	"forgecraft/internal/manager"
 	"forgecraft/internal/server"
 	"forgecraft/internal/sources"
@@ -40,18 +41,18 @@ func (a *App) loginPage(w http.ResponseWriter, r *http.Request) {
 		redirect(w, r, "/")
 		return
 	}
-	a.render(w, r, "login", Page{Title: "Anmelden", Nav: "login", Data: loginData{Action: "/login"}})
+	a.render(w, r, "login", Page{Title: a.t("Anmelden"), Nav: "login", Data: loginData{Action: "/login"}})
 }
 
 func (a *App) loginPost(w http.ResponseWriter, r *http.Request) {
 	if d := a.lim.Wait(r); d > 0 {
-		a.render(w, r, "login", Page{Nav: "login", Data: loginData{Action: "/login", Error: fmt.Sprintf("Zu viele Versuche. Bitte %d Sekunden warten.", int(d.Seconds())+1)}})
+		a.render(w, r, "login", Page{Nav: "login", Data: loginData{Action: "/login", Error: a.t("Zu viele Versuche. Bitte %d Sekunden warten.", int(d.Seconds())+1)}})
 		return
 	}
 	if !auth.CheckPassword(a.Cfg.Get().PasswordHash, r.FormValue("password")) {
 		a.lim.Fail(r)
 		time.Sleep(400 * time.Millisecond)
-		a.render(w, r, "login", Page{Nav: "login", Data: loginData{Action: "/login", Error: "Passwort ist falsch."}})
+		a.render(w, r, "login", Page{Nav: "login", Data: loginData{Action: "/login", Error: a.t("Passwort ist falsch.")}})
 		return
 	}
 	a.lim.Reset(r)
@@ -60,20 +61,28 @@ func (a *App) loginPost(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *App) setupPage(w http.ResponseWriter, r *http.Request) {
-	a.render(w, r, "login", Page{Title: "Einrichten", Nav: "login", Data: loginData{Setup: true, Action: "/setup"}})
+	// Fresh install: suggest the browser's language (changeable in the form).
+	if a.Cfg.Get().Language == "" {
+		lang := i18n.Match(r.Header.Get("Accept-Language"))
+		_ = a.Cfg.Update(func(s *config.Settings) { s.Language = lang })
+	}
+	a.render(w, r, "login", Page{Title: a.t("Einrichten"), Nav: "login", Data: loginData{Setup: true, Action: "/setup"}})
 }
 
 func (a *App) setupPost(w http.ResponseWriter, r *http.Request) {
+	if l := r.FormValue("language"); i18n.Valid(l) && l != a.Cfg.Get().Language {
+		_ = a.Cfg.Update(func(s *config.Settings) { s.Language = l })
+	}
 	pw := r.FormValue("password")
 	fail := func(msg string) {
 		a.render(w, r, "login", Page{Nav: "login", Data: loginData{Setup: true, Action: "/setup", Error: msg}})
 	}
 	if len(pw) < 10 {
-		fail("Das Passwort braucht mindestens 10 Zeichen.")
+		fail(a.t("Das Passwort braucht mindestens 10 Zeichen."))
 		return
 	}
 	if pw != r.FormValue("password2") {
-		fail("Die Passwörter stimmen nicht überein.")
+		fail(a.t("Die Passwörter stimmen nicht überein."))
 		return
 	}
 	hash, err := auth.HashPassword(pw)
@@ -127,7 +136,7 @@ func (a *App) overviewData(ctx context.Context, discover bool) overviewData {
 }
 
 func (a *App) overview(w http.ResponseWriter, r *http.Request) {
-	a.render(w, r, "overview", Page{Title: "Übersicht", Nav: "overview", Data: a.overviewData(r.Context(), true)})
+	a.render(w, r, "overview", Page{Title: a.t("Übersicht"), Nav: "overview", Data: a.overviewData(r.Context(), true)})
 }
 
 func (a *App) overviewPartial(w http.ResponseWriter, r *http.Request) {
@@ -138,7 +147,7 @@ func (a *App) importPost(w http.ResponseWriter, r *http.Request) {
 	name := strings.TrimSpace(r.FormValue("name"))
 	s, err := a.M.Import(r.Context(), r.FormValue("container"), name)
 	if err != nil {
-		fail(w, "Übernahme nicht möglich: "+err.Error())
+		a.fail(w, "Übernahme nicht möglich: %s", err.Error())
 		return
 	}
 	redirect(w, r, "/servers/"+s.ID)
@@ -183,9 +192,9 @@ func (a *App) wizardPage(w http.ResponseWriter, r *http.Request) {
 	d := wizardData{
 		Releases: rel, Java: a.M.Sources.JavaTag(r.Context(), rel[0]), Port: a.M.NextPort(""),
 		PortRange: fmt.Sprintf("%d–%d", cfg.PortMin, cfg.PortMax), RAM: cfg.DefaultMemoryGB, MaxRAM: a.maxRAM(r.Context()),
-		Autopause: cfg.DefaultAutopause, HasCFKey: cfg.CFAPIKey != "", HostRAM: gb(a.Host.Read(r.Context()).MemTotal),
+		Autopause: cfg.DefaultAutopause, HasCFKey: cfg.CFAPIKey != "", HostRAM: decimal(a.lang(), float64(a.Host.Read(r.Context()).MemTotal)/(1<<30)),
 	}
-	a.render(w, r, "wizard", Page{Title: "Neuer Server", Nav: "wizard", Data: d})
+	a.render(w, r, "wizard", Page{Title: a.t("Neuer Server"), Nav: "wizard", Data: d})
 }
 
 func (a *App) wizardJava(w http.ResponseWriter, r *http.Request) {
@@ -203,13 +212,13 @@ func (a *App) wizardPacks(w http.ResponseWriter, r *http.Request) {
 	case server.KindCurseForge:
 		packs, err = a.M.Sources.CurseForgeSearch(r.Context(), q)
 	default:
-		err = errors.New("unbekannte Quelle")
+		err = errors.New(a.t("unbekannte Quelle"))
 	}
 	msg := ""
 	if errors.Is(err, sources.ErrUnauthorized) {
-		msg = "CurseForge-API-Key fehlt oder ist ungültig. Hinterlege ihn in den Einstellungen."
+		msg = a.t("CurseForge-API-Key fehlt oder ist ungültig. Hinterlege ihn in den Einstellungen.")
 	} else if err != nil {
-		msg = "Suche fehlgeschlagen: " + err.Error()
+		msg = a.t("Suche fehlgeschlagen: %s", err.Error())
 	}
 	a.partial(w, "wizard", "packs", map[string]any{"Packs": packs, "Error": msg})
 }
@@ -226,9 +235,9 @@ func (a *App) wizardPackVersions(w http.ResponseWriter, r *http.Request) {
 	vs, err := a.packVersions(r.Context(), src, slug, id)
 	d := map[string]any{"Src": src, "ID": id, "Versions": vs, "Error": ""}
 	if err != nil {
-		d["Error"] = "Versionen konnten nicht geladen werden: " + err.Error()
+		d["Error"] = a.t("Versionen konnten nicht geladen werden: %s", err.Error())
 	} else if len(vs) == 0 {
-		d["Error"] = "Dieses Modpack hat keine Versionen."
+		d["Error"] = a.t("Dieses Modpack hat keine Versionen.")
 	}
 	// Name and icon come from the (cached) search result, not from the client.
 	var packs []sources.Pack
@@ -272,16 +281,16 @@ func (a *App) serverFromWizard(r *http.Request) (*server.Server, error) {
 		CreatedAt: time.Now(),
 	}
 	if name == "" || s.ID == "" {
-		return nil, errors.New("Bitte einen Namen mit Buchstaben oder Ziffern angeben.")
+		return nil, errors.New(a.t("Bitte einen Namen mit Buchstaben oder Ziffern angeben."))
 	}
 	if a.M.Store.Exists(s.ID) {
-		return nil, fmt.Errorf("Die ID „%s“ ist schon vergeben. Bitte einen anderen Namen wählen.", s.ID)
+		return nil, fmt.Errorf(a.t("Die ID „%s“ ist schon vergeben. Bitte einen anderen Namen wählen."), s.ID)
 	}
 	if s.Port == 0 {
-		return nil, errors.New("Bitte einen gültigen Port angeben.")
+		return nil, errors.New(a.t("Bitte einen gültigen Port angeben."))
 	}
 	if a.M.PortTaken(s.Port, "") {
-		return nil, fmt.Errorf("Port %d nutzt schon ein anderer Server.", s.Port)
+		return nil, fmt.Errorf(a.t("Port %d nutzt schon ein anderer Server."), s.Port)
 	}
 	switch s.Kind {
 	case server.KindSoftware:
@@ -291,14 +300,14 @@ func (a *App) serverFromWizard(r *http.Request) (*server.Server, error) {
 			valid = valid || t.ID == s.Type
 		}
 		if !valid || s.Version == "" {
-			return nil, errors.New("Bitte Server-Software und Version wählen.")
+			return nil, errors.New(a.t("Bitte Server-Software und Version wählen."))
 		}
 	case server.KindModrinth, server.KindCurseForge:
 		src := s.Kind
 		slug, verID, id := r.FormValue("pack_slug_"+src), r.FormValue("pack_version_"+src), r.FormValue("pack_id_"+src)
 		vs, err := a.packVersions(ctx, src, slug, id)
 		if err != nil {
-			return nil, fmt.Errorf("Modpack-Versionen nicht abrufbar: %w", err)
+			return nil, fmt.Errorf(a.t("Modpack-Versionen nicht abrufbar: %w"), err)
 		}
 		var pv *sources.PackVersion
 		for i := range vs {
@@ -307,7 +316,7 @@ func (a *App) serverFromWizard(r *http.Request) (*server.Server, error) {
 			}
 		}
 		if slug == "" || pv == nil {
-			return nil, errors.New("Bitte ein Modpack und eine Version wählen.")
+			return nil, errors.New(a.t("Bitte ein Modpack und eine Version wählen."))
 		}
 		s.Pack = &server.Pack{Slug: slug, ProjectID: id, Name: r.FormValue("pack_name_" + src), Version: pv.ID, VersionLabel: pv.Name,
 			Loader: pv.Loader, MC: pv.MC, IconURL: r.FormValue("pack_icon_" + src)}
@@ -316,7 +325,7 @@ func (a *App) serverFromWizard(r *http.Request) (*server.Server, error) {
 		}
 		s.Version, s.Type = pv.MC, strings.ToUpper(pv.Loader)
 	default:
-		return nil, errors.New("Bitte eine Grundlage wählen.")
+		return nil, errors.New(a.t("Bitte eine Grundlage wählen."))
 	}
 	s.JavaTag = a.M.Sources.JavaTag(ctx, s.Version)
 	return s, nil
@@ -338,7 +347,7 @@ func (a *App) wizardPreview(w http.ResponseWriter, r *http.Request) {
 
 func (a *App) createServer(w http.ResponseWriter, r *http.Request) {
 	if !checked(r, "eula") {
-		fail(w, "Ohne Zustimmung zur Minecraft-EULA kann kein Server starten.")
+		a.fail(w, "Ohne Zustimmung zur Minecraft-EULA kann kein Server starten.")
 		return
 	}
 	s, err := a.serverFromWizard(r)
@@ -346,7 +355,7 @@ func (a *App) createServer(w http.ResponseWriter, r *http.Request) {
 		err = a.M.Create(s)
 	}
 	if err != nil {
-		fail(w, err.Error())
+		fail(w, a.t(err.Error()))
 		return
 	}
 	redirect(w, r, "/servers/"+s.ID)
@@ -400,7 +409,7 @@ func (a *App) loadServer(w http.ResponseWriter, r *http.Request) (*server.Server
 	s, err := a.M.Store.Get(r.PathValue("id"))
 	if err != nil {
 		if isHX(r) {
-			fail(w, "Server nicht gefunden.")
+			a.fail(w, "Server nicht gefunden.")
 		} else {
 			http.NotFound(w, r)
 		}
@@ -428,7 +437,7 @@ func (a *App) updateHint(ctx context.Context, s *server.Server) string {
 }
 
 func (a *App) serverPageData(ctx context.Context, s *server.Server, tabKey string) serverPage {
-	d := serverPage{V: a.M.View(ctx, s, true), Tab: tabKey, Tabs: tabs, Disk: a.M.DiskUsage(s), MaxRAM: a.maxRAM(ctx), HostRAM: gb(a.Host.Read(ctx).MemTotal), DataDir: a.M.Store.DataDir(s)}
+	d := serverPage{V: a.M.View(ctx, s, true), Tab: tabKey, Tabs: tabs, Disk: a.M.DiskUsage(s), MaxRAM: a.maxRAM(ctx), HostRAM: decimal(a.lang(), float64(a.Host.Read(ctx).MemTotal)/(1<<30)), DataDir: a.M.Store.DataDir(s)}
 	if !d.V.Status.Busy() {
 		d.Update = a.updateHint(ctx, s)
 	}
@@ -468,14 +477,14 @@ func (a *App) cpuOptions(ctx context.Context, s *server.Server) ([]cpuOption, st
 	if cores <= 0 {
 		cores = 8
 	}
-	opts := []cpuOption{{"0", "Unbegrenzt"}}
+	opts := []cpuOption{{"0", a.t("Unbegrenzt")}}
 	for _, n := range []float64{0.5, 1, 2, 3, 4, 6, 8, 12, 16} {
 		if n <= float64(cores) {
-			label := cpuValue(n) + " Kerne"
+			label := a.t("%s Kerne", decimal(a.lang(), n))
 			if n == 1 {
-				label = "1 Kern"
+				label = a.t("1 Kern")
 			} else if n == 0.5 {
-				label = "½ Kern"
+				label = a.t("½ Kern")
 			}
 			opts = append(opts, cpuOption{cpuValue(n), label})
 		}
@@ -486,7 +495,7 @@ func (a *App) cpuOptions(ctx context.Context, s *server.Server) ([]cpuOption, st
 		found = found || o.Value == cur
 	}
 	if !found {
-		opts = append(opts, cpuOption{cur, strings.Replace(cur, ".", ",", 1) + " Kerne"})
+		opts = append(opts, cpuOption{cur, a.t("%s Kerne", decimal(a.lang(), s.CPUs))})
 	}
 	return opts, cur
 }
@@ -532,16 +541,16 @@ func (a *App) serverAction(w http.ResponseWriter, r *http.Request) {
 	msg := ""
 	switch r.PathValue("action") {
 	case "start":
-		err, msg = a.M.Start(s.ID), s.Name+" wird gestartet."
+		err, msg = a.M.Start(s.ID), a.t("%s wird gestartet.", s.Name)
 	case "stop":
-		err, msg = a.M.Stop(s.ID), s.Name+" wird gestoppt. Die Welt wird gespeichert."
+		err, msg = a.M.Stop(s.ID), a.t("%s wird gestoppt. Die Welt wird gespeichert.", s.Name)
 	case "restart":
-		err, msg = a.M.Restart(s.ID), s.Name+" wird neu gestartet."
+		err, msg = a.M.Restart(s.ID), a.t("%s wird neu gestartet.", s.Name)
 	default:
-		err = errors.New("unbekannte Aktion")
+		err = errors.New(a.t("unbekannte Aktion"))
 	}
 	if err != nil {
-		fail(w, err.Error())
+		fail(w, a.t(err.Error()))
 		return
 	}
 	toast(w, msg, "")
@@ -561,15 +570,15 @@ func (a *App) serverCommand(w http.ResponseWriter, r *http.Request) {
 	}
 	cmd := strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(r.FormValue("cmd")), "/"))
 	if cmd == "" || len(cmd) > 400 || strings.ContainsAny(cmd, "\n\r") {
-		fail(w, "Ungültiger Befehl.")
+		a.fail(w, "Ungültiger Befehl.")
 		return
 	}
 	switch st := a.M.View(r.Context(), s, false).Status; {
 	case st == server.StatusPaused:
-		fail(w, "Der Server ist pausiert. Er wacht auf, sobald sich ein Spieler verbindet; RCON-Befehle wecken ihn nicht.")
+		a.fail(w, "Der Server ist pausiert. Er wacht auf, sobald sich ein Spieler verbindet; RCON-Befehle wecken ihn nicht.")
 		return
 	case !st.Live() && st != server.StatusStarting:
-		fail(w, "Der Server läuft nicht.")
+		a.fail(w, "Der Server läuft nicht.")
 		return
 	}
 	var b strings.Builder
@@ -601,12 +610,17 @@ func (a *App) serverSettings(w http.ResponseWriter, r *http.Request) {
 	}
 	extra, err := server.ParseEnv(r.FormValue("extraEnv"))
 	if err != nil {
-		fail(w, "Zusätzliche Variablen: "+err.Error())
+		var le *server.EnvLineError
+		if errors.As(err, &le) {
+			a.fail(w, "Zusätzliche Variablen: Zeile %d: erwartet KEY=WERT", le.Line)
+		} else {
+			a.fail(w, "Zusätzliche Variablen: %s", err.Error())
+		}
 		return
 	}
 	port := formInt(r, "port", s.Port, 1, 65535)
 	if a.M.PortTaken(port, s.ID) {
-		fail(w, fmt.Sprintf("Port %d nutzt schon ein anderer Server.", port))
+		a.fail(w, "Port %d nutzt schon ein anderer Server.", port)
 		return
 	}
 	s.Port = port
@@ -634,14 +648,14 @@ func (a *App) serverSettings(w http.ResponseWriter, r *http.Request) {
 	s.ExtraEnv = extra
 	restart := r.FormValue("apply") == "1"
 	if err := a.M.Apply(s, false, restart); err != nil {
-		fail(w, err.Error())
+		fail(w, a.t(err.Error()))
 		return
 	}
 	if restart {
 		redirect(w, r, "/servers/"+s.ID+"?tab=console")
 		return
 	}
-	toast(w, "Gespeichert. Greift beim nächsten Neustart.", "ok")
+	a.toast(w, "ok", "Gespeichert. Greift beim nächsten Neustart.")
 	w.WriteHeader(http.StatusNoContent)
 }
 
@@ -653,14 +667,14 @@ func (a *App) serverPlayers(w http.ResponseWriter, r *http.Request) {
 	list, op := r.PathValue("list"), r.PathValue("op")
 	name := strings.TrimSpace(r.FormValue("player"))
 	if !server.ValidPlayerName(name) {
-		fail(w, "Spielernamen bestehen aus 2–16 Buchstaben, Ziffern oder Unterstrichen.")
+		a.fail(w, "Spielernamen bestehen aus 2–16 Buchstaben, Ziffern oder Unterstrichen.")
 		return
 	}
 	v := a.M.View(r.Context(), s, false)
 	cmds := map[string][2]string{"whitelist": {"whitelist add ", "whitelist remove "}, "ops": {"op ", "deop "}, "bans": {"ban ", "pardon "}}
 	c, ok := cmds[list]
 	if !ok || (op != "add" && op != "remove") {
-		fail(w, "Unbekannte Liste.")
+		a.fail(w, "Unbekannte Liste.")
 		return
 	}
 	edit := func(in []string) []string {
@@ -683,23 +697,23 @@ func (a *App) serverPlayers(w http.ResponseWriter, r *http.Request) {
 	}
 	if list != "bans" {
 		if err := a.M.Apply(s, false, false); err != nil {
-			fail(w, err.Error())
+			fail(w, a.t(err.Error()))
 			return
 		}
 	}
-	msg := name + map[string]string{"add": " hinzugefügt.", "remove": " entfernt."}[op]
+	msg := a.t(map[string]string{"add": "%s hinzugefügt.", "remove": "%s entfernt."}[op], name)
 	if v.Status.Live() {
 		cmd := c[0]
 		if op == "remove" {
 			cmd = c[1]
 		}
 		if _, err := a.M.RCON(r.Context(), s, cmd+name); err != nil {
-			msg += " RCON: " + err.Error()
+			msg += " " + a.t("RCON: %s", err.Error())
 		} else if list == "bans" {
 			time.Sleep(300 * time.Millisecond) // banned-players.json is written asynchronously
 		}
 	} else if list == "bans" {
-		fail(w, "Bans gehen nur, während der Server läuft.")
+		a.fail(w, "Bans gehen nur, während der Server läuft.")
 		return
 	}
 	a.M.Forget(s.ID)
@@ -767,24 +781,24 @@ func (a *App) updatePost(w http.ResponseWriter, r *http.Request) {
 			valid = valid || x.ID == t
 		}
 		if !valid || v == "" {
-			fail(w, "Bitte Version und Software wählen.")
+			a.fail(w, "Bitte Version und Software wählen.")
 			return
 		}
 		if sources.IsVersion(s.Version) && sources.CompareMC(v, s.Version) < 0 && !checked(r, "allowDowngrade") {
-			fail(w, "Downgrade von "+s.Version+" auf "+v+" nur mit ausdrücklicher Bestätigung.")
+			a.fail(w, "Downgrade von %s auf %s nur mit ausdrücklicher Bestätigung.", s.Version, v)
 			return
 		}
 		s.Version, s.Type = v, t
 		s.JavaTag = a.M.Sources.JavaTag(ctx, v)
-		msg = fmt.Sprintf("Update auf %s %s gestartet.", server.TypeName(t), v)
+		msg = a.t("Update auf %s %s gestartet.", server.TypeName(t), v)
 	case "pack":
 		if s.Pack == nil {
-			fail(w, "Kein Modpack-Server.")
+			a.fail(w, "Kein Modpack-Server.")
 			return
 		}
 		vs, err := a.packVersions(ctx, s.Kind, s.Pack.Slug, s.Pack.ProjectID)
 		if err != nil {
-			fail(w, err.Error())
+			fail(w, a.t(err.Error()))
 			return
 		}
 		var pv *sources.PackVersion
@@ -794,7 +808,7 @@ func (a *App) updatePost(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 		if pv == nil {
-			fail(w, "Version nicht gefunden.")
+			a.fail(w, "Version nicht gefunden.")
 			return
 		}
 		s.Pack.Version, s.Pack.VersionLabel, s.Pack.MC = pv.ID, pv.Name, pv.MC
@@ -805,12 +819,12 @@ func (a *App) updatePost(w http.ResponseWriter, r *http.Request) {
 			s.Version = pv.MC
 			s.JavaTag = a.M.Sources.JavaTag(ctx, pv.MC)
 		}
-		msg = fmt.Sprintf("Update auf %s %s gestartet.", s.Pack.Name, pv.Name)
+		msg = a.t("Update auf %s %s gestartet.", s.Pack.Name, pv.Name)
 	default:
-		msg = "Image wird aktualisiert."
+		msg = a.t("Image wird aktualisiert.")
 	}
 	if err := a.M.ApplyUpdate(s, true, true, checked(r, "backupFirst")); err != nil {
-		fail(w, err.Error())
+		fail(w, a.t(err.Error()))
 		return
 	}
 	toast(w, msg, "", "fc-close-modal")
@@ -831,7 +845,7 @@ func (a *App) uninstallPost(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if r.FormValue("confirm") != s.ID {
-		fail(w, "Bestätigung stimmt nicht.")
+		a.fail(w, "Bestätigung stimmt nicht.")
 		return
 	}
 	mode := manager.RemoveKeepData
@@ -842,7 +856,7 @@ func (a *App) uninstallPost(w http.ResponseWriter, r *http.Request) {
 		mode = manager.RemoveBackup
 	}
 	if err := a.M.Uninstall(s.ID, mode); err != nil {
-		fail(w, err.Error())
+		fail(w, a.t(err.Error()))
 		return
 	}
 	redirect(w, r, "/")
@@ -875,25 +889,31 @@ func (a *App) settingsPage(w http.ResponseWriter, r *http.Request) {
 		d.DockerErr = err.Error()
 	}
 	d.Docker = info
-	a.render(w, r, "settings", Page{Title: "Einstellungen", Nav: "settings", Data: d})
+	a.render(w, r, "settings", Page{Title: a.t("Einstellungen"), Nav: "settings", Data: d})
 }
 
 func (a *App) settingsPost(w http.ResponseWriter, r *http.Request) {
 	pmin, pmax := formInt(r, "portMin", 25565, 1024, 65535), formInt(r, "portMax", 25600, 1024, 65535)
 	if pmax < pmin {
-		fail(w, "Der Port-Bereich ist ungültig.")
+		a.fail(w, "Der Port-Bereich ist ungültig.")
 		return
 	}
 	tz := strings.TrimSpace(r.FormValue("timezone"))
 	if tz != "" {
 		if _, err := time.LoadLocation(tz); err != nil || tz == "Local" {
-			fail(w, fmt.Sprintf("Unbekannte Zeitzone „%s“. Erwartet wird ein Name wie Europe/Berlin oder UTC.", tz))
+			a.fail(w, "Unbekannte Zeitzone „%s“. Erwartet wird ein Name wie Europe/Berlin oder UTC.", tz)
 			return
 		}
 	}
+	lang := r.FormValue("language")
+	if !i18n.Valid(lang) {
+		lang = a.lang()
+	}
 	tzChanged := tz != a.Cfg.Get().Timezone
+	langChanged := lang != a.lang()
 	err := a.Cfg.Update(func(s *config.Settings) {
 		s.Timezone = tz
+		s.Language = lang
 		s.CFAPIKey = strings.TrimSpace(r.FormValue("cfApiKey"))
 		s.PortMin, s.PortMax = pmin, pmax
 		s.DefaultMemoryGB = formInt(r, "defaultMemoryGb", 4, 1, 64)
@@ -901,27 +921,29 @@ func (a *App) settingsPost(w http.ResponseWriter, r *http.Request) {
 		s.DefaultAutopause = checked(r, "defaultAutopause")
 	})
 	if err != nil {
-		fail(w, err.Error())
+		fail(w, a.t(err.Error()))
 		return
 	}
 	if tzChanged {
 		a.M.WakeScheduler()
-		redirect(w, r, "/settings") // reload so the shown time and dates use the new zone
+	}
+	if tzChanged || langChanged {
+		redirect(w, r, "/settings") // full reload so texts, numbers and dates use the new setting
 		return
 	}
-	toast(w, "Einstellungen gespeichert.", "ok")
+	a.toast(w, "ok", "Einstellungen gespeichert.")
 	w.WriteHeader(http.StatusNoContent)
 }
 
 func (a *App) passwordPost(w http.ResponseWriter, r *http.Request) {
 	if !auth.CheckPassword(a.Cfg.Get().PasswordHash, r.FormValue("current")) {
 		a.lim.Fail(r)
-		fail(w, "Das aktuelle Passwort ist falsch.")
+		a.fail(w, "Das aktuelle Passwort ist falsch.")
 		return
 	}
 	pw := r.FormValue("password")
 	if len(pw) < 10 || pw != r.FormValue("password2") {
-		fail(w, "Neues Passwort: mindestens 10 Zeichen und beide Felder gleich.")
+		a.fail(w, "Neues Passwort: mindestens 10 Zeichen und beide Felder gleich.")
 		return
 	}
 	hash, err := auth.HashPassword(pw)
@@ -929,11 +951,11 @@ func (a *App) passwordPost(w http.ResponseWriter, r *http.Request) {
 		err = a.Cfg.Update(func(s *config.Settings) { s.PasswordHash = hash })
 	}
 	if err != nil {
-		fail(w, err.Error())
+		fail(w, a.t(err.Error()))
 		return
 	}
 	a.sess.Issue(w) // the old cookie is now invalid
-	toast(w, "Passwort geändert. Andere Sitzungen sind abgemeldet.", "ok")
+	a.toast(w, "ok", "Passwort geändert. Andere Sitzungen sind abgemeldet.")
 	w.WriteHeader(http.StatusNoContent)
 }
 

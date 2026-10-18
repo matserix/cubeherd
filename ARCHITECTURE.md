@@ -131,3 +131,16 @@ internal/web          Handler, Templates, SSE, statische Assets
   Log-Zeilen des laufenden Containers inkrementell und zeigt dann „Wird eingerichtet“ bzw. „Startet“ statt „Reagiert nicht“.
 - **`MALLOC_ARENA_MAX=2`** wird bei Modpack- und Mod-Servern gesetzt. ATM10, gemessen jeweils 234 s nach dem Start:
   Speicher außerhalb des Heaps 1,63 GiB → 1,46 GiB (−0,17 GiB, ~10 %).
+
+## Sprache
+
+- Deutsch und Englisch. Deutsch ist die Quellsprache und der deutsche Text der Schlüssel; jede weitere Sprache ist eine
+  JSON-Datei in `internal/i18n/` (`<code>.json`) plus ein Eintrag in `i18n.Languages`.
+- Die Sprache ist eine globale Einstellung (ein Admin). Bestehende Installationen ohne Einstellung bleiben deutsch;
+  bei einer frischen Einrichtung schlägt Forgecraft die Sprache aus `Accept-Language` vor.
+- Pro Sprache gibt es einen eigenen Template-Satz mit eigenen Formatfunktionen (Dezimaltrennzeichen, Datumsformat, „Heute/Today“);
+  auch die SSE-Teilansichten nutzen ihn. Ein Sprachwechsel lädt die Seite neu.
+- Meldungen mit Werten übersetzt der Manager beim Erzeugen (`m.t("Port %d …", port)`), feste Fehlertexte übersetzt die
+  Weboberfläche beim Anzeigen. Minecraft- und itzg-Logzeilen werden nie übersetzt.
+- `TestCatalogsComplete` prüft beide Richtungen: Jeder verwendete Text hat eine Übersetzung, und jede Übersetzung wird noch
+  verwendet. Außerdem müssen die Formatplatzhalter übereinstimmen.

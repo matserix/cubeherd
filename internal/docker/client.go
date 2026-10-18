@@ -48,7 +48,7 @@ func New() (*Client, error) {
 		}
 	}
 	if host == "" {
-		return nil, errors.New("kein Docker-Socket gefunden; DOCKER_HOST setzen")
+		return nil, errors.New("no Docker socket found; set DOCKER_HOST")
 	}
 	u, err := url.Parse(host)
 	if err != nil {
@@ -66,7 +66,7 @@ func New() (*Client, error) {
 	case "tcp", "http":
 		base = "http://" + u.Host + "/" + apiVersion
 	default:
-		return nil, fmt.Errorf("DOCKER_HOST-Schema %q wird nicht unterstützt", u.Scheme)
+		return nil, fmt.Errorf("DOCKER_HOST scheme %q is not supported", u.Scheme)
 	}
 	tr := &http.Transport{DialContext: dial, MaxIdleConns: 4, IdleConnTimeout: 30 * time.Second}
 	return &Client{

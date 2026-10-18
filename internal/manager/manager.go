@@ -20,11 +20,14 @@ import (
 
 	"forgecraft/internal/config"
 	"forgecraft/internal/docker"
+	"forgecraft/internal/i18n"
 	"forgecraft/internal/server"
 	"forgecraft/internal/sources"
 )
 
 type Manager struct {
+	// Lang returns the interface language for messages (set by main; German if nil).
+	Lang    func() string
 	Docker  *docker.Client
 	Store   *server.Store
 	Config  *config.Store
@@ -145,13 +148,28 @@ func (m *Manager) crashReason(ctx context.Context, s *server.Server, c *docker.C
 		// Restart loop: the previous run was usually killed without a message; guessing misleads.
 		reason = server.KnownCrashReason(lines)
 	}
+	// Hint lines are German source texts; log lines pass through unchanged.
+	parts := strings.Split(reason, "\n")
+	for i := range parts {
+		parts[i] = m.t(parts[i])
+	}
+	reason = strings.Join(parts, "\n")
 	if c.State.OOMKilled {
-		reason = fmt.Sprintf("Der Container hat sein Speicherlimit von %d GB überschritten und wurde beendet. Arbeitsspeicher in den Einstellungen erhöhen.", s.MemoryGB)
+		reason = m.t("Der Container hat sein Speicherlimit von %d GB überschritten und wurde beendet. Arbeitsspeicher in den Einstellungen erhöhen.", s.MemoryGB)
 	}
 	m.mu.Lock()
 	m.crash[s.ID] = crashEntry{c.State.FinishedAt, reason}
 	m.mu.Unlock()
 	return reason
+}
+
+// t translates a German source text into the interface language.
+func (m *Manager) t(key string, args ...any) string {
+	lang := i18n.Source
+	if m.Lang != nil {
+		lang = m.Lang()
+	}
+	return i18n.T(lang, key, args...)
 }
 
 func New(d *docker.Client, st *server.Store, cfg *config.Store, src *sources.Client) *Manager {
@@ -216,7 +234,7 @@ func (m *Manager) run(id string, st server.Status, fn func(o *Op) error) error {
 	m.mu.Lock()
 	if o := m.ops[id]; o != nil && !o.done {
 		m.mu.Unlock()
-		return ErrBusy
+		return errors.New(m.t(ErrBusy.Error()))
 	}
 	o := &Op{Status: st, notify: make(chan struct{})}
 	m.ops[id] = o
@@ -224,7 +242,7 @@ func (m *Manager) run(id string, st server.Status, fn func(o *Op) error) error {
 	go func() {
 		err := fn(o)
 		if err != nil {
-			o.add("[forgecraft] Fehler: " + err.Error())
+			o.add("[forgecraft] " + m.t("Fehler: %s", err.Error()))
 			log.Printf("%s %s: %v", id, st, err)
 		}
 		o.mu.Lock()
@@ -258,7 +276,7 @@ func (m *Manager) compose(ctx context.Context, s *server.Server, o *Op, args ...
 	if err := sc.Err(); err != nil {
 		var ee *exec.ExitError
 		if errors.As(err, &ee) {
-			return fmt.Errorf("docker compose %s fehlgeschlagen (Exit %d)", args[0], ee.ExitCode())
+			return fmt.Errorf(m.t("docker compose %s fehlgeschlagen (Exit %d)"), args[0], ee.ExitCode())
 		}
 		return err
 	}
@@ -401,7 +419,7 @@ func (m *Manager) players(ctx context.Context, s *server.Server) ([]string, int,
 	}
 	mm := listRe.FindStringSubmatch(server.CleanLine(out))
 	if mm == nil {
-		return nil, 0, fmt.Errorf("unerwartete Antwort: %q", out)
+		return nil, 0, fmt.Errorf(m.t("unerwartete Antwort: %q"), out)
 	}
 	max, _ := strconv.Atoi(mm[2])
 	var names []string
@@ -451,7 +469,7 @@ func (m *Manager) Loc() *time.Location {
 // Create saves a new server and brings it up in the background.
 func (m *Manager) Create(s *server.Server) error {
 	if m.Store.Exists(s.ID) {
-		return fmt.Errorf("Die ID „%s“ ist schon vergeben", s.ID)
+		return fmt.Errorf(m.t("Die ID „%s“ ist schon vergeben"), s.ID)
 	}
 	if err := m.Store.Save(s, m.globals()); err != nil {
 		return err
@@ -459,7 +477,7 @@ func (m *Manager) Create(s *server.Server) error {
 	return m.run(s.ID, server.StatusInstalling, func(o *Op) error {
 		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Minute)
 		defer cancel()
-		o.add("[forgecraft] Compose-Datei geschrieben: " + filepath.Join(m.Store.Dir(s.ID), "compose.yml"))
+		o.add("[forgecraft] " + m.t("Compose-Datei geschrieben: %s", filepath.Join(m.Store.Dir(s.ID), "compose.yml")))
 		if err := m.compose(ctx, s, o, "pull", "--quiet"); err != nil {
 			return err
 		}
@@ -490,7 +508,7 @@ func (m *Manager) Stop(id string) error {
 		return err
 	}
 	return m.run(id, server.StatusStopping, func(o *Op) error {
-		o.add("[forgecraft] Server wird gestoppt, Welt wird gespeichert")
+		o.add("[forgecraft] " + m.t("Server wird gestoppt, Welt wird gespeichert"))
 		return m.Docker.Stop(context.Background(), s.Container(), time.Minute)
 	})
 }
@@ -535,7 +553,7 @@ func (m *Manager) ApplyUpdate(s *server.Server, pull, restart, backupFirst bool)
 			old, err := m.Store.Get(s.ID)
 			if err == nil {
 				if _, err := m.backup(ctx, old, o, ReasonUpdate, m.BackupDir(old), ""); err != nil {
-					return fmt.Errorf("Backup vor dem Update fehlgeschlagen, Update abgebrochen: %w", err)
+					return fmt.Errorf(m.t("Backup vor dem Update fehlgeschlagen, Update abgebrochen: %w"), err)
 				}
 			}
 		}
@@ -570,7 +588,7 @@ func (m *Manager) Uninstall(id, mode string) error {
 		defer cancel()
 		if mode == RemoveBackup {
 			if _, err := m.backup(ctx, s, o, ReasonUninstall, m.ArchiveDir(), s.ID+"-"); err != nil {
-				return fmt.Errorf("Abschluss-Backup fehlgeschlagen, nichts gelöscht: %w", err)
+				return fmt.Errorf(m.t("Abschluss-Backup fehlgeschlagen, nichts gelöscht: %w"), err)
 			}
 		}
 		if err := m.compose(ctx, s, o, "down", "--timeout", "60"); err != nil {
@@ -588,10 +606,10 @@ func (m *Manager) Uninstall(id, mode string) error {
 		}
 		if err := m.Store.RemoveDir(id); err != nil && errors.Is(err, fs.ErrPermission) {
 			// Files written by the container user: remove them from inside a throwaway container.
-			o.add("[forgecraft] Dateien gehören dem Container-Benutzer, lösche per Docker")
+			o.add("[forgecraft] " + m.t("Dateien gehören dem Container-Benutzer, lösche per Docker"))
 			cmd := exec.CommandContext(ctx, "docker", "run", "--rm", "-v", m.Store.Dir(id)+":/x", "--entrypoint", "rm", s.ImageRef(), "-rf", "/x/data")
 			if out, err := cmd.CombinedOutput(); err != nil {
-				return fmt.Errorf("löschen fehlgeschlagen: %s", strings.TrimSpace(string(out)))
+				return fmt.Errorf(m.t("löschen fehlgeschlagen: %s"), strings.TrimSpace(string(out)))
 			}
 			return m.Store.RemoveDir(id)
 		} else if err != nil {
