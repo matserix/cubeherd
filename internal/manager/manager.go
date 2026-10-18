@@ -40,6 +40,8 @@ type Manager struct {
 	cache map[string]cacheEntry
 	phase map[string]*phaseEntry
 
+	rcache map[string]remoteEntry // external backup listings per server
+
 	wake     chan struct{}        // scheduler: recompute next backup
 	attempts map[string]time.Time // scheduler: last attempt per server (also skipped ones)
 }
@@ -173,7 +175,7 @@ func (m *Manager) t(key string, args ...any) string {
 }
 
 func New(d *docker.Client, st *server.Store, cfg *config.Store, src *sources.Client) *Manager {
-	return &Manager{Docker: d, Store: st, Config: cfg, Sources: src, ops: map[string]*Op{}, disk: map[string]diskEntry{}, crash: map[string]crashEntry{}, cache: map[string]cacheEntry{}, phase: map[string]*phaseEntry{},
+	return &Manager{Docker: d, Store: st, Config: cfg, Sources: src, ops: map[string]*Op{}, disk: map[string]diskEntry{}, crash: map[string]crashEntry{}, cache: map[string]cacheEntry{}, phase: map[string]*phaseEntry{}, rcache: map[string]remoteEntry{},
 		wake: make(chan struct{}, 1), attempts: map[string]time.Time{}}
 }
 

@@ -23,6 +23,10 @@ type Backup struct {
 	Time   time.Time
 	Reason string
 	Size   int64
+	Local  bool // archive exists in servers/<id>/backups
+	Remote bool // archive exists in the external storage
+	// UploadErr is set by backup() when the archive was made but the external upload failed.
+	UploadErr error
 }
 
 const (
@@ -75,7 +79,7 @@ func (m *Manager) Backups(s *server.Server) ([]Backup, error) {
 		}
 		// The name is only a label; the file time is authoritative, so changing the time zone
 		// never shifts existing backups.
-		b := Backup{Name: e.Name(), Reason: mm[2]}
+		b := Backup{Name: e.Name(), Reason: mm[2], Local: true}
 		if info, err := e.Info(); err == nil {
 			b.Size, b.Time = info.Size(), info.ModTime()
 		} else if t, err := time.ParseInLocation("20060102-150405", mm[1], m.Loc()); err == nil {
@@ -223,6 +227,14 @@ func (m *Manager) backup(ctx context.Context, s *server.Server, o *Op, reason, d
 			o.add("[cubeherd] " + m.t("%d alte automatische Backups gelöscht", n))
 		}
 	}
+	if prefix == "" && s.Plan().Remote && m.remote() != nil {
+		if err := m.upload(ctx, s, o, name); err != nil {
+			b.UploadErr = fmt.Errorf(m.t("Upload in den externen Speicher fehlgeschlagen: %w"), err)
+			o.add("[cubeherd] " + m.t("Warnung: %s", b.UploadErr.Error()))
+		} else {
+			b.Remote = true
+		}
+	}
 	return b, nil
 }
 
@@ -272,12 +284,18 @@ func (m *Manager) Restore(id, name string) error {
 	if err != nil {
 		return err
 	}
-	if _, err := m.BackupPath(s, name); err != nil {
+	_, localErr := m.BackupPath(s, name)
+	if localErr != nil && !m.hasRemoteBackup(s, name) {
 		return errors.New(m.t("Backup nicht gefunden"))
 	}
 	return m.run(id, server.StatusRestoring, func(o *Op) error {
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Hour)
 		defer cancel()
+		if localErr != nil {
+			if err := m.fetch(ctx, s, o, name); err != nil {
+				return fmt.Errorf(m.t("Download aus dem externen Speicher fehlgeschlagen: %w"), err)
+			}
+		}
 		c := m.inspect(ctx, s)
 		wasUp := c != nil && c.State.Running
 		if wasUp {

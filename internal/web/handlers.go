@@ -18,6 +18,7 @@ import (
 	"cubeherd/internal/host"
 	"cubeherd/internal/i18n"
 	"cubeherd/internal/manager"
+	"cubeherd/internal/s3"
 	"cubeherd/internal/server"
 	"cubeherd/internal/sources"
 )
@@ -457,7 +458,7 @@ func (a *App) serverPageData(ctx context.Context, s *server.Server, tabKey strin
 	case "players":
 		d.Bans = a.bans(s)
 	case "backups":
-		d.Backups = a.backupsData(s, d.V.Status)
+		d.Backups = a.backupsData(ctx, s, d.V.Status)
 	}
 	return d
 }
@@ -911,7 +912,13 @@ func (a *App) settingsPost(w http.ResponseWriter, r *http.Request) {
 	}
 	tzChanged := tz != a.Cfg.Get().Timezone
 	langChanged := lang != a.lang()
+	remote, rerr := a.remoteFromForm(r)
+	if rerr != nil {
+		fail(w, a.t(rerr.Error()))
+		return
+	}
 	err := a.Cfg.Update(func(s *config.Settings) {
+		s.Remote = remote
 		s.Timezone = tz
 		s.Language = lang
 		s.CFAPIKey = strings.TrimSpace(r.FormValue("cfApiKey"))
@@ -924,6 +931,7 @@ func (a *App) settingsPost(w http.ResponseWriter, r *http.Request) {
 		fail(w, a.t(err.Error()))
 		return
 	}
+	a.M.InvalidateRemote()
 	if tzChanged {
 		a.M.WakeScheduler()
 	}
@@ -970,4 +978,45 @@ func (a *App) cfCheck(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	fmt.Fprint(w, `<span style="color:var(--ok)">Gültig. Speichern nicht vergessen.</span>`)
+}
+
+// remoteFromForm reads the external storage fields. An empty secret keeps the saved one;
+// without endpoint and bucket the external storage is switched off.
+func (a *App) remoteFromForm(r *http.Request) (*s3.Config, error) {
+	c := s3.Config{
+		Endpoint: strings.TrimSpace(r.FormValue("s3Endpoint")), Region: strings.TrimSpace(r.FormValue("s3Region")),
+		Bucket: strings.TrimSpace(r.FormValue("s3Bucket")), Prefix: strings.TrimSpace(r.FormValue("s3Prefix")),
+		AccessKey: strings.TrimSpace(r.FormValue("s3AccessKey")), SecretKey: strings.TrimSpace(r.FormValue("s3SecretKey")),
+		PathStyle: checked(r, "s3PathStyle"),
+	}
+	if c.Endpoint == "" && c.Bucket == "" && c.AccessKey == "" && c.SecretKey == "" {
+		return nil, nil
+	}
+	if c.SecretKey == "" {
+		if old := a.Cfg.Get().Remote; old != nil {
+			c.SecretKey = old.SecretKey
+		}
+	}
+	if !c.Valid() {
+		return nil, errors.New(a.t("Für den externen Speicher werden Endpoint, Bucket, Access Key und Secret Key gebraucht."))
+	}
+	if _, err := s3.New(c); err != nil {
+		return nil, fmt.Errorf(a.t("Ungültiger Endpoint: %s"), err.Error())
+	}
+	return &c, nil
+}
+
+func (a *App) remoteCheck(w http.ResponseWriter, r *http.Request) {
+	c, err := a.remoteFromForm(r)
+	if err == nil && c == nil {
+		err = errors.New(a.t("Kein externer Speicher eingetragen."))
+	}
+	if err == nil {
+		err = manager.CheckRemote(r.Context(), *c)
+	}
+	if err != nil {
+		fmt.Fprintf(w, `<span style="color:var(--crit)">%s</span>`, template.HTMLEscapeString(a.t(err.Error())))
+		return
+	}
+	fmt.Fprintf(w, `<span style="color:var(--ok)">%s</span>`, template.HTMLEscapeString(a.t("Verbindung erfolgreich. Speichern nicht vergessen.")))
 }

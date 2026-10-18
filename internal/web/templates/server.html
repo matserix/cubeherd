@@ -126,6 +126,8 @@
         <label class="switch"><input type="checkbox" name="beforeUpdate" {{if $p.BeforeUpdate}}checked{{end}}><span class="txt">{{t "Vor jedem Update sichern"}}<small>{{t "Ermöglicht den Rückweg, falls ein Update die Welt beschädigt."}}</small></span></label>
         <label class="switch"><input type="checkbox" name="onlyIfActive" {{if $p.OnlyIfActive}}checked{{end}}><span class="txt">{{t "Nur sichern, wenn der Server läuft"}}<small>{{t "Gestoppte oder pausierte Server ändern sich nicht."}}</small></span></label>
       </div>
+      {{if .Remote}}<label class="switch"><input type="checkbox" name="remote" {{if $p.Remote}}checked{{end}}><span class="txt">{{t "Auch im externen Speicher sichern"}}<small>{{t "Jedes Backup dieses Servers wird nach dem Erstellen automatisch hochgeladen. Die Aufbewahrung gilt auch dort."}}</small></span></label>
+      {{else}}<p class="muted" style="font-size:12px">{{t "Kein externer Speicher eingerichtet."}} <a href="/settings">{{t "Einstellungen"}}</a></p>{{end}}
       <div class="actions" style="justify-content:space-between">
         <p class="muted" style="font-size:12px">{{t "Ablauf:"}} <span class="mono">save-off</span> → {{t "Archiv (zstd, niedrige Priorität)"}} → <span class="mono">save-on</span>. {{t "Spieler bleiben verbunden."}}</p>
         <button class="btn">{{t "Zeitplan speichern"}}</button>
@@ -140,14 +142,17 @@
 <div class="panel" {{if .Busy}}hx-get="/servers/{{.ID}}/backups/list" hx-trigger="every 3s" hx-target="#backup-list"{{end}}>
   <div class="panel-head"><h2>{{t "Vorhandene Backups"}} <span class="muted num" style="font-weight:400">{{len .List}}</span></h2>
     <span class="muted" style="font-size:12px">{{if .List}}{{t "%s belegt" (mb .Total)}} · {{end}}{{if .Next.IsZero}}{{t "Kein Zeitplan"}}{{else}}{{t "Nächstes geplant: %s" (dt .Next)}}{{end}}{{if .Busy}} · <span class="spin-on-req" style="display:inline-block;vertical-align:-2px"></span> {{t "Aktion läuft"}}{{end}}</span></div>
-  <div class="tbl-wrap"><table class="tbl"><thead><tr><th>{{t "Zeitpunkt"}}</th><th>{{t "Anlass"}}</th><th class="hide-sm">{{t "Größe"}}</th><th class="right"></th></tr></thead><tbody>
+  {{if .RemoteError}}<div class="callout warn"><div><b>{{t "Externer Speicher nicht erreichbar"}}</b><span class="muted">{{.RemoteError}}</span></div></div>{{end}}
+  <div class="tbl-wrap"><table class="tbl"><thead><tr><th>{{t "Zeitpunkt"}}</th><th>{{t "Anlass"}}</th><th class="hide-sm">{{t "Größe"}}</th>{{if .Remote}}<th class="hide-sm">{{t "Speicherort"}}</th>{{end}}<th class="right"></th></tr></thead><tbody>
   {{range .List}}<tr><td class="num">{{dt .Time}}</td><td>{{t .Label}}</td><td class="hide-sm num">{{mb .Size}}</td>
+    {{if $.Remote}}<td class="hide-sm">{{if and .Local .Remote}}{{t "Lokal + extern"}}{{else if .Remote}}{{t "Extern"}}{{else}}{{t "Lokal"}}{{end}}</td>{{end}}
     <td class="right"><div class="actions" style="justify-content:flex-end">
       <button class="btn sm" hx-get="/servers/{{$.ID}}/backups/{{.Name}}/restore" hx-target="#modal-card" {{if $.Busy}}disabled{{end}}>{{t "Wiederherstellen"}}</button>
+      {{if and $.Remote .Local (not .Remote)}}<button class="btn sm ghost" hx-post="/servers/{{$.ID}}/backups/{{.Name}}/upload" hx-target="#backup-list" {{if $.Busy}}disabled{{end}}>{{t "Hochladen"}}</button>{{end}}
       <a class="btn sm ghost" href="/servers/{{$.ID}}/backups/{{.Name}}" download style="text-decoration:none">{{t "Herunterladen"}}</a>
-      <button class="btn sm ghost" hx-post="/servers/{{$.ID}}/backups/{{.Name}}/delete" hx-target="#backup-list" {{if $.Busy}}disabled{{end}}>{{t "Löschen"}}</button>
+      <button class="btn sm ghost" hx-post="/servers/{{$.ID}}/backups/{{.Name}}/delete" hx-target="#backup-list" {{if .Remote}}hx-confirm="{{t "Dieses Backup auch aus dem externen Speicher löschen?"}}"{{end}} {{if $.Busy}}disabled{{end}}>{{t "Löschen"}}</button>
     </div></td></tr>
-  {{else}}<tr><td colspan="4" class="muted">{{t "Noch keine Backups. „Jetzt sichern“ erstellt das erste."}}</td></tr>{{end}}
+  {{else}}<tr><td colspan="5" class="muted">{{t "Noch keine Backups. „Jetzt sichern“ erstellt das erste."}}</td></tr>{{end}}
   </tbody></table></div>
 </div>
 {{end}}
@@ -157,6 +162,7 @@
 <form hx-post="/servers/{{.S.ID}}/backups/{{.B.Name}}/restore">
 <div class="modal-body">
   <p>{{t "%s wird gestoppt, und Welt sowie Konfiguration werden durch den Stand vom %s (%s) ersetzt." .S.Name (dt .B.Time) (t .B.Label)}}</p>
+  {{if .Download}}<p class="muted">{{t "Das Backup liegt nur im externen Speicher und wird zuerst heruntergeladen."}}</p>{{end}}
   <div class="callout info"><div><b>{{t "Vorher wird gesichert"}}</b><span class="muted">{{t "Vom aktuellen Stand entsteht automatisch ein Backup „Vor Wiederherstellung“."}}{{if .Pack}} {{t "Die Mods des Modpacks bleiben unverändert."}}{{end}}</span></div></div>
 </div>
 <div class="modal-foot"><button class="btn ghost" type="button" data-close>{{t "Abbrechen"}}</button><button class="btn primary">{{t "Wiederherstellen"}} <span class="spin-on-req"></span></button></div>

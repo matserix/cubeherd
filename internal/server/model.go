@@ -164,7 +164,8 @@ type BackupPlan struct {
 	Time         string `json:"time"`     // HH:MM, local time
 	Keep         int    `json:"keep"`     // automatic backups to keep (manual ones are never pruned)
 	BeforeUpdate bool   `json:"beforeUpdate"`
-	OnlyIfActive bool   `json:"onlyIfActive"` // skip scheduled runs while the server is stopped or paused
+	OnlyIfActive bool   `json:"onlyIfActive"`     // skip scheduled runs while the server is stopped or paused
+	Remote       bool   `json:"remote,omitempty"` // also upload every backup to the external storage
 }
 
 // DefaultBackupPlan is used for new servers and servers created before backups existed.

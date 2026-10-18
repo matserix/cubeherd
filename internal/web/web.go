@@ -149,6 +149,7 @@ func (a *App) Handler() http.Handler {
 	mux.HandleFunc("GET /servers/{id}/backups/list", a.backupList)
 	mux.HandleFunc("POST /servers/{id}/backups/plan", a.backupPlan)
 	mux.HandleFunc("GET /servers/{id}/backups/{name}", a.backupDownload)
+	mux.HandleFunc("POST /servers/{id}/backups/{name}/upload", a.backupUpload)
 	mux.HandleFunc("POST /servers/{id}/backups/{name}/delete", a.backupDelete)
 	mux.HandleFunc("GET /servers/{id}/backups/{name}/restore", a.restoreModal)
 	mux.HandleFunc("POST /servers/{id}/backups/{name}/restore", a.restorePost)
@@ -159,6 +160,7 @@ func (a *App) Handler() http.Handler {
 	mux.HandleFunc("POST /settings", a.settingsPost)
 	mux.HandleFunc("POST /settings/password", a.passwordPost)
 	mux.HandleFunc("POST /settings/cf-check", a.cfCheck)
+	mux.HandleFunc("POST /settings/remote-check", a.remoteCheck)
 
 	return a.security(mux)
 }

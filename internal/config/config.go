@@ -9,6 +9,8 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
+
+	"cubeherd/internal/s3"
 )
 
 type Settings struct {
@@ -22,6 +24,8 @@ type Settings struct {
 	DefaultAutopause bool   `json:"defaultAutopause"`
 	Timezone         string `json:"timezone,omitempty"` // IANA name; "" = TZ env / system
 	Language         string `json:"language,omitempty"` // de | en; "" = German (installs before i18n)
+	// Remote is the optional S3 bucket that backups are uploaded to (nil = local backups only).
+	Remote *s3.Config `json:"remote,omitempty"`
 }
 
 type Store struct {

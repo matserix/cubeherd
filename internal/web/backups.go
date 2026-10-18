@@ -1,7 +1,9 @@
 package web
 
 import (
+	"context"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"regexp"
@@ -13,20 +15,28 @@ import (
 )
 
 type backupsData struct {
-	ID      string
-	Plan    server.BackupPlan
-	List    []manager.Backup
-	Total   int64
-	Next    time.Time
-	Busy    bool // a backup/restore runs: the list refreshes itself
-	Running bool
+	ID          string
+	Plan        server.BackupPlan
+	List        []manager.Backup
+	Total       int64
+	Next        time.Time
+	Busy        bool // a backup/restore runs: the list refreshes itself
+	Running     bool
+	Remote      bool   // an external storage is configured
+	RemoteError string // listing the external storage failed
 }
 
-func (a *App) backupsData(s *server.Server, st server.Status) backupsData {
-	d := backupsData{ID: s.ID, Plan: s.Plan(), Next: a.M.NextBackupFor(s), Busy: st.Busy(), Running: st.Up()}
-	d.List, _ = a.M.Backups(s)
+func (a *App) backupsData(ctx context.Context, s *server.Server, st server.Status) backupsData {
+	d := backupsData{ID: s.ID, Plan: s.Plan(), Next: a.M.NextBackupFor(s), Busy: st.Busy(), Running: st.Up(), Remote: a.M.HasRemote()}
+	var err error
+	d.List, err = a.M.BackupsAll(ctx, s)
+	if err != nil {
+		d.RemoteError = err.Error()
+	}
 	for _, b := range d.List {
-		d.Total += b.Size
+		if b.Local {
+			d.Total += b.Size
+		}
 	}
 	return d
 }
@@ -37,7 +47,7 @@ func (a *App) backupList(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	v := a.M.View(r.Context(), s, false)
-	a.partial(w, "server", "backupList", a.backupsData(s, v.Status))
+	a.partial(w, "server", "backupList", a.backupsData(r.Context(), s, v.Status))
 }
 
 func (a *App) backupCreate(w http.ResponseWriter, r *http.Request) {
@@ -69,6 +79,10 @@ func (a *App) backupPlan(w http.ResponseWriter, r *http.Request) {
 	p := server.BackupPlan{
 		Interval: r.FormValue("interval"), Time: strings.TrimSpace(r.FormValue("time")),
 		Keep: formInt(r, "keep", 7, 1, 100), BeforeUpdate: checked(r, "beforeUpdate"), OnlyIfActive: checked(r, "onlyIfActive"),
+		Remote: s.Plan().Remote,
+	}
+	if a.M.HasRemote() {
+		p.Remote = checked(r, "remote")
 	}
 	switch p.Interval {
 	case "off", "6h", "daily", "weekly":
@@ -91,7 +105,7 @@ func (a *App) backupPlan(w http.ResponseWriter, r *http.Request) {
 	} else {
 		a.toast(w, "ok", "Zeitplan gespeichert.")
 	}
-	a.partial(w, "server", "backupList", a.backupsData(s, a.M.View(r.Context(), s, false).Status))
+	a.partial(w, "server", "backupList", a.backupsData(r.Context(), s, a.M.View(r.Context(), s, false).Status))
 }
 
 func (a *App) backupDownload(w http.ResponseWriter, r *http.Request) {
@@ -101,7 +115,7 @@ func (a *App) backupDownload(w http.ResponseWriter, r *http.Request) {
 	}
 	p, err := a.M.BackupPath(s, r.PathValue("name"))
 	if err != nil {
-		http.NotFound(w, r)
+		a.remoteDownload(w, r, s)
 		return
 	}
 	f, err := os.Open(p)
@@ -116,12 +130,42 @@ func (a *App) backupDownload(w http.ResponseWriter, r *http.Request) {
 	http.ServeContent(w, r, "", info.ModTime(), f)
 }
 
+// remoteDownload streams an archive that only exists in the external storage.
+func (a *App) remoteDownload(w http.ResponseWriter, r *http.Request, s *server.Server) {
+	body, size, err := a.M.OpenRemote(r.Context(), s, r.PathValue("name"))
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+	defer body.Close()
+	w.Header().Set("Content-Type", "application/zstd")
+	w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="%s-%s"`, s.ID, r.PathValue("name")))
+	if size > 0 {
+		w.Header().Set("Content-Length", fmt.Sprint(size))
+	}
+	_, _ = io.Copy(w, body)
+}
+
+func (a *App) backupUpload(w http.ResponseWriter, r *http.Request) {
+	s, ok := a.loadServer(w, r)
+	if !ok {
+		return
+	}
+	if err := a.M.UploadBackup(s.ID, r.PathValue("name")); err != nil {
+		fail(w, a.t(err.Error()))
+		return
+	}
+	a.toast(w, "", "Upload läuft.")
+	time.Sleep(150 * time.Millisecond)
+	a.backupList(w, r)
+}
+
 func (a *App) backupDelete(w http.ResponseWriter, r *http.Request) {
 	s, ok := a.loadServer(w, r)
 	if !ok {
 		return
 	}
-	if err := a.M.DeleteBackup(s, r.PathValue("name")); err != nil {
+	if err := a.M.DeleteBackupEverywhere(r.Context(), s, r.PathValue("name")); err != nil {
 		a.fail(w, "Löschen fehlgeschlagen: %s", err.Error())
 		return
 	}
@@ -135,10 +179,10 @@ func (a *App) restoreModal(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	name := r.PathValue("name")
-	list, _ := a.M.Backups(s)
+	list, _ := a.M.BackupsAll(r.Context(), s)
 	for _, b := range list {
 		if b.Name == name {
-			a.partial(w, "server", "restoreModal", map[string]any{"S": s, "B": b, "Pack": s.Pack != nil})
+			a.partial(w, "server", "restoreModal", map[string]any{"S": s, "B": b, "Pack": s.Pack != nil, "Download": !b.Local})
 			return
 		}
 	}

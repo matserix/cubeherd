@@ -28,6 +28,23 @@
       </div>
     </div>
     <div class="form-sec">
+      <div class="intro"><h2>{{t "Externer Backup-Speicher"}}</h2><p>{{t "Optional: Backups zusätzlich in einen S3-kompatiblen Speicher hochladen (AWS S3, Backblaze B2, Hetzner, Wasabi, Cloudflare R2, MinIO). Pro Server schaltest du den Upload im Backup-Reiter ein."}}</p></div>
+      <div class="body">
+        {{$r := $c.Remote}}
+        <div class="grid-2">
+          <label class="field"><span>{{t "Endpoint"}}</span><input class="input mono" name="s3Endpoint" value="{{if $r}}{{$r.Endpoint}}{{end}}" placeholder="https://s3.eu-central-1.amazonaws.com" autocomplete="off" spellcheck="false"></label>
+          <label class="field"><span>{{t "Region"}}</span><input class="input mono" name="s3Region" value="{{if $r}}{{$r.Region}}{{end}}" placeholder="eu-central-1" autocomplete="off" spellcheck="false"></label>
+          <label class="field"><span>{{t "Bucket"}}</span><input class="input mono" name="s3Bucket" value="{{if $r}}{{$r.Bucket}}{{end}}" autocomplete="off" spellcheck="false"></label>
+          <label class="field"><span>{{t "Ordner im Bucket (optional)"}}</span><input class="input mono" name="s3Prefix" value="{{if $r}}{{$r.Prefix}}{{end}}" placeholder="cubeherd" autocomplete="off" spellcheck="false"></label>
+          <label class="field"><span>{{t "Access Key"}}</span><input class="input mono" name="s3AccessKey" value="{{if $r}}{{$r.AccessKey}}{{end}}" autocomplete="off" spellcheck="false"></label>
+          <label class="field"><span>{{t "Secret Key"}}</span><input class="input mono" name="s3SecretKey" type="password" value="" autocomplete="new-password" placeholder="{{if $r}}{{t "Gespeichert. Leer lassen, um ihn zu behalten."}}{{end}}"></label>
+        </div>
+        <label class="switch"><input type="checkbox" name="s3PathStyle" {{if $r}}{{if $r.PathStyle}}checked{{end}}{{else}}checked{{end}}><span class="txt">{{t "Path-Style-Adressen"}}<small>{{t "https://endpoint/bucket/key statt https://bucket.endpoint/key. Für MinIO und die meisten Fremdanbieter nötig."}}</small></span></label>
+        <div class="add-row"><button class="btn" type="button" hx-post="/settings/remote-check" hx-include="closest .body" hx-target="#s3-state">{{t "Verbindung prüfen"}}</button><small id="s3-state">{{if $r}}{{t "Hinterlegt."}}{{else}}{{t "Nicht hinterlegt."}}{{end}}</small></div>
+        <small class="muted">{{t "Zugangsdaten liegen unverschlüsselt in cubeherd.json (nur für den Benutzer lesbar). Lege dafür am besten einen Schlüssel an, der nur diesen Bucket schreiben darf."}}</small>
+      </div>
+    </div>
+    <div class="form-sec">
       <div class="intro"><h2>{{t "Standards für neue Server"}}</h2><p>{{t "Vorbelegung im Assistenten."}}</p></div>
       <div class="body">
         <div class="grid-2">

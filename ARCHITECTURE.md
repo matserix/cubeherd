@@ -52,6 +52,7 @@ internal/config       global settings (JSON, written atomically)
 internal/auth         password, session cookie, login throttling
 internal/docker       minimal Engine API client (list, inspect, start/stop, logs, stats, exec, info)
 internal/server       server definition, on-disk store, Compose generation, status derivation
+internal/s3           minimal S3 client (SigV4, multipart upload) for external backups, standard library only
 internal/sources      Mojang versions, Modrinth and CurseForge search (only on user action, cached)
 internal/host         host resources (Linux: /proc + statfs, otherwise Docker /info)
 internal/web          handlers, templates, SSE, static assets
@@ -113,6 +114,15 @@ internal/web          handlers, templates, SSE, static assets
   containers as `TZ` so that log timestamps match. A backup's time comes from the file date, the name is only a label –
   so changing the time zone does not shift existing backups.
 - Automatic backups are deleted according to the retention rule, manual ones never.
+- External storage (optional, S3-compatible): one bucket in the global settings, switched on per server in the backup plan.
+  After a backup is written locally it is uploaded to `<prefix>/<server id>/<name>`. Files up to 8 MiB go in one request, larger ones as a
+  multipart upload streamed from disk in 8 MiB parts (unsigned payload, so nothing is buffered in memory). An upload failure never
+  deletes the local archive; it is logged and makes the operation fail visibly, but does not abort updates or restores that
+  made the backup.
+- The retention rule applies to the bucket as well: after each upload, automatic archives beyond `Keep` are deleted there, manual ones never.
+- The backup tab merges local and remote listings (remote listings are cached for a minute and refreshed after uploads and deletes).
+  Remote-only archives can be downloaded, restored (they are fetched into the local folder first) and deleted; deleting removes every copy.
+- Credentials are stored in `cubeherd.json` (mode 0600), like the CurseForge key. The secret is never rendered back into the form.
 
 ## Findings from live tests
 
