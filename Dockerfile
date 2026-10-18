@@ -6,7 +6,7 @@ RUN go mod download
 COPY . .
 RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /cubeherd ./cmd/cubeherd
 
-# docker:cli bringt docker und das compose-Plugin mit; Cubeherd ruft "docker compose" auf.
+# docker:cli ships docker and the compose plugin; Cubeherd calls "docker compose".
 FROM docker:29-cli
 COPY --from=build /cubeherd /usr/local/bin/cubeherd
 COPY LICENSE THIRD_PARTY_NOTICES.md /usr/share/doc/cubeherd/
