@@ -1,4 +1,4 @@
-// Command forgecraft runs the lightweight dashboard for itzg/minecraft-server.
+// Command cubeherd runs the lightweight dashboard for itzg/minecraft-server.
 package main
 
 import (
@@ -13,14 +13,14 @@ import (
 	"time"
 	_ "time/tzdata" // TZ works in minimal images without zoneinfo
 
-	"forgecraft/internal/config"
-	"forgecraft/internal/docker"
-	"forgecraft/internal/host"
-	"forgecraft/internal/i18n"
-	"forgecraft/internal/manager"
-	"forgecraft/internal/server"
-	"forgecraft/internal/sources"
-	"forgecraft/internal/web"
+	"cubeherd/internal/config"
+	"cubeherd/internal/docker"
+	"cubeherd/internal/host"
+	"cubeherd/internal/i18n"
+	"cubeherd/internal/manager"
+	"cubeherd/internal/server"
+	"cubeherd/internal/sources"
+	"cubeherd/internal/web"
 )
 
 func env(key, def string) string {
@@ -32,17 +32,17 @@ func env(key, def string) string {
 
 func main() {
 	log.SetFlags(log.LstdFlags | log.Lmsgprefix)
-	log.SetPrefix("forgecraft: ")
+	log.SetPrefix("cubeherd: ")
 
-	defData := "./forgecraft-data"
+	defData := "./cubeherd-data"
 	if os.Geteuid() == 0 {
-		defData = "/srv/forgecraft"
+		defData = "/srv/cubeherd"
 	}
-	dataDir, err := filepath.Abs(env("FORGECRAFT_DATA", defData))
+	dataDir, err := filepath.Abs(env("CUBEHERD_DATA", defData))
 	if err != nil {
 		log.Fatal(err)
 	}
-	listen := env("FORGECRAFT_LISTEN", ":8420")
+	listen := env("CUBEHERD_LISTEN", ":8420")
 
 	cfg, err := config.Load(dataDir)
 	if err != nil {

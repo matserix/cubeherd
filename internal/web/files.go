@@ -12,8 +12,8 @@ import (
 	"strings"
 	"time"
 
-	"forgecraft/internal/manager"
-	"forgecraft/internal/server"
+	"cubeherd/internal/manager"
+	"cubeherd/internal/server"
 )
 
 type crumb struct{ Name, Path string }
@@ -74,7 +74,7 @@ func (a *App) filesList(w http.ResponseWriter, r *http.Request) {
 }
 
 var fileHints = map[string]string{
-	"server.properties": "itzg schreibt beim Start die Werte aus den Forgecraft-Einstellungen hinein. Änderungen an diesen Schlüsseln werden überschrieben; alles andere bleibt.",
+	"server.properties": "itzg schreibt beim Start die Werte aus den Cubeherd-Einstellungen hinein. Änderungen an diesen Schlüsseln werden überschrieben; alles andere bleibt.",
 	"whitelist.json":    "Wird beim Start mit der Liste im Reiter „Spieler“ abgeglichen. Bitte dort pflegen.",
 	"ops.json":          "Wird beim Start mit der Liste im Reiter „Spieler“ abgeglichen. Bitte dort pflegen.",
 	"eula.txt":          "Wird von itzg verwaltet.",

@@ -1,4 +1,4 @@
-// Package config stores the global settings in <data>/forgecraft.json.
+// Package config stores the global settings in <data>/cubeherd.json.
 package config
 
 import (
@@ -31,7 +31,7 @@ type Store struct {
 }
 
 func Load(dataDir string) (*Store, error) {
-	st := &Store{path: filepath.Join(dataDir, "forgecraft.json")}
+	st := &Store{path: filepath.Join(dataDir, "cubeherd.json")}
 	b, err := os.ReadFile(st.path)
 	switch {
 	case errors.Is(err, os.ErrNotExist):

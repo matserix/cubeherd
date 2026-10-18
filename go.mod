@@ -1,4 +1,4 @@
-module forgecraft
+module cubeherd
 
 go 1.26.0
 

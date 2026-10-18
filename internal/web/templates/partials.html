@@ -16,7 +16,7 @@
   {{$d := pct .Host.DiskUsed .Host.DiskTotal}}
   <div class="val"><b>{{gb .Host.DiskUsed}} GB</b><span>{{t "von %s GB" (gb .Host.DiskTotal)}}</span></div><div class="meter {{level $d}}"><i style="width:{{printf "%.0f" $d}}%"></i></div>
 </div>
-<div class="panel self"><span class="label">{{t "Forgecraft selbst"}}</span><div class="val"><b>{{.SelfMB}} MB</b><span>{{t "%d Goroutinen" .Goroutines}}</span></div><span class="muted" style="font-size:12px">{{t "Werte werden nur abgefragt, solange diese Seite offen ist."}}</span></div>
+<div class="panel self"><span class="label">{{t "Cubeherd selbst"}}</span><div class="val"><b>{{.SelfMB}} MB</b><span>{{t "%d Goroutinen" .Goroutines}}</span></div><span class="muted" style="font-size:12px">{{t "Werte werden nur abgefragt, solange diese Seite offen ist."}}</span></div>
 {{end}}
 
 {{define "serverRows"}}

@@ -1,4 +1,4 @@
-<title>Forgecraft</title>
+<title>Cubeherd</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -397,7 +397,7 @@ textarea.input { font-family: var(--font-mono); font-size: 13px; line-height: 1.
   <form class="panel" id="login-form">
     <div class="brand">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2 21 7 12 12 3 7Z" fill="var(--accent-2)"/><path d="M3 7 12 12V22L3 17Z" fill="var(--accent)"/><path d="M21 7 12 12V22L21 17Z" fill="var(--accent-3)"/></svg>
-      <b>Forgecraft</b>
+      <b>Cubeherd</b>
     </div>
     <div>
       <h1>Anmelden</h1>
@@ -415,7 +415,7 @@ textarea.input { font-family: var(--font-mono); font-size: 13px; line-height: 1.
   <aside class="side">
     <div class="brand">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2 21 7 12 12 3 7Z" fill="var(--accent-2)"/><path d="M3 7 12 12V22L3 17Z" fill="var(--accent)"/><path d="M21 7 12 12V22L21 17Z" fill="var(--accent-3)"/></svg>
-      <b>Forgecraft</b>
+      <b>Cubeherd</b>
     </div>
     <nav class="nav" aria-label="Hauptnavigation">
       <button data-act="go" data-view="overview" title="Übersicht">
@@ -466,7 +466,7 @@ textarea.input { font-family: var(--font-mono); font-size: 13px; line-height: 1.
     <!-- Wizard -->
     <section class="view" data-view="wizard" hidden>
       <div class="view-head">
-        <div><h1>Neuer Server</h1><p class="sub">Forgecraft erzeugt daraus eine Compose-Datei und startet den Container.</p></div>
+        <div><h1>Neuer Server</h1><p class="sub">Cubeherd erzeugt daraus eine Compose-Datei und startet den Container.</p></div>
       </div>
       <div class="wiz">
         <ol class="stepper" id="stepper">
@@ -515,7 +515,7 @@ textarea.input { font-family: var(--font-mono); font-size: 13px; line-height: 1.
           <div class="intro"><h2>Standards für neue Server</h2><p>Vorbelegung im Assistenten.</p></div>
           <div class="body">
             <div class="grid-2">
-              <label class="field"><span>Datenverzeichnis</span><input class="input mono" id="set-dir" value="/srv/forgecraft"><small>Pro Server ein Unterordner mit <span class="mono">compose.yml</span> und <span class="mono">data/</span>.</small></label>
+              <label class="field"><span>Datenverzeichnis</span><input class="input mono" id="set-dir" value="/srv/cubeherd"><small>Pro Server ein Unterordner mit <span class="mono">compose.yml</span> und <span class="mono">data/</span>.</small></label>
               <label class="field"><span>Port-Bereich</span><input class="input mono" id="set-ports" value="25565–25600"></label>
               <label class="field"><span>Standard-RAM</span><select class="input" id="set-ram"><option>2 GB</option><option selected>4 GB</option><option>6 GB</option><option>8 GB</option></select></label>
               <label class="field"><span>Image</span><input class="input mono" id="set-image" value="itzg/minecraft-server"><small>Java-Tag wird je nach Minecraft-Version automatisch gewählt.</small></label>
@@ -524,7 +524,7 @@ textarea.input { font-family: var(--font-mono); font-size: 13px; line-height: 1.
           </div>
         </div>
         <div class="form-sec">
-          <div class="intro"><h2>Docker</h2><p>Forgecraft spricht direkt mit der Docker Engine.</p></div>
+          <div class="intro"><h2>Docker</h2><p>Cubeherd spricht direkt mit der Docker Engine.</p></div>
           <div class="body">
             <dl class="kv">
               <dt>Socket</dt><dd class="mono">/var/run/docker.sock</dd>
@@ -550,7 +550,7 @@ textarea.input { font-family: var(--font-mono); font-size: 13px; line-height: 1.
           <div class="intro"><h2>Über</h2></div>
           <div class="body">
             <dl class="kv">
-              <dt>Version</dt><dd>Forgecraft 0.1.0</dd>
+              <dt>Version</dt><dd>Cubeherd 0.1.0</dd>
               <dt>Ressourcen</dt><dd class="num">14 MB RAM · 0,1 % CPU · ein Binary, keine Datenbank</dd>
             </dl>
           </div>
@@ -669,7 +669,7 @@ textarea.input { font-family: var(--font-mono); font-size: 13px; line-height: 1.
 
   /* ---------------- Zustand ---------------- */
   const state = { view: 'overview', server: 'survival', tab: 'console', file: 'server.properties', modQuery: '', importDone: false };
-  const wizDefault = () => ({ step: 1, kind: 'software', type: 'PAPER', version: '1.21.10', src: 'modrinth', query: '', pack: null, packVer: '', name: '', port: nextPort(), ram: 4, autopause: true, aikar: true, autostart: true, motd: 'Ein Forgecraft-Server', mode: 'survival', diff: 'normal', max: 10, seed: '', whitelist: true, onlineMode: true, eula: false });
+  const wizDefault = () => ({ step: 1, kind: 'software', type: 'PAPER', version: '1.21.10', src: 'modrinth', query: '', pack: null, packVer: '', name: '', port: nextPort(), ram: 4, autopause: true, aikar: true, autostart: true, motd: 'Ein Cubeherd-Server', mode: 'survival', diff: 'normal', max: 10, seed: '', whitelist: true, onlineMode: true, eula: false });
   const nextPort = () => Math.max(...servers.map(s => s.port)) + 1;
   let wiz = null;
 
@@ -714,10 +714,10 @@ textarea.input { font-family: var(--font-mono); font-size: 13px; line-height: 1.
       <div class="panel"><span class="label">CPU · 8 Kerne</span><div class="val"><b>${h.cpu} %</b><span>Last 1 min</span></div><div class="meter ${level(h.cpu)}"><i style="width:${h.cpu}%"></i></div></div>
       <div class="panel"><span class="label">Arbeitsspeicher</span><div class="val"><b>${de(h.ramUsed)} GB</b><span>von ${h.ramMax} GB · ${de(h.ramMax - h.ramUsed)} frei</span></div><div class="meter ${level(rp)}"><i style="width:${rp}%"></i></div></div>
       <div class="panel"><span class="label">Speicher · /srv</span><div class="val"><b>${h.disk} GB</b><span>von ${h.diskMax} GB</span></div><div class="meter ${level(dp)}"><i style="width:${dp}%"></i></div></div>
-      <div class="panel self"><span class="label">Forgecraft selbst</span><div class="val"><b>14 MB</b><span>0,1 % CPU</span></div><span class="muted" style="font-size:12px">Statistiken laufen nur, solange diese Seite offen ist.</span></div>`;
+      <div class="panel self"><span class="label">Cubeherd selbst</span><div class="val"><b>14 MB</b><span>0,1 % CPU</span></div><span class="muted" style="font-size:12px">Statistiken laufen nur, solange diese Seite offen ist.</span></div>`;
     $('#import-slot').innerHTML = state.importDone ? '' : `
       <div class="callout accent">
-        <div><b>Nicht verwalteter Container gefunden</b><span class="muted">„mc-old“ nutzt itzg/minecraft-server (Vanilla 1.20.4, Port 25570) und wurde außerhalb von Forgecraft angelegt.</span></div>
+        <div><b>Nicht verwalteter Container gefunden</b><span class="muted">„mc-old“ nutzt itzg/minecraft-server (Vanilla 1.20.4, Port 25570) und wurde außerhalb von Cubeherd angelegt.</span></div>
         <div class="actions" style="flex:none"><button class="btn sm ghost" data-act="import-hide">Ignorieren</button><button class="btn sm primary" data-act="import">Übernehmen</button></div>
       </div>`;
     $('#ov-rows').innerHTML = servers.map(s => {
@@ -743,7 +743,7 @@ textarea.input { font-family: var(--font-mono); font-size: 13px; line-height: 1.
   function refresh() { renderRack(); if (state.view === 'overview') renderOverview(); if (state.view === 'server') renderServer(); }
   function startServer(s, label = 'gestartet') {
     s.crash = null; setStatus(s, 'starting');
-    s.log.push([now(), 'cmd', '[forgecraft] docker start mc-' + s.id], [now(), 'info', `Starting minecraft server version ${s.version}`]);
+    s.log.push([now(), 'cmd', '[cubeherd] docker start mc-' + s.id], [now(), 'info', `Starting minecraft server version ${s.version}`]);
     setTimeout(() => {
       s.status = 'running'; s.ram = +(s.ramMax * .45).toFixed(1); s.cpu = 22; s.since = 'gerade eben';
       s.log.push([now(), 'info', 'Done (7.902s)! For help, type "help"']);
@@ -751,7 +751,7 @@ textarea.input { font-family: var(--font-mono); font-size: 13px; line-height: 1.
     }, 2200);
   }
   function stopServer(s) {
-    s.log.push([now(), 'cmd', '[forgecraft] rcon stop'], [now(), 'info', 'Stopping the server'], [now(), 'info', 'Saving worlds']);
+    s.log.push([now(), 'cmd', '[cubeherd] rcon stop'], [now(), 'info', 'Stopping the server'], [now(), 'info', 'Saving worlds']);
     s.status = 'stopped'; s.online = []; s.ram = 0; s.cpu = 0; s.since = '';
     refresh(); toast(`${s.name} gestoppt. Welt gespeichert.`);
   }
@@ -940,7 +940,7 @@ textarea.input { font-family: var(--font-mono); font-size: 13px; line-height: 1.
             <label class="switch"><input type="checkbox" id="b-pre" checked><span class="txt">Vor jedem Update sichern<small>Ermöglicht Rollback bei Problemen.</small></span></label>
             <label class="switch"><input type="checkbox" id="b-pause" checked><span class="txt">Nicht sichern, wenn pausiert<small>Spart Speicher, wenn sich nichts geändert hat.</small></span></label>
           </div>
-          <p class="muted" style="font-size:12px;margin-top:14px">Ablauf: <span class="mono">save-off</span> → Archiv nach <span class="mono">/srv/forgecraft/${s.id}/backups</span> → <span class="mono">save-on</span>. Spieler bleiben verbunden.</p></div></div>
+          <p class="muted" style="font-size:12px;margin-top:14px">Ablauf: <span class="mono">save-off</span> → Archiv nach <span class="mono">/srv/cubeherd/${s.id}/backups</span> → <span class="mono">save-on</span>. Spieler bleiben verbunden.</p></div></div>
         <div class="panel"><div class="panel-head"><h2>Vorhandene Backups <span class="muted num" style="font-weight:400">${list.length}</span></h2><span class="muted" style="font-size:12px">${list.length ? 'Belegt ' + de(list.length * 3.8) + ' GB' : ''}</span></div>
           <div class="tbl-wrap"><table class="tbl"><thead><tr><th>Zeitpunkt</th><th>Anlass</th><th class="hide-sm">Größe</th><th class="right"></th></tr></thead><tbody>
           ${list.length ? list.map((b, i) => `<tr><td class="num">${b.at}</td><td>${b.why}</td><td class="hide-sm num">${b.size}</td><td class="right"><div class="actions" style="justify-content:flex-end"><button class="btn sm" data-act="restore" data-i="${i}">Wiederherstellen</button><button class="btn sm ghost" data-act="toast" data-msg="Im fertigen Dashboard startet hier der Download.">Herunterladen</button></div></td></tr>`).join('')
@@ -994,7 +994,7 @@ textarea.input { font-family: var(--font-mono); font-size: 13px; line-height: 1.
       if (mode === 'mc') return `
         <div class="field"><span>Minecraft-Version</span><div class="ver-flow"><span class="cur">${s.version}</span><span class="muted">→</span><select class="input" id="u-ver">${VERSIONS.map(v => `<option ${v === (s.update && s.update.mc || s.version) ? 'selected' : ''}>${v}</option>`).join('')}</select></div></div>
         <div class="field"><span>Server-Software</span><select class="input" id="u-type">${TYPES.map(t => `<option value="${t.id}" ${t.id === s.type ? 'selected' : ''}>${t.name}</option>`).join('')}</select><small>Ein Wechsel des Loaders (z. B. Paper → Fabric) entfernt inkompatible Plugins und Mods.</small></div>
-        <div class="callout warn"><div><b>Kein Downgrade</b><span class="muted">Welten lassen sich nicht auf ältere Versionen zurückführen. Forgecraft verhindert Downgrades ohne Backup.</span></div></div>`;
+        <div class="callout warn"><div><b>Kein Downgrade</b><span class="muted">Welten lassen sich nicht auf ältere Versionen zurückführen. Cubeherd verhindert Downgrades ohne Backup.</span></div></div>`;
       if (mode === 'pack') return `
         <div class="field"><span>${esc(s.pack.name)}</span><div class="ver-flow"><span class="cur">${s.pack.ver}</span><span class="muted">→</span><select class="input" id="u-pack">${(pk ? pk.vers : [s.pack.ver]).map(v => `<option ${v === (s.update && s.update.pack) ? 'selected' : ''}>${v}${v === (s.update && s.update.pack) ? ' (neueste)' : ''}</option>`).join('')}</select></div><small>Minecraft- und Loader-Version gibt das Modpack vor.</small></div>
         <div class="callout info"><div><b>Was passiert</b><span class="muted">Das itzg-Image lädt die neue Pack-Version, ersetzt die Mods und behält Welt und eigene Konfiguration.</span></div></div>`;
@@ -1024,7 +1024,7 @@ textarea.input { font-family: var(--font-mono); font-size: 13px; line-height: 1.
     else msg = 'Image aktualisiert, Container neu erstellt.';
     if ($('#u-backup') && $('#u-backup').checked) { (backups[s.id] = backups[s.id] || []).unshift({ at: 'Gerade eben', size: s.disk, why: 'Vor Update' }); }
     closeModal();
-    s.status = 'updating'; s.online = []; s.log.push([now(), 'cmd', '[forgecraft] Backup erstellt'], [now(), 'cmd', '[forgecraft] docker compose up -d --force-recreate'], [now(), 'info', 'Downloading server files …']);
+    s.status = 'updating'; s.online = []; s.log.push([now(), 'cmd', '[cubeherd] Backup erstellt'], [now(), 'cmd', '[cubeherd] docker compose up -d --force-recreate'], [now(), 'info', 'Downloading server files …']);
     refresh();
     setTimeout(() => { s.status = 'stopped'; startServer(s, 'aktualisiert'); toast(msg, 'ok'); }, 1600);
   }
@@ -1034,8 +1034,8 @@ textarea.input { font-family: var(--font-mono); font-size: 13px; line-height: 1.
     openModal(`
       <div class="modal-head"><h2 id="modal-title">${esc(s.name)} deinstallieren</h2><button class="btn sm ghost" data-act="close" aria-label="Schließen">✕</button></div>
       <div class="modal-body">
-        <label class="radio-card"><input type="radio" name="un" value="keep" checked><span>Container entfernen, Daten behalten<small>Welt, Konfiguration und Backups bleiben in /srv/forgecraft/${s.id}. Lässt sich später wieder übernehmen.</small></span></label>
-        <label class="radio-card"><input type="radio" name="un" value="backup"><span>Backup erstellen, dann alles löschen <span class="v2">v2</span><small>Ein letztes Archiv bleibt unter /srv/forgecraft/_archiv.</small></span></label>
+        <label class="radio-card"><input type="radio" name="un" value="keep" checked><span>Container entfernen, Daten behalten<small>Welt, Konfiguration und Backups bleiben in /srv/cubeherd/${s.id}. Lässt sich später wieder übernehmen.</small></span></label>
+        <label class="radio-card"><input type="radio" name="un" value="backup"><span>Backup erstellen, dann alles löschen <span class="v2">v2</span><small>Ein letztes Archiv bleibt unter /srv/cubeherd/_archiv.</small></span></label>
         <label class="radio-card"><input type="radio" name="un" value="all"><span>Alles löschen<small>Container, Welt (${s.disk}) und alle Backups. Nicht umkehrbar.</small></span></label>
         <label class="field"><span>Zum Bestätigen <span class="mono">${s.id}</span> eingeben</span><input class="input mono" id="un-confirm" autocomplete="off"></label>
       </div>
@@ -1045,7 +1045,7 @@ textarea.input { font-family: var(--font-mono); font-size: 13px; line-height: 1.
   function doUninstall() {
     const s = byId(state.server); const how = $('input[name=un]:checked').value;
     servers.splice(servers.indexOf(s), 1); closeModal();
-    toast(how === 'all' ? `${s.name} vollständig gelöscht.` : how === 'backup' ? `${s.name} gesichert und gelöscht.` : `${s.name} entfernt. Daten liegen weiter in /srv/forgecraft/${s.id}.`);
+    toast(how === 'all' ? `${s.name} vollständig gelöscht.` : how === 'backup' ? `${s.name} gesichert und gelöscht.` : `${s.name} entfernt. Daten liegen weiter in /srv/cubeherd/${s.id}.`);
     go('overview');
   }
 
@@ -1067,7 +1067,7 @@ textarea.input { font-family: var(--font-mono); font-size: 13px; line-height: 1.
     if (wiz.step === 5) ok = wiz.eula;
     $('#wiz-next').disabled = !ok;
     const ni = $('#w-name-hint');
-    if (ni) { const sl = slug(wiz.name); ni.textContent = !sl ? 'Pflichtfeld' : servers.some(s => s.id === sl) ? `„${sl}“ ist schon vergeben.` : `Container: mc-${sl} · Ordner: /srv/forgecraft/${sl}`; ni.style.color = !sl || servers.some(s => s.id === sl) ? 'var(--crit)' : ''; }
+    if (ni) { const sl = slug(wiz.name); ni.textContent = !sl ? 'Pflichtfeld' : servers.some(s => s.id === sl) ? `„${sl}“ ist schon vergeben.` : `Container: mc-${sl} · Ordner: /srv/cubeherd/${sl}`; ni.style.color = !sl || servers.some(s => s.id === sl) ? 'var(--crit)' : ''; }
   }
   const WIZ = {
     1: () => `
@@ -1128,7 +1128,7 @@ textarea.input { font-family: var(--font-mono); font-size: 13px; line-height: 1.
           <dt>Port</dt><dd class="mono">${wiz.port}</dd>
           <dt>RAM</dt><dd>${wiz.ram} GB${wiz.autopause ? ' · Autopause' : ''}</dd>
           <dt>Welt</dt><dd>${{ survival: 'Überleben', creative: 'Kreativ', adventure: 'Abenteuer' }[wiz.mode]}, ${{ peaceful: 'friedlich', easy: 'leicht', normal: 'normal', hard: 'schwer' }[wiz.diff]}, bis ${wiz.max} Spieler</dd>
-          <dt>Ordner</dt><dd class="mono">/srv/forgecraft/${sl}</dd>
+          <dt>Ordner</dt><dd class="mono">/srv/cubeherd/${sl}</dd>
         </dl>
         <div class="field"><span class="label">compose.yml</span><pre class="code">${composeYaml()}</pre></div>
       </div>
@@ -1174,7 +1174,7 @@ ${env.map(([a, b]) => `      ${k(a)}: ${v(b)}`).join('\n')}
     ${k('volumes')}:
       - ./data:/data
     ${k('labels')}:
-      ${k('forgecraft.managed')}: ${v('true')}
+      ${k('cubeherd.managed')}: ${v('true')}
     ${k('restart')}: ${wiz.autostart ? 'unless-stopped' : 'no'}
     ${k('stdin_open')}: true
     ${k('tty')}: true`;
@@ -1197,14 +1197,14 @@ ${env.map(([a, b]) => `      ${k(a)}: ${v(b)}`).join('\n')}
     $('#inst-go').disabled = true; $('#inst-go').dataset.id = sl;
     const mods = w.kind === 'pack' ? w.pack.mods : 0;
     const steps = [
-      ['Compose-Datei schreiben', `/srv/forgecraft/${sl}/compose.yml`],
+      ['Compose-Datei schreiben', `/srv/cubeherd/${sl}/compose.yml`],
       [`Image ziehen`, `itzg/minecraft-server:${javaFor(w.kind === 'pack' ? w.pack.mc : w.version)}`],
       w.kind === 'pack' ? [`Modpack herunterladen`, `${w.pack.name} ${w.packVer}`] : [`Server-Software laden`, `${typeName(w.type)} ${w.version}`],
       ...(mods ? [[`Mods installieren`, `0 / ${mods}`]] : []),
       ['Server starten', 'Welt „world“ erzeugen'],
     ];
     const logs = [
-      ['cmd', `[forgecraft] docker compose -p mc-${sl} up -d`], ['info', `Pulling itzg/minecraft-server … done`], ['info', `[init] Running as uid=1000 gid=1000`],
+      ['cmd', `[cubeherd] docker compose -p mc-${sl} up -d`], ['info', `Pulling itzg/minecraft-server … done`], ['info', `[init] Running as uid=1000 gid=1000`],
       ['info', w.kind === 'pack' ? `[mc-image-helper] Resolving ${w.src === 'modrinth' ? 'Modrinth' : 'CurseForge'} modpack ${w.pack.slug}` : `[init] Resolving type given ${w.type}`],
       ['info', `[mc-image-helper] Downloaded ${w.kind === 'pack' ? 'modpack index' : 'server jar'}`],
       ...(mods ? [['info', `[mc-image-helper] Downloading ${mods} mod files`], ['info', `[mc-image-helper] Installed ${mods} mods`]] : []),

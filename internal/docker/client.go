@@ -1,5 +1,5 @@
 // Package docker is a minimal client for the Docker Engine API. It covers only
-// what Forgecraft needs and talks to the socket with net/http.
+// what Cubeherd needs and talks to the socket with net/http.
 package docker
 
 import (
@@ -131,7 +131,7 @@ func (c *Client) post(ctx context.Context, path string) error {
 	return resp.Body.Close()
 }
 
-// ---- Types (only the fields Forgecraft reads) ----
+// ---- Types (only the fields Cubeherd reads) ----
 
 type Container struct {
 	ID     string `json:"Id"`
@@ -220,7 +220,7 @@ func (c *Client) Info(ctx context.Context) (Info, error) {
 	return i, c.getJSON(ctx, "/info", &i)
 }
 
-// List returns containers; filters follow the Docker filter syntax, e.g. {"label": {"forgecraft.id"}}.
+// List returns containers; filters follow the Docker filter syntax, e.g. {"label": {"cubeherd.id"}}.
 func (c *Client) List(ctx context.Context, all bool, filters map[string][]string) ([]Container, error) {
 	q := url.Values{}
 	if all {

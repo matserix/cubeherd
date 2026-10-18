@@ -13,7 +13,7 @@ import (
 	"strings"
 	"time"
 
-	"forgecraft/internal/server"
+	"cubeherd/internal/server"
 )
 
 // ReasonUpload marks the backup taken before a world upload.
@@ -198,7 +198,7 @@ func (m *Manager) ImportWorld(s *server.Server, zipPath string) error {
 		c := m.inspect(ctx, s)
 		wasUp := c != nil && c.State.Running
 		if wasUp {
-			o.add("[forgecraft] " + m.t("Server wird gestoppt"))
+			o.add("[cubeherd] " + m.t("Server wird gestoppt"))
 			if err := m.Docker.Stop(ctx, s.Container(), time.Minute); err != nil {
 				return err
 			}
@@ -207,7 +207,7 @@ func (m *Manager) ImportWorld(s *server.Server, zipPath string) error {
 			return fmt.Errorf(m.t("Sicherung der bisherigen Welt fehlgeschlagen, nichts geändert: %w"), err)
 		}
 		name := m.LevelName(ctx, s)
-		o.add("[forgecraft] Ersetze Welt „" + name + "“")
+		o.add("[cubeherd] " + m.t("Ersetze Welt „%s“", name))
 		pr, pw := io.Pipe()
 		go func() { pw.CloseWithError(zipToTar(&zr.Reader, root, name, pw)) }()
 		script := `set -e; cd /data; rm -rf -- "$N" "${N}_nether" "${N}_the_end"; tar -xf - --no-same-permissions; chown -R 1000:1000 "$N"`
@@ -215,7 +215,7 @@ func (m *Manager) ImportWorld(s *server.Server, zipPath string) error {
 		if err := m.dataShell(ctx, s, script, map[string]string{"N": name}, pr, &out, false); err != nil {
 			return fmt.Errorf(m.t("Entpacken fehlgeschlagen: %w"), err)
 		}
-		o.add("[forgecraft] " + m.t("Welt eingespielt"))
+		o.add("[cubeherd] " + m.t("Welt eingespielt"))
 		if wasUp {
 			if err := m.Store.Save(s, m.globals()); err != nil {
 				return err

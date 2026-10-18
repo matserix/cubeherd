@@ -6,9 +6,9 @@ import (
 	"path/filepath"
 	"strings"
 
-	"forgecraft/internal/manager"
-	"forgecraft/internal/server"
-	"forgecraft/internal/sources"
+	"cubeherd/internal/manager"
+	"cubeherd/internal/server"
+	"cubeherd/internal/sources"
 )
 
 type addonsData struct {

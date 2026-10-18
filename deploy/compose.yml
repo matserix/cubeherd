@@ -1,18 +1,18 @@
-# Forgecraft selbst als Container.
+# Cubeherd selbst als Container.
 # Wichtig: Das Datenverzeichnis muss im Container unter DEMSELBEN Pfad liegen wie auf dem Host,
 # weil Docker die Bind-Mounts der Minecraft-Server auf dem Host auflöst.
 services:
-  forgecraft:
+  cubeherd:
     build: ..
-    image: forgecraft:latest
-    container_name: forgecraft
+    image: cubeherd:latest
+    container_name: cubeherd
     restart: unless-stopped
     ports:
       - "8420:8420"          # nur im LAN/VPN freigeben
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
-      - /srv/forgecraft:/srv/forgecraft
+      - /srv/cubeherd:/srv/cubeherd
     environment:
-      FORGECRAFT_DATA: /srv/forgecraft
+      CUBEHERD_DATA: /srv/cubeherd
       TZ: Europe/Berlin       # für Backup-Zeitpläne
     mem_limit: 96m

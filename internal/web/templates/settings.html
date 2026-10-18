@@ -47,7 +47,7 @@
           <dt>{{t "Lauscht auf"}}</dt><dd class="mono">{{$d.Listen}}</dd>
           <dt>Docker</dt><dd>{{if $d.DockerErr}}<span style="color:var(--crit)">{{$d.DockerErr}}</span>{{else}}{{$d.Docker.ServerVersion}} · {{$d.Docker.OperatingSystem}} · {{$d.Docker.Architecture}}{{end}}</dd>
           <dt>Socket</dt><dd class="mono">{{$d.DockerHost}}</dd>
-          <dt>Forgecraft</dt><dd class="num">{{t "%s · %d MB RAM · läuft seit %s" $d.Version $d.SelfMB (since $d.Started)}}</dd>
+          <dt>Cubeherd</dt><dd class="num">{{t "%s · %d MB RAM · läuft seit %s" $d.Version $d.SelfMB (since $d.Started)}}</dd>
         </dl>
       </div>
     </div>

@@ -1,6 +1,7 @@
-forgecraft-data/
+cubeherd-data/
 /bin/
-/forgecraft
+/cubeherd
 *.tmp
 .DS_Store
-forgecraft-data-ct/
+cubeherd-data-ct/
+*.zip

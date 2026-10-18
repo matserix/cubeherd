@@ -7,10 +7,10 @@ import (
 	"strings"
 	"time"
 
-	"forgecraft/internal/server"
+	"cubeherd/internal/server"
 )
 
-// catchUpDelay delays backups that were missed (e.g. while Forgecraft was down) after a restart.
+// catchUpDelay delays backups that were missed (e.g. while Cubeherd was down) after a restart.
 const catchUpDelay = 2 * time.Minute
 
 // NextBackup returns the next scheduled run after last (zero if the plan is off).

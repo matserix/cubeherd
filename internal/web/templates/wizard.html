@@ -2,7 +2,7 @@
 {{$d := .Data}}
 <section class="view">
   <div class="view-head">
-    <div><h1>{{t "Neuer Server"}}</h1><p class="sub">{{t "Forgecraft erzeugt daraus eine Compose-Datei und startet den Container."}}</p></div>
+    <div><h1>{{t "Neuer Server"}}</h1><p class="sub">{{t "Cubeherd erzeugt daraus eine Compose-Datei und startet den Container."}}</p></div>
   </div>
   <form class="wiz" id="wizard" hx-post="/servers" autocomplete="off">
     <ol class="stepper" id="stepper"><li>{{t "Grundlage"}}</li><li>{{t "Software"}}</li><li>{{t "Ressourcen"}}</li><li>{{t "Spielwelt"}}</li><li>{{t "Prüfen"}}</li></ol>
@@ -59,7 +59,7 @@
 
       <div class="wiz-body wiz-step" data-step="4" hidden>
         <h2>{{t "Spielwelt"}}</h2>
-        <label class="field"><span>{{t "Nachricht im Serverbrowser (MOTD)"}}</span><input class="input" name="motd" value="{{t "Ein Forgecraft-Server"}}" maxlength="120"></label>
+        <label class="field"><span>{{t "Nachricht im Serverbrowser (MOTD)"}}</span><input class="input" name="motd" value="{{t "Ein Cubeherd-Server"}}" maxlength="120"></label>
         <div class="grid-3">
           <label class="field"><span>{{t "Spielmodus"}}</span><select class="input" name="mode">{{range list "survival" "creative" "adventure"}}<option value="{{.}}">{{modeName .}}</option>{{end}}</select></label>
           <label class="field"><span>{{t "Schwierigkeit"}}</span><select class="input" name="difficulty">{{range list "peaceful" "easy" "normal" "hard"}}<option value="{{.}}" {{if eq . "normal"}}selected{{end}}>{{diffTitle .}}</option>{{end}}</select></label>
@@ -111,7 +111,7 @@
 <input type="hidden" name="pack_icon_{{.Src}}" value="{{.Icon}}">
 <div class="grid-2">
   <label class="field"><span>{{t "Pack-Version"}}</span><select class="input" name="pack_version_{{.Src}}">{{range $i, $v := .Versions}}<option value="{{$v.ID}}">{{$v.Name}}{{with $v.MC}} · MC {{.}}{{end}}{{with $v.Loader}} · {{.}}{{end}}{{if eq $i 0}} ({{t "neueste"}}){{end}}</option>{{end}}</select></label>
-  <div class="field"><span>{{t "Hinweis"}}</span><small style="padding-top:8px">{{t "Loader und Minecraft-Version gibt das Modpack vor. Das Java-Image wählt Forgecraft passend dazu."}}</small></div>
+  <div class="field"><span>{{t "Hinweis"}}</span><small style="padding-top:8px">{{t "Loader und Minecraft-Version gibt das Modpack vor. Das Java-Image wählt Cubeherd passend dazu."}}</small></div>
 </div>
 {{end}}
 {{end}}

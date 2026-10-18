@@ -32,7 +32,7 @@ func NewStore(root string) (*Store, error) {
 
 func (st *Store) Root() string             { return st.root }
 func (st *Store) Dir(id string) string     { return filepath.Join(st.root, "servers", id) }
-func (st *Store) defPath(id string) string { return filepath.Join(st.Dir(id), "forgecraft.json") }
+func (st *Store) defPath(id string) string { return filepath.Join(st.Dir(id), "cubeherd.json") }
 
 // DataDir is the host path mounted at /data ("" when the data lives in a Docker volume).
 func (st *Store) DataDir(s *Server) string {

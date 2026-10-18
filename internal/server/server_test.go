@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"forgecraft/internal/docker"
+	"cubeherd/internal/docker"
 )
 
 func TestSlug(t *testing.T) {
@@ -46,7 +46,7 @@ func TestEnvAndCompose(t *testing.T) {
 	if strings.Contains(c, "TZ:") {
 		t.Errorf("TZ must be omitted when unset")
 	}
-	for _, want := range []string{"name: mc-test", `mem_limit: "6g"`, "image: itzg/minecraft-server:java21", `MOTD: "Preis: 5$$ \"neu\""`, `- "25570:25565"`, `forgecraft.id: "test"`} {
+	for _, want := range []string{"name: mc-test", `mem_limit: "6g"`, "image: itzg/minecraft-server:java21", `MOTD: "Preis: 5$$ \"neu\""`, `- "25570:25565"`, `cubeherd.id: "test"`} {
 		if !strings.Contains(c, want) {
 			t.Errorf("compose missing %q:\n%s", want, c)
 		}

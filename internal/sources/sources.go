@@ -17,7 +17,7 @@ import (
 	"time"
 )
 
-const userAgent = "forgecraft/0.1 (itzg dashboard)"
+const userAgent = "cubeherd/0.1 (itzg dashboard)"
 
 type Client struct {
 	hc    *http.Client

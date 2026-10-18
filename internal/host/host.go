@@ -6,7 +6,7 @@ import (
 	"sync"
 	"time"
 
-	"forgecraft/internal/docker"
+	"cubeherd/internal/docker"
 )
 
 type Stats struct {

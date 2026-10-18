@@ -1,4 +1,4 @@
-# Forgecraft – Architektur
+# Cubeherd – Architektur
 
 Schlankes Web-Dashboard für [itzg/docker-minecraft-server](https://github.com/itzg/docker-minecraft-server).
 Leitlinie: Das Dashboard läuft neben den Minecraft-Servern und darf ihnen keine Ressourcen wegnehmen.
@@ -21,16 +21,16 @@ Leitlinie: Das Dashboard läuft neben den Minecraft-Servern und darf ihnen keine
 ## Verzeichnisstruktur auf dem Host
 
 ```
-$FORGECRAFT_DATA/               # Standard: /srv/forgecraft (root) bzw. ./forgecraft-data
-├── forgecraft.json             # globale Einstellungen inkl. Passwort-Hash
+$CUBEHERD_DATA/               # Standard: /srv/cubeherd (root) bzw. ./cubeherd-data
+├── cubeherd.json             # globale Einstellungen inkl. Passwort-Hash
 └── servers/
     └── <id>/
-        ├── forgecraft.json     # Server-Definition (Quelle der Wahrheit)
+        ├── cubeherd.json     # Server-Definition (Quelle der Wahrheit)
         ├── compose.yml         # daraus erzeugt
         └── data/               # /data im Container (Welt, Configs, Mods)
 ```
 
-Läuft Forgecraft selbst im Container, muss `$FORGECRAFT_DATA` unter **demselben Pfad** gemountet sein,
+Läuft Cubeherd selbst im Container, muss `$CUBEHERD_DATA` unter **demselben Pfad** gemountet sein,
 weil Compose relative Pfade clientseitig auflöst und der Docker-Daemon sie auf dem Host interpretiert.
 
 ## Status-Modell
@@ -47,7 +47,7 @@ weil Compose relative Pfade clientseitig auflöst und der Docker-Daemon sie auf 
 ## Pakete
 
 ```
-cmd/forgecraft        main: Konfiguration aus Env, HTTP-Server starten
+cmd/cubeherd        main: Konfiguration aus Env, HTTP-Server starten
 internal/config       globale Einstellungen (JSON, atomar geschrieben)
 internal/auth         Passwort, Session-Cookie, Login-Drosselung
 internal/docker       minimaler Engine-API-Client (list, inspect, start/stop, logs, stats, exec, info)
@@ -61,8 +61,8 @@ internal/web          Handler, Templates, SSE, statische Assets
 
 | Variable | Standard | Bedeutung |
 |---|---|---|
-| `FORGECRAFT_DATA` | `/srv/forgecraft` als root, sonst `./forgecraft-data` | Datenverzeichnis |
-| `FORGECRAFT_LISTEN` | `:8420` | Adresse des Web-Servers |
+| `CUBEHERD_DATA` | `/srv/cubeherd` als root, sonst `./cubeherd-data` | Datenverzeichnis |
+| `CUBEHERD_LISTEN` | `:8420` | Adresse des Web-Servers |
 | `DOCKER_HOST` | `unix:///var/run/docker.sock`, Fallback `~/.docker/run/docker.sock` | Docker-Socket |
 
 ## Umfang
@@ -92,9 +92,9 @@ internal/web          Handler, Templates, SSE, statische Assets
 
 ## Mods & Plugins
 
-- Deklarativ: Forgecraft pflegt `MODRINTH_PROJECTS` (mit `MODRINTH_DOWNLOAD_DEPENDENCIES=required`), `CURSEFORGE_FILES` und `SPIGET_RESOURCES`.
+- Deklarativ: Cubeherd pflegt `MODRINTH_PROJECTS` (mit `MODRINTH_DOWNLOAD_DEPENDENCIES=required`), `CURSEFORGE_FILES` und `SPIGET_RESOURCES`.
   itzg lädt beim Start passend zu Loader und Version herunter und hält nicht gepinnte Einträge aktuell.
-- Entfernen: Für eine Quelle, die schon einmal benutzt wurde, setzt Forgecraft die Variable explizit leer. Nur dann räumt itzg die von
+- Entfernen: Für eine Quelle, die schon einmal benutzt wurde, setzt Cubeherd die Variable explizit leer. Nur dann räumt itzg die von
   ihm installierten Dateien auf; eine fehlende Variable lässt sie liegen. Getestet: Paper + Modrinth-Plugin, ATM10 (CurseForge-Pack) + Modrinth-Mod,
   die Modpack-Mods bleiben dabei unberührt. Spigot-Plugins räumt itzg nicht auf.
 - Hochgeladene JARs landen direkt in `mods/` bzw. `plugins/` und werden in der Definition gemerkt; nur sie lassen sich im Dashboard löschen.
@@ -116,9 +116,9 @@ internal/web          Handler, Templates, SSE, statische Assets
 
 ## Erkenntnisse aus den Live-Tests
 
-- **Java-Version:** Minecraft 26.x braucht Java 25. Forgecraft liest die Java-Version aus Mojangs Versionsdaten und wählt das passende itzg-Tag (`java8`/`java17`/`java21`/`java25`).
+- **Java-Version:** Minecraft 26.x braucht Java 25. Cubeherd liest die Java-Version aus Mojangs Versionsdaten und wählt das passende itzg-Tag (`java8`/`java17`/`java21`/`java25`).
 - **Autopause + Watchdog:** Nach dem Aufwachen sieht der Server eine riesige Tick-Lücke; der Paper-Watchdog beendet ihn dann.
-  Forgecraft setzt bei Autopause daher `MAX_TICK_TIME=-1` und bei Paper/Purpur/Folia zusätzlich `JVM_DD_OPTS=disable.watchdog:true`.
+  Cubeherd setzt bei Autopause daher `MAX_TICK_TIME=-1` und bei Paper/Purpur/Folia zusätzlich `JVM_DD_OPTS=disable.watchdog:true`.
 - **Pausierte Server:** RCON-Befehle wecken sie nicht (rcon-cli läuft über `lo`, knockd lauscht auf `eth0`), deshalb lehnt die Konsole sie ab.
   `docker stop` funktioniert dagegen: das Image setzt den Prozess fort und speichert die Welt.
 - **RCON-Kosten:** Jede Abfrage startet `rcon-cli` im Container und schreibt zwei Zeilen ins Server-Log. Spielerlisten werden 15 s gecacht,
@@ -127,7 +127,7 @@ internal/web          Handler, Templates, SSE, statische Assets
 - **Arbeitsspeicher:** Der eingestellte RAM ist das Container-Limit (`mem_limit`). Der Java-Heap (`MEMORY`) bekommt davon weniger:
   Vanilla/Paper `max(1 GB, 20 %)` Puffer, Modpacks/Mod-Loader `max(2 GB, 30 %)`. Gemessen mit ATM10: rund 1,7 GB außerhalb des Heaps.
   Vorher war `MEMORY` der volle Wert ohne Limit; Heap plus Nicht-Heap sprengte die Docker-VM und führte zu Neustart-Schleifen.
-- **Startphase:** Solange itzg noch Dateien lädt (`[init]`, `[mc-image-helper]`), schlägt der Healthcheck fehl. Forgecraft liest die neuen
+- **Startphase:** Solange itzg noch Dateien lädt (`[init]`, `[mc-image-helper]`), schlägt der Healthcheck fehl. Cubeherd liest die neuen
   Log-Zeilen des laufenden Containers inkrementell und zeigt dann „Wird eingerichtet“ bzw. „Startet“ statt „Reagiert nicht“.
 - **`MALLOC_ARENA_MAX=2`** wird bei Modpack- und Mod-Servern gesetzt. ATM10, gemessen jeweils 234 s nach dem Start:
   Speicher außerhalb des Heaps 1,63 GiB → 1,46 GiB (−0,17 GiB, ~10 %).
@@ -137,7 +137,7 @@ internal/web          Handler, Templates, SSE, statische Assets
 - Deutsch und Englisch. Deutsch ist die Quellsprache und der deutsche Text der Schlüssel; jede weitere Sprache ist eine
   JSON-Datei in `internal/i18n/` (`<code>.json`) plus ein Eintrag in `i18n.Languages`.
 - Die Sprache ist eine globale Einstellung (ein Admin). Bestehende Installationen ohne Einstellung bleiben deutsch;
-  bei einer frischen Einrichtung schlägt Forgecraft die Sprache aus `Accept-Language` vor.
+  bei einer frischen Einrichtung schlägt Cubeherd die Sprache aus `Accept-Language` vor.
 - Pro Sprache gibt es einen eigenen Template-Satz mit eigenen Formatfunktionen (Dezimaltrennzeichen, Datumsformat, „Heute/Today“);
   auch die SSE-Teilansichten nutzen ihn. Ein Sprachwechsel lädt die Seite neu.
 - Meldungen mit Werten übersetzt der Manager beim Erzeugen (`m.t("Port %d …", port)`), feste Fehlertexte übersetzt die

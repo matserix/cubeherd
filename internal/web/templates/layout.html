@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>{{if .Title}}{{.Title}} · {{end}}Forgecraft</title>
+<title>{{if .Title}}{{.Title}} · {{end}}Cubeherd</title>
 <link rel="icon" href="{{static "favicon.svg"}}" type="image/svg+xml">
 <link rel="stylesheet" href="{{static "app.css"}}">
 <script src="{{static "htmx.min.js"}}" defer></script>
@@ -11,11 +11,11 @@
 <script src="{{static "app.js"}}" defer></script>
 <meta name="htmx-config" content='{"includeIndicatorStyles":false,"defaultSwapStyle":"innerHTML"}'>
 </head>
-<body data-decimal="{{decimal}}" data-t-reqfail="{{t "Anfrage fehlgeschlagen. Ist Forgecraft erreichbar?"}}" data-t-noconn="{{t "Keine Verbindung zu Forgecraft."}}">
+<body data-decimal="{{decimal}}" data-t-reqfail="{{t "Anfrage fehlgeschlagen. Ist Cubeherd erreichbar?"}}" data-t-noconn="{{t "Keine Verbindung zu Cubeherd."}}">
 {{if eq .Nav "login"}}{{template "content" .}}{{else}}
 <div class="app" id="app">
   <aside class="side">
-    <a class="brand" href="/" style="text-decoration:none;color:inherit">{{template "logo"}}<b>Forgecraft</b></a>
+    <a class="brand" href="/" style="text-decoration:none;color:inherit">{{template "logo"}}<b>Cubeherd</b></a>
     <nav class="nav" aria-label="{{t "Hauptnavigation"}}">
       <a href="/" class="navlink" aria-current="{{eq .Nav "overview"}}" title="{{t "Übersicht"}}"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1.5" y="1.5" width="5.5" height="5.5" rx="1"/><rect x="9" y="1.5" width="5.5" height="5.5" rx="1"/><rect x="1.5" y="9" width="5.5" height="5.5" rx="1"/><rect x="9" y="9" width="5.5" height="5.5" rx="1"/></svg><span class="nav-txt">{{t "Übersicht"}}</span></a>
       <a href="/servers/new" class="navlink" aria-current="{{eq .Nav "wizard"}}" title="{{t "Neuer Server"}}"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 3v10M3 8h10"/></svg><span class="nav-txt">{{t "Neuer Server"}}</span></a>
@@ -29,7 +29,7 @@
       </div>
     </div>
     <div class="side-foot">
-      <div class="row"><span>Forgecraft</span><span class="num">{{.Version}}</span></div>
+      <div class="row"><span>Cubeherd</span><span class="num">{{.Version}}</span></div>
       <form method="post" action="/logout"><button class="btn sm ghost" style="padding-left:0">{{t "Abmelden"}}</button></form>
     </div>
   </aside>

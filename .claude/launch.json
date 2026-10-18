@@ -2,9 +2,9 @@
   "version": "0.0.1",
   "configurations": [
     {
-      "name": "forgecraft",
+      "name": "cubeherd",
       "runtimeExecutable": "go",
-      "runtimeArgs": ["run", "./cmd/forgecraft"],
+      "runtimeArgs": ["run", "./cmd/cubeherd"],
       "port": 8420
     }
   ]

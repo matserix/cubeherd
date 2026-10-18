@@ -18,11 +18,11 @@ import (
 	"sync"
 	"time"
 
-	"forgecraft/internal/config"
-	"forgecraft/internal/docker"
-	"forgecraft/internal/i18n"
-	"forgecraft/internal/server"
-	"forgecraft/internal/sources"
+	"cubeherd/internal/config"
+	"cubeherd/internal/docker"
+	"cubeherd/internal/i18n"
+	"cubeherd/internal/server"
+	"cubeherd/internal/sources"
 )
 
 type Manager struct {
@@ -179,7 +179,7 @@ func New(d *docker.Client, st *server.Store, cfg *config.Store, src *sources.Cli
 
 // ---------------- Operations ----------------
 
-// Op is a running Forgecraft action whose output can be followed.
+// Op is a running Cubeherd action whose output can be followed.
 type Op struct {
 	Status server.Status
 	mu     sync.Mutex
@@ -242,7 +242,7 @@ func (m *Manager) run(id string, st server.Status, fn func(o *Op) error) error {
 	go func() {
 		err := fn(o)
 		if err != nil {
-			o.add("[forgecraft] " + m.t("Fehler: %s", err.Error()))
+			o.add("[cubeherd] " + m.t("Fehler: %s", err.Error()))
 			log.Printf("%s %s: %v", id, st, err)
 		}
 		o.mu.Lock()
@@ -257,7 +257,7 @@ func (m *Manager) run(id string, st server.Status, fn func(o *Op) error) error {
 func (m *Manager) compose(ctx context.Context, s *server.Server, o *Op, args ...string) error {
 	dir := m.Store.Dir(s.ID)
 	full := append([]string{"compose", "--progress", "plain", "-f", filepath.Join(dir, "compose.yml"), "--project-directory", dir}, args...)
-	o.add("[forgecraft] docker " + strings.Join(args, " "))
+	o.add("[cubeherd] docker " + strings.Join(args, " "))
 	cmd := exec.CommandContext(ctx, "docker", full...)
 	pr, pw := io.Pipe()
 	cmd.Stdout, cmd.Stderr = pw, pw
@@ -477,7 +477,7 @@ func (m *Manager) Create(s *server.Server) error {
 	return m.run(s.ID, server.StatusInstalling, func(o *Op) error {
 		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Minute)
 		defer cancel()
-		o.add("[forgecraft] " + m.t("Compose-Datei geschrieben: %s", filepath.Join(m.Store.Dir(s.ID), "compose.yml")))
+		o.add("[cubeherd] " + m.t("Compose-Datei geschrieben: %s", filepath.Join(m.Store.Dir(s.ID), "compose.yml")))
 		if err := m.compose(ctx, s, o, "pull", "--quiet"); err != nil {
 			return err
 		}
@@ -490,7 +490,7 @@ func (m *Manager) Start(id string) error {
 	if err != nil {
 		return err
 	}
-	// Regenerate compose.yml so saved settings (and Forgecraft updates) apply on every start.
+	// Regenerate compose.yml so saved settings (and Cubeherd updates) apply on every start.
 	if err := m.Store.Save(s, m.globals()); err != nil {
 		return err
 	}
@@ -508,7 +508,7 @@ func (m *Manager) Stop(id string) error {
 		return err
 	}
 	return m.run(id, server.StatusStopping, func(o *Op) error {
-		o.add("[forgecraft] " + m.t("Server wird gestoppt, Welt wird gespeichert"))
+		o.add("[cubeherd] " + m.t("Server wird gestoppt, Welt wird gespeichert"))
 		return m.Docker.Stop(context.Background(), s.Container(), time.Minute)
 	})
 }
@@ -606,7 +606,7 @@ func (m *Manager) Uninstall(id, mode string) error {
 		}
 		if err := m.Store.RemoveDir(id); err != nil && errors.Is(err, fs.ErrPermission) {
 			// Files written by the container user: remove them from inside a throwaway container.
-			o.add("[forgecraft] " + m.t("Dateien gehören dem Container-Benutzer, lösche per Docker"))
+			o.add("[cubeherd] " + m.t("Dateien gehören dem Container-Benutzer, lösche per Docker"))
 			cmd := exec.CommandContext(ctx, "docker", "run", "--rm", "-v", m.Store.Dir(id)+":/x", "--entrypoint", "rm", s.ImageRef(), "-rf", "/x/data")
 			if out, err := cmd.CombinedOutput(); err != nil {
 				return fmt.Errorf(m.t("löschen fehlgeschlagen: %s"), strings.TrimSpace(string(out)))

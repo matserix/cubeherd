@@ -6,7 +6,7 @@ import (
 	"regexp"
 	"strings"
 
-	"forgecraft/internal/docker"
+	"cubeherd/internal/docker"
 )
 
 type Status string
@@ -76,12 +76,12 @@ func (s Status) Up() bool {
 	return s == StatusRunning || s == StatusUnhealthy || s == StatusPaused || s == StatusStarting || s == StatusPreparing
 }
 
-// Busy reports a Forgecraft action in progress.
+// Busy reports a Cubeherd action in progress.
 func (s Status) Busy() bool {
 	return s == StatusStopping || s == StatusUpdating || s == StatusInstalling || s == StatusBackingUp || s == StatusRestoring || s == StatusImporting
 }
 
-// Derive computes the display status. op is a running Forgecraft action ("" if none).
+// Derive computes the display status. op is a running Cubeherd action ("" if none).
 func Derive(c *docker.ContainerJSON, op Status, dataDir string) Status {
 	if op != "" {
 		return op
@@ -218,7 +218,7 @@ func trimLogPrefix(l string) string { return logPrefix.ReplaceAllString(l, "") }
 
 var rconNoise = regexp.MustCompile(`Thread RCON Client .* (started|shutting down)$`)
 
-// DashboardNoise reports log lines caused by Forgecraft's own RCON queries.
+// DashboardNoise reports log lines caused by Cubeherd's own RCON queries.
 func DashboardNoise(l string) bool { return rconNoise.MatchString(l) }
 
 // StartupLine classifies a log line during startup: "done" once the server accepts players,

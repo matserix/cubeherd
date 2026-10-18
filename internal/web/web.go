@@ -18,11 +18,11 @@ import (
 	"time"
 	"unicode/utf16"
 
-	"forgecraft/internal/auth"
-	"forgecraft/internal/config"
-	"forgecraft/internal/host"
-	"forgecraft/internal/i18n"
-	"forgecraft/internal/manager"
+	"cubeherd/internal/auth"
+	"cubeherd/internal/config"
+	"cubeherd/internal/host"
+	"cubeherd/internal/i18n"
+	"cubeherd/internal/manager"
 )
 
 //go:embed templates/*.html

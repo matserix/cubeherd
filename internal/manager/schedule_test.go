@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"forgecraft/internal/server"
+	"cubeherd/internal/server"
 )
 
 func TestNextBackup(t *testing.T) {

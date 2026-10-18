@@ -9,10 +9,10 @@
   <div class="host" id="host">{{template "hostTiles" .Data}}</div>
   {{range .Data.Unmanaged}}
   <div class="callout accent">
-    <div><b>{{t "Nicht verwalteter Container gefunden"}}</b><span class="muted">{{t "„%s“ nutzt %s" .Name .Image}} ({{typeName .Type}}{{with .Version}} {{.}}{{end}}{{with .Port}}, Port {{.}}{{end}}, {{.State}}). {{t "Beim Übernehmen wird er mit denselben Daten unter Forgecraft neu erstellt."}}</span></div>
+    <div><b>{{t "Nicht verwalteter Container gefunden"}}</b><span class="muted">{{t "„%s“ nutzt %s" .Name .Image}} ({{typeName .Type}}{{with .Version}} {{.}}{{end}}{{with .Port}}, Port {{.}}{{end}}, {{.State}}). {{t "Beim Übernehmen wird er mit denselben Daten unter Cubeherd neu erstellt."}}</span></div>
     <form class="inline-form" hx-post="/import" style="flex:none">
       <input type="hidden" name="container" value="{{.ID}}">
-      <input class="input" name="name" value="{{.Name}}" aria-label="{{t "Name in Forgecraft"}}" required>
+      <input class="input" name="name" value="{{.Name}}" aria-label="{{t "Name in Cubeherd"}}" required>
       <button class="btn sm primary">{{t "Übernehmen"}} <span class="spin-on-req"></span></button>
     </form>
   </div>

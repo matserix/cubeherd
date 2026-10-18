@@ -10,8 +10,8 @@ import (
 	"strings"
 	"time"
 
-	"forgecraft/internal/i18n"
-	"forgecraft/internal/server"
+	"cubeherd/internal/i18n"
+	"cubeherd/internal/server"
 )
 
 // displayLoc is the time zone used for dates in the UI (set by New).

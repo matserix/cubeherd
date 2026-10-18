@@ -8,11 +8,11 @@ import (
 	"strings"
 	"time"
 
-	"forgecraft/internal/docker"
-	"forgecraft/internal/server"
+	"cubeherd/internal/docker"
+	"cubeherd/internal/server"
 )
 
-// Unmanaged is an itzg container that Forgecraft does not manage yet.
+// Unmanaged is an itzg container that Cubeherd does not manage yet.
 type Unmanaged struct {
 	ID      string
 	Name    string
@@ -27,7 +27,7 @@ func isItzg(image string) bool {
 	return strings.HasPrefix(image, server.Image) || strings.HasPrefix(image, "docker.io/"+server.Image)
 }
 
-// Discover lists itzg containers without a forgecraft.id label.
+// Discover lists itzg containers without a cubeherd.id label.
 func (m *Manager) Discover(ctx context.Context) []Unmanaged {
 	list, err := m.Docker.List(ctx, true, nil)
 	if err != nil {
@@ -35,7 +35,7 @@ func (m *Manager) Discover(ctx context.Context) []Unmanaged {
 	}
 	var out []Unmanaged
 	for _, c := range list {
-		if !isItzg(c.Image) || c.Labels["forgecraft.id"] != "" || strings.HasSuffix(c.Name(), "-forgecraft-alt") {
+		if !isItzg(c.Image) || c.Labels["cubeherd.id"] != "" || strings.HasSuffix(c.Name(), "-cubeherd-alt") {
 			continue
 		}
 		u := Unmanaged{ID: c.ID, Name: c.Name(), Image: c.Image, State: c.State}
@@ -61,7 +61,7 @@ func (m *Manager) Discover(ctx context.Context) []Unmanaged {
 	return out
 }
 
-// envFields are the variables Forgecraft maps to structured fields; everything else stays as extra env.
+// envFields are the variables Cubeherd maps to structured fields; everything else stays as extra env.
 var envFields = map[string]bool{
 	"EULA": true, "TYPE": true, "VERSION": true, "MEMORY": true, "USE_AIKAR_FLAGS": true, "ENABLE_AUTOPAUSE": true,
 	"MAX_TICK_TIME": true, "MOTD": true, "MODE": true, "DIFFICULTY": true, "MAX_PLAYERS": true, "VIEW_DISTANCE": true,
@@ -109,7 +109,7 @@ func (m *Manager) Import(ctx context.Context, containerID, name string) (*server
 	}
 	if mem := strings.TrimSuffix(strings.ToUpper(env["MEMORY"]), "G"); mem != "" {
 		if n, err := strconv.Atoi(mem); err == nil && n > 0 {
-			s.MemoryGB = n + max(1, n/4) // MEMORY was the heap; Forgecraft's value is the container limit
+			s.MemoryGB = n + max(1, n/4) // MEMORY was the heap; Cubeherd's value is the container limit
 		}
 	}
 	if _, tag, ok := strings.Cut(ci.Config.Image, ":"); ok {
@@ -180,24 +180,24 @@ func (m *Manager) Import(ctx context.Context, containerID, name string) (*server
 	err = m.run(s.ID, server.StatusUpdating, func(o *Op) error {
 		ctx, cancel := context.WithTimeout(context.Background(), 20*time.Minute)
 		defer cancel()
-		o.add("[forgecraft] " + m.t("Stoppe %s", oldName))
+		o.add("[cubeherd] " + m.t("Stoppe %s", oldName))
 		if err := m.Docker.Stop(ctx, ci.ID, time.Minute); err != nil {
 			return err
 		}
-		backup := oldName + "-forgecraft-alt"
+		backup := oldName + "-cubeherd-alt"
 		if err := m.Docker.Rename(ctx, ci.ID, backup); err != nil {
 			return err
 		}
 		if err := m.compose(ctx, s, o, "up", "-d"); err != nil {
-			o.add("[forgecraft] " + m.t("Übernahme fehlgeschlagen, stelle alten Container wieder her"))
+			o.add("[cubeherd] " + m.t("Übernahme fehlgeschlagen, stelle alten Container wieder her"))
 			_ = m.Docker.Rename(ctx, ci.ID, oldName)
 			_ = m.Docker.Start(ctx, ci.ID)
 			_ = m.Store.RemoveDefinition(s.ID)
 			return err
 		}
-		o.add("[forgecraft] " + m.t("Entferne alten Container %s", backup))
+		o.add("[cubeherd] " + m.t("Entferne alten Container %s", backup))
 		if err := m.Docker.Remove(ctx, ci.ID, false); err != nil && !errors.Is(err, docker.ErrNotFound) {
-			o.add("[forgecraft] " + m.t("Alter Container bleibt als %s erhalten: %s", backup, err.Error()))
+			o.add("[cubeherd] " + m.t("Alter Container bleibt als %s erhalten: %s", backup, err.Error()))
 		}
 		return nil
 	})

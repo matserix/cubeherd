@@ -352,7 +352,7 @@ func (s *Server) Env(g Globals) []KV {
 	if p.Whitelist {
 		add("ENABLE_WHITELIST", "TRUE")
 	}
-	// The env lists are authoritative: entries removed in Forgecraft disappear on the next start.
+	// The env lists are authoritative: entries removed in Cubeherd disappear on the next start.
 	if len(s.Whitelist) > 0 {
 		add("WHITELIST", strings.Join(s.Whitelist, ","))
 		add("EXISTING_WHITELIST_FILE", "SYNCHRONIZE")

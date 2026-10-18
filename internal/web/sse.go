@@ -8,9 +8,9 @@ import (
 	"strings"
 	"time"
 
-	"forgecraft/internal/docker"
-	"forgecraft/internal/manager"
-	"forgecraft/internal/server"
+	"cubeherd/internal/docker"
+	"cubeherd/internal/manager"
+	"cubeherd/internal/server"
 )
 
 type sseEvent struct{ name, data string }
@@ -161,7 +161,7 @@ func (a *App) streamLogs(ctx context.Context, s *server.Server, out chan<- strin
 	}
 }
 
-// streamOps forwards Forgecraft action output (compose pull/up, stop) into the console.
+// streamOps forwards Cubeherd action output (compose pull/up, stop) into the console.
 func (a *App) streamOps(ctx context.Context, id string, out chan<- string) {
 	var cur *manager.Op
 	idx := 0
@@ -182,7 +182,7 @@ func (a *App) streamOps(ctx context.Context, id string, out chan<- string) {
 		idx += len(lines)
 		for _, l := range lines {
 			select {
-			case out <- "\x00" + l: // marker: Forgecraft line
+			case out <- "\x00" + l: // marker: Cubeherd line
 			case <-ctx.Done():
 				return
 			}

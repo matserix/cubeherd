@@ -17,7 +17,7 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"forgecraft/internal/server"
+	"cubeherd/internal/server"
 )
 
 // Entry is one item in a directory of /data.

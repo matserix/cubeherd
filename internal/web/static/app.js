@@ -1,4 +1,4 @@
-// Forgecraft – kleines Client-Skript: Custom Selects, Wizard-Schritte, Modals, Toasts, Konsole.
+// Cubeherd – kleines Client-Skript: Custom Selects, Wizard-Schritte, Modals, Toasts, Konsole.
 (() => {
   'use strict';
   const $ = (s, el = document) => el.querySelector(s);

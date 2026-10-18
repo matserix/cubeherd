@@ -11,10 +11,10 @@ import (
 	"strings"
 	"testing"
 
-	"forgecraft/internal/i18n"
-	"forgecraft/internal/manager"
-	"forgecraft/internal/server"
-	"forgecraft/internal/sources"
+	"cubeherd/internal/i18n"
+	"cubeherd/internal/manager"
+	"cubeherd/internal/server"
+	"cubeherd/internal/sources"
 )
 
 var (

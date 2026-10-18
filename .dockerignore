@@ -1,6 +1,7 @@
 .git
 .claude
 bin
-forgecraft-data
+cubeherd-data
 prototype
 *.md
+!THIRD_PARTY_NOTICES.md

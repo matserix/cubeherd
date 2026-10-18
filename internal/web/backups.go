@@ -8,8 +8,8 @@ import (
 	"strings"
 	"time"
 
-	"forgecraft/internal/manager"
-	"forgecraft/internal/server"
+	"cubeherd/internal/manager"
+	"cubeherd/internal/server"
 )
 
 type backupsData struct {
