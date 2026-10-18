@@ -1,6 +1,6 @@
-# Cubeherd selbst als Container.
-# Wichtig: Das Datenverzeichnis muss im Container unter DEMSELBEN Pfad liegen wie auf dem Host,
-# weil Docker die Bind-Mounts der Minecraft-Server auf dem Host auflöst.
+# Cubeherd itself as a container.
+# Important: the data directory must have the SAME path inside the container as on the host,
+# because Docker resolves the Minecraft servers' bind mounts on the host.
 services:
   cubeherd:
     build: ..
@@ -8,11 +8,11 @@ services:
     container_name: cubeherd
     restart: unless-stopped
     ports:
-      - "8420:8420"          # nur im LAN/VPN freigeben
+      - "8420:8420"          # only expose on the LAN/VPN
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - /srv/cubeherd:/srv/cubeherd
     environment:
       CUBEHERD_DATA: /srv/cubeherd
-      TZ: Europe/Berlin       # für Backup-Zeitpläne
+      TZ: Europe/Berlin       # for backup schedules
     mem_limit: 96m
