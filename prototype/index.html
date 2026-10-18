@@ -1,0 +1,1453 @@
+<title>Forgecraft</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+/* Layout: fester Seitenrahmen (Sidebar = Server-Rack) + Arbeitsfläche; dunkel zuerst, Tiefenschiefer-Neutrale mit Kupfer als Akzent, Erz-Farben als Status. */
+:root {
+  --bg: #13161b;
+  --surface: #1a1e25;
+  --surface-2: #222731;
+  --surface-3: #2a303b;
+  --line: #2d333e;
+  --line-strong: #3b4350;
+  --fg: #e3e6eb;
+  --muted: #8a93a2;
+  --faint: #626b79;
+  --accent: #d98a4e;
+  --accent-2: #a9643a;
+  --accent-3: #7a4429;
+  --accent-fg: #1c1209;
+  --accent-soft: rgba(217, 138, 78, .14);
+  --ok: #4ec98d;
+  --ok-soft: rgba(78, 201, 141, .14);
+  --warn: #e3b443;
+  --warn-soft: rgba(227, 180, 67, .14);
+  --crit: #ea5a50;
+  --crit-soft: rgba(234, 90, 80, .14);
+  --info: #5fbcdb;
+  --info-soft: rgba(95, 188, 219, .14);
+  --console-bg: #0e1014;
+  --console-fg: #cdd3dc;
+  --shadow: 0 18px 48px rgba(0, 0, 0, .45);
+  --font-display: "Chakra Petch", "Segoe UI", system-ui, sans-serif;
+  --font-body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  --r: 6px;
+  color-scheme: dark;
+}
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    --bg: #eef0f3; --surface: #ffffff; --surface-2: #f3f4f7; --surface-3: #e7eaef;
+    --line: #dce0e6; --line-strong: #c6ccd5; --fg: #1a1e25; --muted: #5a6371; --faint: #848c99;
+    --accent: #b5622a; --accent-2: #d98a4e; --accent-3: #8a4a22; --accent-fg: #ffffff; --accent-soft: rgba(181, 98, 42, .1);
+    --ok: #1d8a57; --ok-soft: rgba(29, 138, 87, .1); --warn: #9c7209; --warn-soft: rgba(156, 114, 9, .1);
+    --crit: #c23a30; --crit-soft: rgba(194, 58, 48, .1); --info: #1b7a9c; --info-soft: rgba(27, 122, 156, .1);
+    --console-bg: #1a1e25; --console-fg: #dfe3e9; --shadow: 0 18px 48px rgba(20, 24, 32, .18);
+    color-scheme: light;
+  }
+}
+:root[data-theme="light"] {
+  --bg: #eef0f3; --surface: #ffffff; --surface-2: #f3f4f7; --surface-3: #e7eaef;
+  --line: #dce0e6; --line-strong: #c6ccd5; --fg: #1a1e25; --muted: #5a6371; --faint: #848c99;
+  --accent: #b5622a; --accent-2: #d98a4e; --accent-3: #8a4a22; --accent-fg: #ffffff; --accent-soft: rgba(181, 98, 42, .1);
+  --ok: #1d8a57; --ok-soft: rgba(29, 138, 87, .1); --warn: #9c7209; --warn-soft: rgba(156, 114, 9, .1);
+  --crit: #c23a30; --crit-soft: rgba(194, 58, 48, .1); --info: #1b7a9c; --info-soft: rgba(27, 122, 156, .1);
+  --console-bg: #1a1e25; --console-fg: #dfe3e9; --shadow: 0 18px 48px rgba(20, 24, 32, .18);
+  color-scheme: light;
+}
+
+[hidden] { display: none !important; }
+html, body { height: 100%; }
+body { background: var(--bg); color: var(--fg); font: 14px/1.5 var(--font-body); }
+* { box-sizing: border-box; }
+button, input, select, textarea { font: inherit; color: inherit; }
+h1, h2, h3 { font-family: var(--font-display); font-weight: 600; margin: 0; text-wrap: balance; letter-spacing: .01em; }
+h1 { font-size: 24px; line-height: 1.2; }
+h2 { font-size: 17px; }
+h3 { font-size: 14px; }
+p { margin: 0; }
+a { color: var(--accent); }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.muted { color: var(--muted); }
+.mono { font-family: var(--font-mono); }
+.num { font-variant-numeric: tabular-nums; }
+.label { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); font-weight: 600; }
+
+/* ---------- App-Rahmen ---------- */
+.app { display: grid; grid-template-columns: 236px minmax(0, 1fr); height: 100%; }
+.side {
+  background: var(--surface); border-right: 1px solid var(--line);
+  padding-block: 18px; padding-left: max(14px, env(safe-area-inset-left, 0px)); padding-right: 14px;
+  display: flex; flex-direction: column; gap: 22px; overflow-y: auto;
+}
+.brand { display: flex; align-items: center; gap: 10px; padding: 0 6px; }
+.brand svg { width: 26px; height: 26px; flex: none; }
+.brand b { font-family: var(--font-display); font-size: 18px; font-weight: 700; letter-spacing: .02em; }
+.nav { display: flex; flex-direction: column; gap: 2px; }
+.nav button, .rack button {
+  display: flex; align-items: center; gap: 10px; width: 100%; text-align: left;
+  background: none; border: 0; border-radius: var(--r); padding: 7px 10px; cursor: pointer; color: var(--muted);
+}
+.nav button:hover, .rack button:hover { background: var(--surface-2); color: var(--fg); }
+.nav button[aria-current="true"], .rack button[aria-current="true"] { background: var(--surface-3); color: var(--fg); }
+.nav svg { width: 16px; height: 16px; flex: none; }
+.rack-head { display: flex; justify-content: space-between; align-items: baseline; padding: 0 10px 6px; }
+.rack button { justify-content: space-between; }
+.rack .nm { display: flex; align-items: center; gap: 9px; min-width: 0; }
+.rack .nm span:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rack .meta { font-size: 12px; color: var(--faint); font-variant-numeric: tabular-nums; }
+.side-foot { margin-top: auto; display: flex; flex-direction: column; gap: 10px; padding: 0 6px; font-size: 12px; color: var(--muted); }
+.side-foot .row { display: flex; justify-content: space-between; gap: 8px; }
+.proto-note { border: 1px dashed var(--line-strong); border-radius: var(--r); padding: 8px 10px; font-size: 12px; color: var(--muted); }
+
+.main { overflow-y: auto; min-width: 0; padding-block: 26px 48px; padding-left: 32px; padding-right: max(32px, env(safe-area-inset-right, 0px)); }
+.view { max-width: 1180px; margin: 0 auto; display: flex; flex-direction: column; gap: 22px; }
+.view-head { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 14px; }
+.view-head .sub { color: var(--muted); margin-top: 4px; }
+.actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+
+/* ---------- Bausteine ---------- */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 7px; white-space: nowrap;
+  background: var(--surface-2); border: 1px solid var(--line-strong); border-radius: var(--r);
+  padding: 7px 13px; cursor: pointer; font-weight: 500; line-height: 1.3;
+}
+.btn:hover { background: var(--surface-3); }
+.btn:disabled { opacity: .45; cursor: not-allowed; }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-fg); }
+.btn.primary:hover { filter: brightness(1.08); }
+.btn.ghost { background: transparent; border-color: transparent; color: var(--muted); }
+.btn.ghost:hover { background: var(--surface-2); color: var(--fg); }
+.btn.danger { color: var(--crit); }
+.btn.danger-solid { background: var(--crit); border-color: var(--crit); color: #fff; }
+.btn.sm { padding: 4px 9px; font-size: 13px; }
+.btn svg { width: 15px; height: 15px; }
+.btn .badge { background: var(--accent); color: var(--accent-fg); border-radius: 10px; font-size: 11px; padding: 0 6px; font-weight: 600; }
+
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; }
+.panel-pad { padding: 18px; }
+.panel-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 14px 18px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+
+.pill { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; border-radius: 20px; padding: 2px 9px 2px 8px; white-space: nowrap; }
+.pill::before { content: ""; width: 7px; height: 7px; border-radius: 2px; background: currentColor; }
+.s-running { color: var(--ok); background: var(--ok-soft); }
+.s-starting, .s-updating { color: var(--warn); background: var(--warn-soft); }
+.s-starting::before, .s-updating::before { animation: blink 1s infinite; }
+.s-paused { color: var(--info); background: var(--info-soft); }
+.s-stopped { color: var(--muted); background: var(--surface-3); }
+.s-crashed { color: var(--crit); background: var(--crit-soft); }
+.dot { width: 8px; height: 8px; border-radius: 2px; flex: none; background: var(--faint); }
+.dot.s-running { background: var(--ok); } .dot.s-paused { background: var(--info); } .dot.s-crashed { background: var(--crit); }
+.dot.s-starting, .dot.s-updating { background: var(--warn); } .dot.s-stopped { background: var(--faint); }
+@keyframes blink { 50% { opacity: .3; } }
+
+.chip { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; border: 1px solid var(--line-strong); border-radius: 4px; padding: 1px 7px; color: var(--muted); white-space: nowrap; }
+.chip.src-modrinth::before, .chip.src-curseforge::before, .chip.src-spigot::before { content: ""; width: 6px; height: 6px; border-radius: 50%; }
+.chip.src-modrinth::before { background: var(--ok); }
+.chip.src-curseforge::before { background: var(--accent); }
+.chip.src-spigot::before { background: var(--warn); }
+.v2 { font-family: var(--font-mono); font-size: 10px; font-weight: 500; color: var(--accent); border: 1px dashed var(--accent); border-radius: 3px; padding: 0 4px; line-height: 15px; letter-spacing: .04em; }
+
+.callout { display: flex; gap: 12px; align-items: flex-start; border-radius: 8px; padding: 12px 14px; border: 1px solid; flex-wrap: wrap; }
+.callout > div { flex: 1 1 260px; min-width: 0; }
+.callout.crit { border-color: var(--crit); background: var(--crit-soft); }
+.callout.info { border-color: var(--info); background: var(--info-soft); }
+.callout.warn { border-color: var(--warn); background: var(--warn-soft); }
+.callout.accent { border-color: var(--accent); background: var(--accent-soft); }
+.callout b { display: block; margin-bottom: 2px; }
+
+.meter { height: 6px; border-radius: 3px; background: var(--surface-3); overflow: hidden; }
+.meter > i { display: block; height: 100%; background: var(--accent); border-radius: 3px; transition: width .4s; }
+.meter.ok > i { background: var(--ok); } .meter.warn > i { background: var(--warn); } .meter.crit > i { background: var(--crit); }
+
+/* Formulare */
+.field { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.field > span { font-size: 13px; font-weight: 500; }
+.field small { color: var(--muted); font-size: 12px; }
+.input, select.input, textarea.input {
+  width: 100%; background: var(--surface-2); border: 1px solid var(--line-strong); border-radius: var(--r);
+  padding: 7px 10px; min-width: 0;
+}
+textarea.input { font-family: var(--font-mono); font-size: 13px; line-height: 1.6; resize: vertical; }
+.input:focus { border-color: var(--accent); outline: none; box-shadow: 0 0 0 3px var(--accent-soft); }
+/* Custom Select: natives <select> bleibt als Wertträger (Formular-Submit, htmx), sichtbar ist Button + Liste */
+.cselect { position: relative; width: 100%; min-width: 0; }
+.cselect select { display: none; }
+.cs-btn { display: flex; align-items: center; justify-content: space-between; gap: 10px; text-align: left; cursor: pointer; padding-right: 8px; }
+.cs-btn:hover { border-color: var(--faint); }
+.cs-btn:disabled { opacity: .5; cursor: not-allowed; }
+.cs-btn[aria-expanded="true"] { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.cs-val { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.cs-chev { width: 16px; height: 16px; flex: none; color: var(--muted); transition: transform .15s; }
+.cs-btn[aria-expanded="true"] .cs-chev { transform: rotate(180deg); color: var(--fg); }
+.cs-list { position: fixed; z-index: 80; margin: 0; padding: 4px; list-style: none; background: var(--surface); border: 1px solid var(--line-strong); border-radius: var(--r); box-shadow: var(--shadow); overflow-y: auto; max-width: calc(100vw - 16px); animation: csin .12s ease-out; }
+.cs-opt { display: flex; align-items: center; justify-content: space-between; gap: 18px; padding: 7px 10px; border-radius: 4px; cursor: pointer; white-space: nowrap; }
+.cs-opt.active { background: var(--surface-3); }
+.cs-opt[aria-selected="true"] { color: var(--accent); font-weight: 500; }
+.cs-opt[aria-selected="true"]::after { content: ""; width: 9px; height: 5px; border-left: 2px solid currentColor; border-bottom: 2px solid currentColor; transform: translateY(-2px) rotate(-45deg); flex: none; }
+@keyframes csin { from { opacity: 0; transform: translateY(-4px); } }
+.grid-2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; }
+.grid-3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; }
+.switch { display: flex; align-items: flex-start; gap: 12px; cursor: pointer; }
+.switch input { appearance: none; width: 34px; height: 20px; border-radius: 10px; background: var(--surface-3); border: 1px solid var(--line-strong); position: relative; flex: none; cursor: pointer; margin: 1px 0 0; transition: background .15s; }
+.switch input::after { content: ""; position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; border-radius: 50%; background: var(--muted); transition: transform .15s, background .15s; }
+.switch input:checked { background: var(--accent); border-color: var(--accent); }
+.switch input:checked::after { transform: translateX(14px); background: var(--accent-fg); }
+.switch .txt { display: flex; flex-direction: column; }
+.switch .txt small { color: var(--muted); font-size: 12px; }
+.range-row { display: flex; align-items: center; gap: 12px; }
+.range-row input[type=range] { flex: 1; accent-color: var(--accent); }
+.range-row output { font-family: var(--font-mono); min-width: 56px; text-align: right; }
+.seg { display: inline-flex; background: var(--surface-2); border: 1px solid var(--line-strong); border-radius: var(--r); padding: 2px; gap: 2px; flex-wrap: wrap; }
+.seg button { background: none; border: 0; padding: 5px 12px; border-radius: 4px; cursor: pointer; color: var(--muted); font-weight: 500; }
+.seg button[aria-pressed="true"] { background: var(--surface-3); color: var(--fg); box-shadow: inset 0 0 0 1px var(--line-strong); }
+
+/* Tabellen */
+.tbl-wrap { overflow-x: auto; }
+.tbl { width: 100%; border-collapse: collapse; }
+.tbl th { text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); font-weight: 600; padding: 10px 18px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+.tbl td { padding: 12px 18px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+.tbl tr:last-child td { border-bottom: 0; }
+.tbl tbody tr.click { cursor: pointer; }
+.tbl tbody tr.click:hover td { background: var(--surface-2); }
+.tbl .t-name b { display: block; font-weight: 600; }
+.tbl .t-name span { font-size: 12px; color: var(--muted); }
+.tbl .right { text-align: right; }
+
+/* ---------- Übersicht ---------- */
+.host { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; }
+.host .panel { padding: 14px 16px; display: flex; flex-direction: column; gap: 8px; }
+.host .val { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.host .val b { font-family: var(--font-display); font-size: 22px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.host .val span { color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+.host .self { border-style: dashed; background: transparent; }
+.ram-cell { min-width: 120px; display: flex; flex-direction: column; gap: 5px; font-size: 12px; color: var(--muted); }
+
+/* ---------- Server-Detail ---------- */
+.srv-head { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 16px; align-items: flex-start; }
+.srv-title { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.srv-meta { display: flex; flex-wrap: wrap; gap: 6px 16px; color: var(--muted); font-size: 13px; margin-top: 8px; }
+.srv-meta span { display: inline-flex; gap: 6px; align-items: center; }
+.tabs { display: flex; gap: 2px; border-bottom: 1px solid var(--line); overflow-x: auto; }
+.tabs button { background: none; border: 0; padding: 9px 14px; cursor: pointer; color: var(--muted); font-weight: 500; border-bottom: 2px solid transparent; margin-bottom: -1px; display: inline-flex; gap: 7px; align-items: center; white-space: nowrap; }
+.tabs button:hover { color: var(--fg); }
+.tabs button[aria-selected="true"] { color: var(--fg); border-bottom-color: var(--accent); }
+
+.console-grid { display: grid; grid-template-columns: minmax(0, 1fr) 280px; gap: 16px; align-items: start; }
+.console { overflow: hidden; display: flex; flex-direction: column; }
+.console-head { display: flex; justify-content: space-between; gap: 10px; padding: 10px 14px; border-bottom: 1px solid var(--line); font-size: 12px; flex-wrap: wrap; }
+.live { display: inline-flex; align-items: center; gap: 6px; color: var(--ok); font-weight: 600; }
+.live::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; animation: blink 1.6s infinite; }
+.log { margin: 0; background: var(--console-bg); color: var(--console-fg); font: 12.5px/1.65 var(--font-mono); padding: 12px 14px; height: 400px; overflow: auto; white-space: pre-wrap; word-break: break-word; }
+.log .t { color: #6c7686; }
+.log .lv-warn { color: #e3b443; } .log .lv-error { color: #f07167; } .log .lv-cmd { color: #d98a4e; } .log .lv-chat { color: #7fd1ae; }
+.cmd { display: flex; align-items: center; gap: 8px; padding: 8px 10px; background: var(--console-bg); border-top: 1px solid #262b33; }
+.cmd .prompt { color: #d98a4e; font-family: var(--font-mono); }
+.cmd input { flex: 1; min-width: 0; background: transparent; border: 0; color: var(--console-fg); font-family: var(--font-mono); font-size: 13px; outline: none; padding: 4px 0; }
+.quick { display: flex; gap: 6px; flex-wrap: wrap; padding: 10px 12px; border-top: 1px solid var(--line); }
+.quick .btn { font-family: var(--font-mono); font-size: 12px; }
+.stack { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.stat { padding: 14px 16px; display: flex; flex-direction: column; gap: 8px; }
+.stat .val { display: flex; justify-content: space-between; align-items: baseline; }
+.stat .val b { font-family: var(--font-display); font-size: 20px; font-variant-numeric: tabular-nums; font-weight: 600; }
+.spark { width: 100%; height: 44px; display: block; }
+.spark .area { fill: var(--accent-soft); }
+.spark .ln { fill: none; stroke: var(--accent); stroke-width: 1.5; }
+.spark .end { fill: var(--accent); }
+.spark .grid { stroke: var(--line); stroke-width: 1; }
+.plist { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.plist li { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 7px 0; border-top: 1px solid var(--line); }
+.plist li:first-child { border-top: 0; }
+.plist .who { display: flex; align-items: center; gap: 9px; min-width: 0; }
+.plist .who span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.avatar { width: 22px; height: 22px; border-radius: 3px; flex: none; image-rendering: pixelated; }
+.empty { color: var(--muted); font-size: 13px; padding: 10px 0; }
+
+.form-sections { display: flex; flex-direction: column; gap: 16px; }
+.form-sec { display: grid; grid-template-columns: 220px minmax(0, 1fr); gap: 20px; padding: 20px; }
+.form-sec + .form-sec { border-top: 1px solid var(--line); }
+.form-sec .intro p { color: var(--muted); font-size: 13px; margin-top: 4px; }
+.form-sec .body { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+.savebar { position: sticky; bottom: 0; display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; padding: 12px 18px; background: var(--surface); border: 1px solid var(--line-strong); border-radius: 8px; box-shadow: var(--shadow); }
+
+.lists-3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; }
+.add-row { display: flex; gap: 8px; }
+.add-row .input { flex: 1; }
+
+.files { display: grid; grid-template-columns: 260px minmax(0, 1fr); min-height: 460px; }
+.tree { border-right: 1px solid var(--line); padding: 10px 8px; font-size: 13px; display: flex; flex-direction: column; gap: 1px; overflow: auto; }
+.tree button { display: flex; align-items: center; gap: 8px; background: none; border: 0; text-align: left; padding: 5px 8px; border-radius: 4px; cursor: pointer; color: var(--fg); width: 100%; }
+.tree button:hover { background: var(--surface-2); }
+.tree button[aria-current="true"] { background: var(--surface-3); }
+.tree .dir { color: var(--muted); }
+.tree .sz { margin-left: auto; color: var(--faint); font-size: 11px; font-variant-numeric: tabular-nums; }
+.tree svg { width: 14px; height: 14px; flex: none; }
+.editor { display: flex; flex-direction: column; min-width: 0; }
+.editor-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 10px 14px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+.editor textarea { flex: 1; border: 0; border-radius: 0; background: var(--console-bg); color: var(--console-fg); min-height: 400px; padding: 14px; font: 13px/1.65 var(--font-mono); resize: none; outline: none; }
+
+/* ---------- Wizard ---------- */
+.wiz { display: grid; grid-template-columns: 220px minmax(0, 1fr); gap: 20px; align-items: start; }
+.stepper { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; counter-reset: st; }
+.stepper li { counter-increment: st; display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: var(--r); color: var(--muted); }
+.stepper li::before { content: counter(st); width: 22px; height: 22px; border-radius: 4px; display: grid; place-items: center; font-family: var(--font-mono); font-size: 12px; border: 1px solid var(--line-strong); flex: none; }
+.stepper li.done { color: var(--fg); }
+.stepper li.done::before { content: "✓"; background: var(--surface-3); }
+.stepper li.cur { color: var(--fg); background: var(--surface-2); }
+.stepper li.cur::before { background: var(--accent); border-color: var(--accent); color: var(--accent-fg); }
+.wiz-card { display: flex; flex-direction: column; }
+.wiz-body { padding: 22px; display: flex; flex-direction: column; gap: 20px; }
+.wiz-foot { display: flex; justify-content: space-between; gap: 10px; padding: 14px 22px; border-top: 1px solid var(--line); flex-wrap: wrap; }
+.choice-2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; }
+.choice { text-align: left; background: var(--surface-2); border: 1px solid var(--line-strong); border-radius: 8px; padding: 16px; cursor: pointer; display: flex; flex-direction: column; gap: 6px; }
+.choice:hover { border-color: var(--faint); }
+.choice[aria-pressed="true"] { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); background: var(--accent-soft); }
+.choice b { font-family: var(--font-display); font-size: 16px; font-weight: 600; }
+.choice span { color: var(--muted); font-size: 13px; }
+.types { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 10px; }
+.types .choice { padding: 12px; gap: 3px; }
+.types .choice b { font-size: 14px; }
+.types .choice span { font-size: 12px; }
+.search { position: relative; }
+.search svg { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); width: 15px; height: 15px; color: var(--muted); }
+.search .input { padding-left: 32px; }
+.packs { display: flex; flex-direction: column; gap: 8px; }
+.pack { display: grid; grid-template-columns: 44px minmax(0, 1fr) auto; gap: 14px; align-items: center; text-align: left; background: var(--surface-2); border: 1px solid var(--line-strong); border-radius: 8px; padding: 12px; cursor: pointer; width: 100%; }
+.pack:hover { border-color: var(--faint); }
+.pack[aria-pressed="true"] { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); background: var(--accent-soft); }
+.pack .ico { width: 44px; height: 44px; border-radius: 6px; display: grid; place-items: center; font-family: var(--font-display); font-weight: 700; font-size: 17px; color: #fff; }
+.pack .txt { min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.pack .txt b { font-weight: 600; }
+.pack .txt p { color: var(--muted); font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pack .tags { display: flex; gap: 6px; flex-wrap: wrap; }
+.pack .dl { text-align: right; font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.summary { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr); gap: 18px; align-items: start; }
+.kv { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 8px 18px; font-size: 13px; }
+.kv dt { color: var(--muted); }
+.kv dd { margin: 0; overflow-wrap: anywhere; }
+.code { background: var(--console-bg); color: var(--console-fg); border-radius: 8px; padding: 14px 16px; font: 12px/1.6 var(--font-mono); overflow-x: auto; margin: 0; white-space: pre; }
+.code .k { color: #7fb8d6; } .code .s { color: #d9a46e; } .code .c { color: #6c7686; }
+
+.install { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr); gap: 18px; align-items: start; }
+.steps { list-style: none; margin: 0; padding: 18px; display: flex; flex-direction: column; gap: 14px; }
+.steps li { display: grid; grid-template-columns: 22px minmax(0, 1fr); gap: 12px; align-items: start; color: var(--muted); }
+.steps li .ic { width: 22px; height: 22px; border-radius: 50%; border: 2px solid var(--line-strong); display: grid; place-items: center; font-size: 12px; }
+.steps li.run { color: var(--fg); }
+.steps li.run .ic { border-color: var(--warn); border-top-color: transparent; animation: spin .8s linear infinite; }
+.steps li.ok { color: var(--fg); }
+.steps li.ok .ic { border-color: var(--ok); background: var(--ok); color: var(--bg); }
+.steps li small { display: block; color: var(--muted); font-size: 12px; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ---------- Modals, Toasts, Login ---------- */
+.modal { position: fixed; inset: 0; background: rgba(6, 8, 11, .62); display: grid; place-items: center; padding: max(16px, env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-right, 0px)) max(16px, env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px)); z-index: 50; }
+.modal-card { width: min(560px, 100%); max-height: 100%; overflow: auto; background: var(--surface); border: 1px solid var(--line-strong); border-radius: 10px; box-shadow: var(--shadow); display: flex; flex-direction: column; }
+.modal-head { display: flex; justify-content: space-between; align-items: center; padding: 16px 20px; border-bottom: 1px solid var(--line); gap: 12px; }
+.modal-body { padding: 20px; display: flex; flex-direction: column; gap: 16px; }
+.modal-foot { display: flex; justify-content: flex-end; gap: 8px; padding: 14px 20px; border-top: 1px solid var(--line); flex-wrap: wrap; }
+.radio-card { display: flex; gap: 12px; align-items: flex-start; border: 1px solid var(--line-strong); border-radius: 8px; padding: 12px 14px; cursor: pointer; }
+.radio-card:has(input:checked) { border-color: var(--accent); background: var(--accent-soft); }
+.radio-card input { accent-color: var(--accent); margin-top: 3px; }
+.radio-card small { display: block; color: var(--muted); font-size: 12px; }
+.ver-flow { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.ver-flow .cur { font-family: var(--font-mono); padding: 7px 10px; border: 1px solid var(--line); border-radius: var(--r); color: var(--muted); }
+.ver-flow .cselect { flex: 1; width: auto; min-width: 160px; }
+
+.toasts { position: fixed; right: max(18px, calc(env(safe-area-inset-right, 0px) + 18px)); bottom: max(18px, calc(env(safe-area-inset-bottom, 0px) + 18px)); display: flex; flex-direction: column; gap: 8px; z-index: 60; max-width: calc(100vw - 36px); }
+.toast { background: var(--surface-3); border: 1px solid var(--line-strong); border-left: 3px solid var(--accent); border-radius: 6px; padding: 10px 14px; box-shadow: var(--shadow); font-size: 13px; max-width: 380px; animation: tin .2s ease-out; }
+.toast.ok { border-left-color: var(--ok); } .toast.crit { border-left-color: var(--crit); }
+@keyframes tin { from { transform: translateY(8px); opacity: 0; } }
+
+.login { min-height: 100%; display: grid; place-items: center; padding-block: 24px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+.login .panel { width: min(380px, 100%); padding: 28px; display: flex; flex-direction: column; gap: 18px; }
+.login .brand { padding: 0; }
+
+/* ---------- Schmal ---------- */
+@media (max-width: 1000px) {
+  .console-grid, .summary, .install { grid-template-columns: minmax(0, 1fr); }
+  .wiz { grid-template-columns: minmax(0, 1fr); }
+  .stepper { flex-direction: row; overflow-x: auto; }
+  .stepper li { white-space: nowrap; }
+  .form-sec { grid-template-columns: minmax(0, 1fr); gap: 12px; }
+}
+@media (max-width: 760px) {
+  .app { display: block; height: auto; }
+  html, body { height: auto; }
+  .side { flex-direction: row; flex-wrap: wrap; align-items: center; gap: 10px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 12px; border-right: 0; border-bottom: 1px solid var(--line); overflow: visible; }
+  .nav { flex-direction: row; flex-wrap: wrap; gap: 2px; }
+  .nav button { width: auto; padding: 6px 9px; }
+  .nav .nav-txt { display: none; }
+  .rack-wrap, .side-foot { display: none; }
+  .main { padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 18px 40px; overflow: visible; }
+  .files { grid-template-columns: minmax(0, 1fr); }
+  .tree { border-right: 0; border-bottom: 1px solid var(--line); max-height: 220px; }
+  .tbl th, .tbl td { padding-left: 12px; padding-right: 12px; }
+  .hide-sm { display: none; }
+  .log { height: 320px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}
+</style>
+
+<!-- ============ Login ============ -->
+<div class="login" id="login" hidden>
+  <form class="panel" id="login-form">
+    <div class="brand">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2 21 7 12 12 3 7Z" fill="var(--accent-2)"/><path d="M3 7 12 12V22L3 17Z" fill="var(--accent)"/><path d="M21 7 12 12V22L21 17Z" fill="var(--accent-3)"/></svg>
+      <b>Forgecraft</b>
+    </div>
+    <div>
+      <h1>Anmelden</h1>
+      <p class="muted" style="margin-top:4px">Ein Admin-Konto, nur im lokalen Netz erreichbar.</p>
+    </div>
+    <label class="field"><span>Benutzername</span><input class="input" id="login-user" value="admin" autocomplete="username"></label>
+    <label class="field"><span>Passwort</span><input class="input" id="login-pass" type="password" autocomplete="current-password" placeholder="••••••••••"></label>
+    <button class="btn primary" type="submit">Anmelden</button>
+    <p class="muted" style="font-size:12px">Prototyp: jedes Passwort funktioniert.</p>
+  </form>
+</div>
+
+<!-- ============ App ============ -->
+<div class="app" id="app">
+  <aside class="side">
+    <div class="brand">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2 21 7 12 12 3 7Z" fill="var(--accent-2)"/><path d="M3 7 12 12V22L3 17Z" fill="var(--accent)"/><path d="M21 7 12 12V22L21 17Z" fill="var(--accent-3)"/></svg>
+      <b>Forgecraft</b>
+    </div>
+    <nav class="nav" aria-label="Hauptnavigation">
+      <button data-act="go" data-view="overview" title="Übersicht">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1.5" y="1.5" width="5.5" height="5.5" rx="1"/><rect x="9" y="1.5" width="5.5" height="5.5" rx="1"/><rect x="1.5" y="9" width="5.5" height="5.5" rx="1"/><rect x="9" y="9" width="5.5" height="5.5" rx="1"/></svg><span class="nav-txt">Übersicht</span>
+      </button>
+      <button data-act="go" data-view="wizard" title="Neuer Server">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 3v10M3 8h10"/></svg><span class="nav-txt">Neuer Server</span>
+      </button>
+      <button data-act="go" data-view="settings" title="Einstellungen">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="2.2"/><path d="M8 1.5v2M8 12.5v2M1.5 8h2M12.5 8h2M3.4 3.4l1.4 1.4M11.2 11.2l1.4 1.4M3.4 12.6l1.4-1.4M11.2 4.8l1.4-1.4"/></svg><span class="nav-txt">Einstellungen</span>
+      </button>
+    </nav>
+    <div class="rack-wrap">
+      <div class="rack-head"><span class="label">Server</span><span class="label num" id="rack-count"></span></div>
+      <div class="rack" id="rack"></div>
+    </div>
+    <div class="side-foot">
+      <div class="row"><span>Docker</span><span style="color:var(--ok)">verbunden</span></div>
+      <div class="row"><span>Dashboard</span><span class="num">14 MB RAM</span></div>
+      <button class="btn sm ghost" data-act="logout" style="justify-content:flex-start;padding-left:0">Abmelden</button>
+      <div class="proto-note">Prototyp mit Beispieldaten. Bereiche mit <span class="v2">v2</span> folgen nach dem MVP.</div>
+    </div>
+  </aside>
+
+  <main class="main" id="main">
+
+    <!-- Übersicht -->
+    <section class="view" data-view="overview">
+      <div class="view-head">
+        <div>
+          <h1>Übersicht</h1>
+          <p class="sub" id="ov-sub"></p>
+        </div>
+        <div class="actions"><button class="btn primary" data-act="go" data-view="wizard"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M8 3v10M3 8h10"/></svg>Server anlegen</button></div>
+      </div>
+      <div class="host" id="host"></div>
+      <div id="import-slot"></div>
+      <div class="panel">
+        <div class="tbl-wrap">
+          <table class="tbl">
+            <thead><tr><th>Server</th><th>Status</th><th class="hide-sm">Spieler</th><th class="hide-sm">RAM</th><th class="hide-sm">Port</th><th class="right">Aktion</th></tr></thead>
+            <tbody id="ov-rows"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- Wizard -->
+    <section class="view" data-view="wizard" hidden>
+      <div class="view-head">
+        <div><h1>Neuer Server</h1><p class="sub">Forgecraft erzeugt daraus eine Compose-Datei und startet den Container.</p></div>
+      </div>
+      <div class="wiz">
+        <ol class="stepper" id="stepper">
+          <li>Grundlage</li><li>Software</li><li>Ressourcen</li><li>Spielwelt</li><li>Prüfen</li>
+        </ol>
+        <div class="panel wiz-card">
+          <div class="wiz-body" id="wiz-body"></div>
+          <div class="wiz-foot">
+            <button class="btn ghost" data-act="wiz-prev" id="wiz-prev">Zurück</button>
+            <button class="btn primary" data-act="wiz-next" id="wiz-next">Weiter</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Installation -->
+    <section class="view" data-view="install" hidden>
+      <div class="view-head">
+        <div><h1 id="inst-title">Server wird eingerichtet</h1><p class="sub" id="inst-sub"></p></div>
+        <div class="actions"><button class="btn primary" id="inst-go" data-act="inst-go" disabled>Zum Server</button></div>
+      </div>
+      <div class="install">
+        <div class="panel"><ul class="steps" id="inst-steps"></ul></div>
+        <div class="panel console"><div class="console-head"><span>Container-Log</span><span class="muted mono" id="inst-ctr"></span></div><pre class="log" id="inst-log" style="height:340px"></pre></div>
+      </div>
+    </section>
+
+    <!-- Server-Detail -->
+    <section class="view" data-view="server" id="server-view" hidden></section>
+
+    <!-- Einstellungen -->
+    <section class="view" data-view="settings" hidden>
+      <div class="view-head"><div><h1>Einstellungen</h1><p class="sub">Gilt für alle Server und das Dashboard selbst.</p></div></div>
+      <div class="panel form-sections">
+        <div class="form-sec">
+          <div class="intro"><h2>Modpack-Quellen</h2><p>Modrinth funktioniert ohne Schlüssel. CurseForge verlangt einen eigenen API-Key.</p></div>
+          <div class="body">
+            <label class="field"><span>CurseForge-API-Key</span>
+              <div class="add-row"><input class="input mono" id="cf-key" type="password" value="$2a$10$beispielschluesselnurfuerdenprototyp"><button class="btn" type="button" data-act="cf-check">Prüfen</button></div>
+              <small id="cf-state" style="color:var(--ok)">Gültig · zuletzt geprüft heute 09:12</small>
+              <small>Kostenlos beantragen unter console.curseforge.com. Der Key wird als <span class="mono">CF_API_KEY</span> an Server mit CurseForge-Modpacks übergeben.</small>
+            </label>
+          </div>
+        </div>
+        <div class="form-sec">
+          <div class="intro"><h2>Standards für neue Server</h2><p>Vorbelegung im Assistenten.</p></div>
+          <div class="body">
+            <div class="grid-2">
+              <label class="field"><span>Datenverzeichnis</span><input class="input mono" id="set-dir" value="/srv/forgecraft"><small>Pro Server ein Unterordner mit <span class="mono">compose.yml</span> und <span class="mono">data/</span>.</small></label>
+              <label class="field"><span>Port-Bereich</span><input class="input mono" id="set-ports" value="25565–25600"></label>
+              <label class="field"><span>Standard-RAM</span><select class="input" id="set-ram"><option>2 GB</option><option selected>4 GB</option><option>6 GB</option><option>8 GB</option></select></label>
+              <label class="field"><span>Image</span><input class="input mono" id="set-image" value="itzg/minecraft-server"><small>Java-Tag wird je nach Minecraft-Version automatisch gewählt.</small></label>
+            </div>
+            <label class="switch"><input type="checkbox" id="set-autopause" checked><span class="txt">Autopause standardmäßig an<small>Server frieren ein, solange niemand verbunden ist.</small></span></label>
+          </div>
+        </div>
+        <div class="form-sec">
+          <div class="intro"><h2>Docker</h2><p>Forgecraft spricht direkt mit der Docker Engine.</p></div>
+          <div class="body">
+            <dl class="kv">
+              <dt>Socket</dt><dd class="mono">/var/run/docker.sock</dd>
+              <dt>Engine</dt><dd>Docker 28.1 · linux/amd64</dd>
+              <dt>Status</dt><dd style="color:var(--ok)">Verbunden</dd>
+              <dt>Verwaltete Container</dt><dd class="num" id="set-count"></dd>
+            </dl>
+            <div class="actions"><button class="btn" data-act="toast" data-msg="Alle 5 Server haben das aktuelle Image itzg/minecraft-server.">Nach Image-Updates suchen</button></div>
+          </div>
+        </div>
+        <div class="form-sec">
+          <div class="intro"><h2>Zugang</h2><p>Ein Admin-Konto. Nur im LAN oder per VPN freigeben, da Docker-Zugriff Root-Rechten entspricht.</p></div>
+          <div class="body">
+            <div class="grid-2">
+              <label class="field"><span>Neues Passwort</span><input class="input" id="set-pw1" type="password" autocomplete="new-password"></label>
+              <label class="field"><span>Passwort wiederholen</span><input class="input" id="set-pw2" type="password" autocomplete="new-password"></label>
+              <label class="field"><span>Sitzung gültig für</span><select class="input" id="set-session"><option>1 Tag</option><option selected>7 Tage</option><option>30 Tage</option></select></label>
+              <label class="field"><span>Lauscht auf</span><input class="input mono" id="set-listen" value="0.0.0.0:8420"></label>
+            </div>
+          </div>
+        </div>
+        <div class="form-sec">
+          <div class="intro"><h2>Über</h2></div>
+          <div class="body">
+            <dl class="kv">
+              <dt>Version</dt><dd>Forgecraft 0.1.0</dd>
+              <dt>Ressourcen</dt><dd class="num">14 MB RAM · 0,1 % CPU · ein Binary, keine Datenbank</dd>
+            </dl>
+          </div>
+        </div>
+      </div>
+      <div class="savebar"><span class="muted">Änderungen werden sofort für neue Server übernommen.</span><button class="btn primary" data-act="toast" data-msg="Einstellungen gespeichert." data-kind="ok">Speichern</button></div>
+    </section>
+  </main>
+</div>
+
+<!-- ============ Modals ============ -->
+<div class="modal" id="modal" hidden>
+  <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="modal-title" id="modal-card"></div>
+</div>
+<div class="toasts" id="toasts" aria-live="polite"></div>
+
+<script>
+(() => {
+  'use strict';
+  const $ = (s, el = document) => el.querySelector(s);
+  const $$ = (s, el = document) => [...el.querySelectorAll(s)];
+  const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const de = (n, d = 1) => n.toLocaleString('de-DE', { minimumFractionDigits: d, maximumFractionDigits: d });
+
+  /* ---------------- Beispieldaten ---------------- */
+  const STATUS = { running: 'Läuft', starting: 'Startet', paused: 'Pausiert', stopped: 'Gestoppt', crashed: 'Abgestürzt', updating: 'Aktualisiert' };
+  const TYPES = [
+    { id: 'VANILLA', name: 'Vanilla', d: 'Offizieller Mojang-Server' },
+    { id: 'PAPER', name: 'Paper', d: 'Schnell, Bukkit-Plugins' },
+    { id: 'PURPUR', name: 'Purpur', d: 'Paper mit mehr Optionen' },
+    { id: 'FOLIA', name: 'Folia', d: 'Paper, mehrkernig' },
+    { id: 'FABRIC', name: 'Fabric', d: 'Leichter Mod-Loader' },
+    { id: 'QUILT', name: 'Quilt', d: 'Fabric-kompatibel' },
+    { id: 'FORGE', name: 'Forge', d: 'Klassischer Mod-Loader' },
+    { id: 'NEOFORGE', name: 'NeoForge', d: 'Forge-Nachfolger' },
+  ];
+  const VERSIONS = ['1.21.11', '1.21.10', '1.21.8', '1.21.4', '1.21.1', '1.20.6', '1.20.4', '1.20.1', '1.19.4', '1.18.2', '1.16.5', '1.12.2'];
+  const javaFor = v => { const [, mi, pa = 0] = v.split('.').map(Number); if (mi > 20 || (mi === 20 && pa >= 5)) return 'java21'; if (mi >= 17) return 'java17'; return 'java8'; };
+
+  const PACKS = {
+    modrinth: [
+      { slug: 'fabulously-optimized', name: 'Fabulously Optimized', d: 'Performance-Pack für Vanilla-Gefühl mit mehr FPS und TPS.', loader: 'Fabric', mc: '1.21.10', dl: '9,8 Mio', mods: 72, vers: ['7.2.0', '7.1.3', '7.0.1'], col: '#3f8f6a' },
+      { slug: 'cobblemon-fabric', name: 'Cobblemon Official Modpack', d: 'Pokémon-artige Kreaturen fangen, trainieren und kämpfen.', loader: 'Fabric', mc: '1.21.1', dl: '4,1 Mio', mods: 54, vers: ['1.7.0', '1.6.1'], col: '#c2523c' },
+      { slug: 'simply-optimized', name: 'Simply Optimized', d: 'Minimaler Server-Performance-Stack ohne Gameplay-Änderungen.', loader: 'Fabric', mc: '1.21.10', dl: '1,2 Mio', mods: 18, vers: ['1.21.10-1.0', '1.21.8-1.2'], col: '#4f7bb5' },
+      { slug: 'better-mc-fabric', name: 'Better MC [FABRIC]', d: 'Vanilla+ mit neuen Biomen, Dungeons und Kreaturen.', loader: 'Fabric', mc: '1.21.1', dl: '3,3 Mio', mods: 262, vers: ['v28', 'v27'], col: '#8a62b8' },
+      { slug: 'additive', name: 'Additive', d: 'Behutsame Erweiterung des Vanilla-Spiels.', loader: 'Fabric', mc: '1.21.4', dl: '0,9 Mio', mods: 96, vers: ['5.4.0', '5.3.2'], col: '#b58a2f' },
+    ],
+    curseforge: [
+      { slug: 'all-the-mods-10', name: 'All the Mods 10', d: 'Großes Kitchen-Sink-Pack mit Technik, Magie und Erkundung.', loader: 'NeoForge', mc: '1.21.1', dl: '6,7 Mio', mods: 438, vers: ['4.15', '4.14', '4.13'], col: '#2f6fb0' },
+      { slug: 'better-mc-forge', name: 'Better MC [FORGE]', d: 'Vanilla+ mit neuen Biomen, Dungeons und Kreaturen.', loader: 'Forge', mc: '1.20.1', dl: '22 Mio', mods: 248, vers: ['v52', 'v51'], col: '#8a62b8' },
+      { slug: 'prominence-2', name: 'Prominence II RPG', d: 'RPG-Pack mit Klassen, Bossen und Questlinien.', loader: 'Fabric', mc: '1.20.1', dl: '5,4 Mio', mods: 310, vers: ['3.1.5', '3.1.4'], col: '#a8433f' },
+      { slug: 'rlcraft', name: 'RLCraft', d: 'Hardcore-Überleben mit Drachen und Durst.', loader: 'Forge', mc: '1.12.2', dl: '28 Mio', mods: 172, vers: ['2.9.3', '2.9.2'], col: '#6b4a2f' },
+      { slug: 'atm9-sky', name: 'ATM9 To the Sky', d: 'Skyblock-Variante von All the Mods 9.', loader: 'Forge', mc: '1.20.1', dl: '2,0 Mio', mods: 405, vers: ['1.1.6', '1.1.5'], col: '#3a8fa6' },
+    ],
+  };
+  const MOD_SEARCH = [
+    { name: 'Lithium', src: 'modrinth', d: 'Server-Optimierung für Spiellogik', v: '0.16.2' },
+    { name: 'FerriteCore', src: 'modrinth', d: 'Senkt den RAM-Verbrauch', v: '8.0.0' },
+    { name: 'Chunky', src: 'modrinth', d: 'Welt vorab generieren', v: '1.4.40' },
+    { name: 'Simple Voice Chat', src: 'modrinth', d: 'Näherungs-Sprachchat', v: '2.6.4' },
+    { name: 'Spark', src: 'curseforge', d: 'Profiler für Lags und TPS', v: '1.10.124' },
+    { name: 'BlueMap', src: 'modrinth', d: '3D-Webkarte der Welt', v: '5.11' },
+    { name: 'LuckPerms', src: 'spigot', d: 'Rechteverwaltung', v: '5.5.17' },
+    { name: 'EssentialsX', src: 'spigot', d: 'Basisbefehle wie /home und /spawn', v: '2.21.2' },
+  ];
+
+  const avatarColors = ['#c58b4f', '#5f9bc5', '#7fb069', '#b56576', '#9a7fc4', '#d4a843', '#4fa39a'];
+  const P = n => ({ n, c: avatarColors[[...n].reduce((a, ch) => a + ch.charCodeAt(0), 0) % avatarColors.length] });
+
+  const servers = [
+    { id: 'survival', name: 'Survival', type: 'PAPER', version: '1.21.10', pack: null, status: 'running', online: ['Steve', 'Alex', 'BlockBaumeister'], max: 20, ram: 3.1, ramMax: 6, cpu: 34, port: 25565, image: 'java21', since: '3 T 4 Std', disk: '4,2 GB', autopause: true, aikar: true,
+      update: { mc: '1.21.11' }, whitelist: ['Steve', 'Alex', 'BlockBaumeister', 'Kiesel_Kurt', 'Nachtfalke'], ops: ['Steve'], bans: ['Griefer_2000'],
+      mods: [{ name: 'LuckPerms', src: 'spigot', v: '5.5.17' }, { name: 'EssentialsX', src: 'spigot', v: '2.21.1', upd: '2.21.2' }, { name: 'BlueMap', src: 'modrinth', v: '5.11' }],
+      motd: 'Survival · seit 2024', mode: 'survival', diff: 'hard', seed: '-4172144997902289642', view: 12, sim: 10, pvp: true },
+    { id: 'atm10', name: 'All the Mods 10', type: 'NEOFORGE', version: '1.21.1', pack: { src: 'curseforge', slug: 'all-the-mods-10', name: 'All the Mods 10', ver: '4.14', mods: 438 }, status: 'running', online: ['Redstone_Rita'], max: 10, ram: 9.4, ramMax: 12, cpu: 58, port: 25566, image: 'java21', since: '19 Std', disk: '11,6 GB', autopause: true, aikar: true,
+      update: { pack: '4.15' }, whitelist: ['Redstone_Rita', 'Steve'], ops: ['Redstone_Rita'], bans: [],
+      mods: [{ name: 'Chunky', src: 'modrinth', v: '1.4.40' }, { name: 'Spark', src: 'curseforge', v: '1.10.124' }],
+      motd: 'ATM10 – Technik & Magie', mode: 'survival', diff: 'normal', seed: '', view: 10, sim: 8, pvp: false },
+    { id: 'kreativ', name: 'Kreativ', type: 'FABRIC', version: '1.21.10', pack: { src: 'modrinth', slug: 'fabulously-optimized', name: 'Fabulously Optimized', ver: '7.2.0', mods: 72 }, status: 'paused', online: [], max: 8, ram: 1.9, ramMax: 4, cpu: 0, port: 25567, image: 'java21', since: '6 T', disk: '1,1 GB', autopause: true, aikar: true,
+      whitelist: ['Alex', 'Nachtfalke'], ops: ['Alex'], bans: [], mods: [{ name: 'WorldEdit', src: 'modrinth', v: '7.3.9' }],
+      motd: 'Bauen ohne Grenzen', mode: 'creative', diff: 'peaceful', seed: '', view: 16, sim: 6, pvp: false },
+    { id: 'cobblemon', name: 'Cobblemon', type: 'FABRIC', version: '1.21.1', pack: { src: 'modrinth', slug: 'cobblemon-fabric', name: 'Cobblemon Official Modpack', ver: '1.6.1', mods: 54 }, status: 'stopped', online: [], max: 12, ram: 0, ramMax: 6, cpu: 0, port: 25568, image: 'java21', since: '', disk: '2,3 GB', autopause: true, aikar: true,
+      update: { pack: '1.7.0' }, whitelist: [], ops: ['Steve'], bans: [], mods: [],
+      motd: 'Fang sie dir!', mode: 'survival', diff: 'easy', seed: '', view: 10, sim: 8, pvp: false },
+    { id: 'modtest', name: 'Modtest', type: 'FORGE', version: '1.20.1', pack: null, status: 'crashed', online: [], max: 4, ram: 0, ramMax: 4, cpu: 0, port: 25569, image: 'java17', since: '', disk: '0,6 GB', autopause: false, aikar: true,
+      crash: 'Mod „create“ benötigt Forge 47.1.3 oder neuer, installiert ist 47.0.19.', whitelist: [], ops: ['Steve'], bans: [],
+      mods: [{ name: 'Create', src: 'curseforge', v: '6.0.6' }, { name: 'JEI', src: 'curseforge', v: '15.20.0' }],
+      motd: 'Testserver', mode: 'creative', diff: 'peaceful', seed: '', view: 8, sim: 6, pvp: false },
+  ];
+  const typeName = id => (TYPES.find(t => t.id === id) || { name: id }).name;
+  const byId = id => servers.find(s => s.id === id);
+
+  const pad = n => String(n).padStart(2, '0');
+  const now = () => { const d = new Date(); return `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`; };
+  function seedLog(s) {
+    const t = ['09:41:02', '09:41:05', '09:41:11', '09:41:12', '10:02:47', '10:15:30', '10:16:02', '10:31:19', '10:44:51'];
+    if (s.status === 'crashed') return [
+      ['09:58:10', 'info', 'Starting minecraft server version 1.20.1'], ['09:58:12', 'info', 'Forge mod loading, version 47.0.19, for MC 1.20.1'],
+      ['09:58:19', 'error', 'Missing or unsupported mandatory dependencies:'], ['09:58:19', 'error', '  Mod ID: \'forge\', Requested by: \'create\', Expected range: \'[47.1.3,)\', Actual version: \'47.0.19\''],
+      ['09:58:19', 'error', 'Failed to start the minecraft server'], ['09:58:20', 'warn', 'Container exited with code 1']];
+    if (s.status === 'stopped') return [['gestern', 'info', 'Stopping the server'], ['gestern', 'info', 'Saving worlds'], ['gestern', 'info', 'Container exited with code 0']];
+    const L = [[t[0], 'info', `Starting minecraft server version ${s.version}`], [t[1], 'info', `Preparing level "world"`], [t[2], 'info', 'Done (8.214s)! For help, type "help"'], [t[3], 'info', 'RCON running on 0.0.0.0:25575']];
+    s.online.forEach((p, i) => L.push([t[4 + i] || t[8], 'info', `${p} joined the game`]));
+    if (s.id === 'survival') L.push([t[7], 'chat', '<Alex> hat jemand Diamanten übrig?'], [t[8], 'chat', '<BlockBaumeister> Kiste am Spawn, zweite Reihe']);
+    if (s.id === 'atm10') L.push([t[6], 'warn', "Can't keep up! Is the server overloaded? Running 2084ms or 41 ticks behind"]);
+    if (s.status === 'paused') L.push([t[7], 'info', 'Redstone_Rita left the game'], [t[8], 'info', '[autopause] Keine Spieler verbunden – Server pausiert']);
+    return L;
+  }
+  servers.forEach(s => { s.log = seedLog(s); s.cpuHist = Array.from({ length: 40 }, () => Math.max(0, s.cpu + (Math.random() - .5) * 18)); });
+
+  const backups = {
+    survival: [
+      { at: 'Heute, 04:00', size: '3,9 GB', why: 'Zeitplan' }, { at: 'Gestern, 21:14', size: '3,9 GB', why: 'Manuell' },
+      { at: 'Gestern, 04:00', size: '3,8 GB', why: 'Zeitplan' }, { at: '15.10., 04:00', size: '3,8 GB', why: 'Zeitplan' }, { at: '14.10., 18:32', size: '3,7 GB', why: 'Vor Update auf 1.21.10' }],
+  };
+
+  /* ---------------- Zustand ---------------- */
+  const state = { view: 'overview', server: 'survival', tab: 'console', file: 'server.properties', modQuery: '', importDone: false };
+  const wizDefault = () => ({ step: 1, kind: 'software', type: 'PAPER', version: '1.21.10', src: 'modrinth', query: '', pack: null, packVer: '', name: '', port: nextPort(), ram: 4, autopause: true, aikar: true, autostart: true, motd: 'Ein Forgecraft-Server', mode: 'survival', diff: 'normal', max: 10, seed: '', whitelist: true, onlineMode: true, eula: false });
+  const nextPort = () => Math.max(...servers.map(s => s.port)) + 1;
+  let wiz = null;
+
+  /* ---------------- Navigation ---------------- */
+  function go(view, extra = {}) {
+    Object.assign(state, extra);
+    state.view = view;
+    if (view === 'wizard' && (!wiz || extra.resetWiz !== false)) wiz = wizDefault();
+    $$('.view').forEach(v => { v.hidden = v.dataset.view !== view; });
+    $$('.nav button').forEach(b => b.setAttribute('aria-current', String(b.dataset.view === view)));
+    renderRack();
+    if (view === 'overview') renderOverview();
+    if (view === 'wizard') renderWizard();
+    if (view === 'server') renderServer();
+    if (view === 'settings') $('#set-count').textContent = servers.length;
+    $('#main').scrollTop = 0; window.scrollTo(0, 0);
+  }
+
+  /* ---------------- Sidebar ---------------- */
+  function renderRack() {
+    $('#rack-count').textContent = servers.length;
+    $('#rack').innerHTML = servers.map(s => `
+      <button data-act="open" data-id="${s.id}" aria-current="${state.view === 'server' && state.server === s.id}">
+        <span class="nm"><i class="dot s-${s.status}"></i><span>${esc(s.name)}</span></span>
+        <span class="meta">${s.status === 'running' ? `${s.online.length}/${s.max}` : ''}</span>
+      </button>`).join('');
+  }
+
+  /* ---------------- Übersicht ---------------- */
+  function hostStats() {
+    const ramUsed = 2.4 + servers.reduce((a, s) => a + s.ram, 0);
+    return { cpu: Math.round(8 + servers.reduce((a, s) => a + s.cpu, 0) / 2.2), ramUsed, ramMax: 32, disk: 212, diskMax: 500 };
+  }
+  const level = p => p > 85 ? 'crit' : p > 65 ? 'warn' : 'ok';
+  function renderOverview() {
+    const h = hostStats();
+    const run = servers.filter(s => s.status === 'running').length;
+    const players = servers.reduce((a, s) => a + s.online.length, 0);
+    $('#ov-sub').textContent = `${run} von ${servers.length} Servern laufen · ${players} Spieler online`;
+    const rp = h.ramUsed / h.ramMax * 100, dp = h.disk / h.diskMax * 100;
+    $('#host').innerHTML = `
+      <div class="panel"><span class="label">CPU · 8 Kerne</span><div class="val"><b>${h.cpu} %</b><span>Last 1 min</span></div><div class="meter ${level(h.cpu)}"><i style="width:${h.cpu}%"></i></div></div>
+      <div class="panel"><span class="label">Arbeitsspeicher</span><div class="val"><b>${de(h.ramUsed)} GB</b><span>von ${h.ramMax} GB · ${de(h.ramMax - h.ramUsed)} frei</span></div><div class="meter ${level(rp)}"><i style="width:${rp}%"></i></div></div>
+      <div class="panel"><span class="label">Speicher · /srv</span><div class="val"><b>${h.disk} GB</b><span>von ${h.diskMax} GB</span></div><div class="meter ${level(dp)}"><i style="width:${dp}%"></i></div></div>
+      <div class="panel self"><span class="label">Forgecraft selbst</span><div class="val"><b>14 MB</b><span>0,1 % CPU</span></div><span class="muted" style="font-size:12px">Statistiken laufen nur, solange diese Seite offen ist.</span></div>`;
+    $('#import-slot').innerHTML = state.importDone ? '' : `
+      <div class="callout accent">
+        <div><b>Nicht verwalteter Container gefunden</b><span class="muted">„mc-old“ nutzt itzg/minecraft-server (Vanilla 1.20.4, Port 25570) und wurde außerhalb von Forgecraft angelegt.</span></div>
+        <div class="actions" style="flex:none"><button class="btn sm ghost" data-act="import-hide">Ignorieren</button><button class="btn sm primary" data-act="import">Übernehmen</button></div>
+      </div>`;
+    $('#ov-rows').innerHTML = servers.map(s => {
+      const src = s.pack ? `<span class="chip src-${s.pack.src}">${esc(s.pack.name)} ${esc(s.pack.ver)}</span>` : '';
+      const upd = s.update ? ` <span class="chip" style="color:var(--accent);border-color:var(--accent)">Update</span>` : '';
+      const rp = s.ramMax ? s.ram / s.ramMax * 100 : 0;
+      const act = s.status === 'running' || s.status === 'paused'
+        ? `<button class="btn sm" data-act="stop" data-id="${s.id}">Stoppen</button>`
+        : s.status === 'starting' || s.status === 'updating' ? `<button class="btn sm" disabled>…</button>`
+        : `<button class="btn sm" data-act="start" data-id="${s.id}">Starten</button>`;
+      return `<tr class="click" data-act="open" data-id="${s.id}">
+        <td class="t-name"><b>${esc(s.name)}${upd}</b><span>${typeName(s.type)} ${s.version}</span> ${src}</td>
+        <td><span class="pill s-${s.status}">${STATUS[s.status]}</span></td>
+        <td class="hide-sm num">${s.status === 'running' || s.status === 'paused' ? `${s.online.length} / ${s.max}` : '<span class="muted">–</span>'}</td>
+        <td class="hide-sm">${s.ram ? `<div class="ram-cell"><span class="num">${de(s.ram)} / ${s.ramMax} GB</span><div class="meter ${level(rp)}"><i style="width:${rp}%"></i></div></div>` : `<span class="muted num">${s.ramMax} GB zugewiesen</span>`}</td>
+        <td class="hide-sm mono">${s.port}</td>
+        <td class="right">${act}</td></tr>`;
+    }).join('');
+  }
+
+  /* ---------------- Lifecycle (simuliert) ---------------- */
+  function setStatus(s, st) { s.status = st; refresh(); }
+  function refresh() { renderRack(); if (state.view === 'overview') renderOverview(); if (state.view === 'server') renderServer(); }
+  function startServer(s, label = 'gestartet') {
+    s.crash = null; setStatus(s, 'starting');
+    s.log.push([now(), 'cmd', '[forgecraft] docker start mc-' + s.id], [now(), 'info', `Starting minecraft server version ${s.version}`]);
+    setTimeout(() => {
+      s.status = 'running'; s.ram = +(s.ramMax * .45).toFixed(1); s.cpu = 22; s.since = 'gerade eben';
+      s.log.push([now(), 'info', 'Done (7.902s)! For help, type "help"']);
+      refresh(); toast(`${s.name} ${label}.`, 'ok');
+    }, 2200);
+  }
+  function stopServer(s) {
+    s.log.push([now(), 'cmd', '[forgecraft] rcon stop'], [now(), 'info', 'Stopping the server'], [now(), 'info', 'Saving worlds']);
+    s.status = 'stopped'; s.online = []; s.ram = 0; s.cpu = 0; s.since = '';
+    refresh(); toast(`${s.name} gestoppt. Welt gespeichert.`);
+  }
+
+  /* ---------------- Server-Detail ---------------- */
+  const TABS = [['console', 'Konsole'], ['settings', 'Einstellungen'], ['players', 'Spieler'], ['mods', 'Mods & Plugins', 1], ['files', 'Dateien', 1], ['backups', 'Backups', 1]];
+  function renderServer() {
+    const s = byId(state.server); if (!s) return go('overview');
+    const live = s.status === 'running' || s.status === 'paused';
+    const updCount = s.update ? 1 : 0;
+    let banner = '';
+    if (s.status === 'crashed') banner = `<div class="callout crit"><div><b>Server ist beim Start abgestürzt</b><span>${esc(s.crash)}</span></div><div class="actions" style="flex:none"><button class="btn sm" data-act="tab" data-tab="console">Log ansehen</button><button class="btn sm" data-act="open-update">Version ändern</button></div></div>`;
+    else if (s.status === 'paused') banner = `<div class="callout info"><div><b>Pausiert, weil niemand online ist</b><span class="muted">Autopause hält den Prozess an und spart CPU. Der Server wacht beim nächsten Verbindungsversuch automatisch auf.</span></div></div>`;
+    else if (s.update) banner = `<div class="callout accent"><div><b>Update verfügbar</b><span class="muted">${s.update.mc ? `Minecraft ${s.version} → ${s.update.mc}` : `${esc(s.pack.name)} ${s.pack.ver} → ${s.update.pack}`}</span></div><div class="actions" style="flex:none"><button class="btn sm primary" data-act="open-update">Ansehen</button></div></div>`;
+    const ctrl = live
+      ? `<button class="btn" data-act="restart" data-id="${s.id}">Neu starten</button><button class="btn" data-act="stop" data-id="${s.id}">Stoppen</button>`
+      : s.status === 'starting' || s.status === 'updating' ? `<button class="btn" disabled>${STATUS[s.status]} …</button>`
+      : `<button class="btn primary" data-act="start" data-id="${s.id}">Starten</button>`;
+    $('#server-view').innerHTML = `
+      <div class="srv-head">
+        <div>
+          <div class="srv-title"><h1>${esc(s.name)}</h1><span class="pill s-${s.status}">${STATUS[s.status]}</span></div>
+          <div class="srv-meta">
+            <span>${typeName(s.type)} ${s.version}</span>
+            ${s.pack ? `<span class="chip src-${s.pack.src}">${esc(s.pack.name)} ${s.pack.ver}</span>` : ''}
+            <span class="mono">:${s.port}</span>
+            <span class="mono">${s.image}</span>
+            <span>${s.disk} belegt</span>
+            ${s.since ? `<span>läuft seit ${s.since}</span>` : ''}
+          </div>
+        </div>
+        <div class="actions">
+          ${ctrl}
+          <button class="btn" data-act="open-update">Update ${updCount ? `<span class="badge">${updCount}</span>` : ''}</button>
+          <button class="btn danger" data-act="open-uninstall">Deinstallieren</button>
+        </div>
+      </div>
+      ${banner}
+      <div class="tabs" role="tablist">${TABS.map(([k, l, v2]) => `<button role="tab" aria-selected="${state.tab === k}" data-act="tab" data-tab="${k}">${l}${v2 ? ' <span class="v2">v2</span>' : ''}</button>`).join('')}</div>
+      <div id="tab-body">${TAB_RENDER[state.tab](s)}</div>`;
+    if (state.tab === 'console') { const lg = $('#log'); lg.scrollTop = lg.scrollHeight; }
+  }
+
+  const fmtLine = ([t, lv, msg]) => {
+    const tag = lv === 'chat' ? 'INFO' : lv === 'cmd' ? '' : lv.toUpperCase();
+    return `<span class="t">[${t}${tag ? ' ' + tag : ''}]</span> <span class="lv-${lv}">${esc(msg)}</span>\n`;
+  };
+  function spark(vals) {
+    const w = 248, h = 44, max = 100;
+    const pts = vals.map((v, i) => [i / (vals.length - 1) * w, h - 2 - v / max * (h - 6)]);
+    const line = pts.map(p => p.map(n => n.toFixed(1)).join(',')).join(' ');
+    const last = pts[pts.length - 1];
+    return `<svg class="spark" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" aria-hidden="true">
+      <line class="grid" x1="0" y1="${h / 2}" x2="${w}" y2="${h / 2}"/>
+      <polygon class="area" points="0,${h} ${line} ${w},${h}"/><polyline class="ln" points="${line}"/>
+      <circle class="end" cx="${last[0]}" cy="${last[1]}" r="2.5"/></svg>`;
+  }
+  const avatar = n => { const p = P(n); return `<svg class="avatar" viewBox="0 0 8 8" aria-hidden="true"><rect width="8" height="8" fill="${p.c}"/><rect y="0" width="8" height="3" fill="rgba(0,0,0,.35)"/><rect x="2" y="4" width="1" height="1" fill="#fff"/><rect x="5" y="4" width="1" height="1" fill="#fff"/><rect x="3" y="6" width="2" height="1" fill="rgba(0,0,0,.4)"/></svg>`; };
+
+  const TAB_RENDER = {
+    console(s) {
+      const live = s.status === 'running' || s.status === 'paused';
+      const rp = s.ramMax ? s.ram / s.ramMax * 100 : 0;
+      return `<div class="console-grid">
+        <div class="panel console">
+          <div class="console-head">${live ? '<span class="live">Live</span>' : '<span class="muted">Letzte Ausgabe</span>'}<span class="muted">Stream nur, solange diese Seite offen ist</span></div>
+          <pre class="log" id="log">${s.log.map(fmtLine).join('')}</pre>
+          <form class="cmd" id="cmd-form"><span class="prompt">&gt;</span><input id="cmd-input" placeholder="${live ? 'Befehl per RCON senden, z. B. list' : 'Server ist nicht gestartet'}" autocomplete="off" ${live ? '' : 'disabled'}><button class="btn sm" ${live ? '' : 'disabled'}>Senden</button></form>
+          <div class="quick">${['list', 'save-all', 'weather clear', 'time set day', 'say Neustart in 5 Minuten'].map(c => `<button class="btn sm ghost" data-act="quick" data-cmd="${c}" ${live ? '' : 'disabled'}>${c}</button>`).join('')}</div>
+        </div>
+        <div class="stack">
+          <div class="panel stat"><span class="label">CPU</span><div class="val"><b id="cpu-val">${Math.round(s.cpu)} %</b><span class="muted" style="font-size:12px">letzte 80 s</span></div><div id="cpu-spark">${spark(s.cpuHist)}</div></div>
+          <div class="panel stat"><span class="label">Arbeitsspeicher</span><div class="val"><b>${de(s.ram)} GB</b><span class="muted num" style="font-size:12px">von ${s.ramMax} GB</span></div><div class="meter ${level(rp)}"><i style="width:${rp}%"></i></div></div>
+          ${s.type === 'PAPER' || s.type === 'PURPUR' ? `<div class="panel stat"><span class="label">TPS</span><div class="val"><b>${live && s.status === 'running' ? '20,0' : '–'}</b><span class="muted" style="font-size:12px">Ziel 20</span></div></div>` : ''}
+          <div class="panel stat"><div class="val"><span class="label">Online</span><span class="muted num" style="font-size:12px">${s.online.length} / ${s.max}</span></div>
+            ${s.online.length ? `<ul class="plist">${s.online.map(p => `<li><span class="who">${avatar(p)}<span>${esc(p)}</span></span><span><button class="btn sm ghost" data-act="kick" data-p="${esc(p)}">Kicken</button></span></li>`).join('')}</ul>` : '<p class="empty">Niemand online.</p>'}
+          </div>
+        </div>
+      </div>`;
+    },
+    settings(s) {
+      const env = envOf(s);
+      return `<div class="panel form-sections">
+        <div class="form-sec"><div class="intro"><h2>Spielwelt</h2><p>Landet als Umgebungsvariablen im Container und von dort in <span class="mono">server.properties</span>.</p></div>
+          <div class="body">
+            <label class="field"><span>Nachricht im Serverbrowser (MOTD)</span><input class="input" id="p-motd" value="${esc(s.motd)}"></label>
+            <div class="grid-3">
+              <label class="field"><span>Spielmodus</span><select class="input" id="p-mode">${opt([['survival', 'Überleben'], ['creative', 'Kreativ'], ['adventure', 'Abenteuer'], ['spectator', 'Zuschauer']], s.mode)}</select></label>
+              <label class="field"><span>Schwierigkeit</span><select class="input" id="p-diff">${opt([['peaceful', 'Friedlich'], ['easy', 'Leicht'], ['normal', 'Normal'], ['hard', 'Schwer']], s.diff)}</select></label>
+              <label class="field"><span>Max. Spieler</span><input class="input num" id="p-max" type="number" min="1" value="${s.max}"></label>
+              <label class="field"><span>Sichtweite (Chunks)</span><input class="input num" id="p-view" type="number" min="2" max="32" value="${s.view}"></label>
+              <label class="field"><span>Simulationsweite</span><input class="input num" id="p-sim" type="number" min="2" max="32" value="${s.sim}"></label>
+              <label class="field"><span>Seed</span><input class="input mono" id="p-seed" value="${esc(s.seed)}" placeholder="zufällig"><small>Nur bei neuer Welt wirksam.</small></label>
+            </div>
+            <div class="grid-2">
+              <label class="switch"><input type="checkbox" id="p-pvp" ${s.pvp ? 'checked' : ''}><span class="txt">PvP<small>Spieler können sich gegenseitig verletzen.</small></span></label>
+              <label class="switch"><input type="checkbox" id="p-wl" ${s.whitelist.length ? 'checked' : ''}><span class="txt">Whitelist aktiv<small>Nur eingetragene Spieler dürfen beitreten.</small></span></label>
+            </div>
+          </div></div>
+        <div class="form-sec"><div class="intro"><h2>Ressourcen</h2><p>RAM gilt für die JVM. Der Host hat ${de(32 - hostStats().ramUsed)} GB frei.</p></div>
+          <div class="body">
+            <label class="field"><span>Arbeitsspeicher</span><div class="range-row"><input type="range" id="p-ram" min="1" max="16" value="${s.ramMax}" data-out="p-ram-out"><output id="p-ram-out">${s.ramMax} GB</output></div></label>
+            <div class="grid-2">
+              <label class="switch"><input type="checkbox" id="p-aikar" ${s.aikar ? 'checked' : ''}><span class="txt">Aikar-Flags<small>Bewährte GC-Einstellungen für Minecraft.</small></span></label>
+              <label class="switch"><input type="checkbox" id="p-ap" ${s.autopause ? 'checked' : ''}><span class="txt">Autopause<small>Prozess anhalten, wenn niemand online ist.</small></span></label>
+              <label class="switch"><input type="checkbox" id="p-cpu" disabled><span class="txt">CPU-Limit auf 4 Kerne <span class="v2">v2</span><small>Harte Grenze auf Docker-Ebene.</small></span></label>
+              <label class="switch"><input type="checkbox" id="p-as" disabled><span class="txt">Autostop nach 30 min <span class="v2">v2</span><small>Container ganz beenden statt pausieren.</small></span></label>
+            </div>
+          </div></div>
+        <div class="form-sec"><div class="intro"><h2>Netzwerk</h2></div>
+          <div class="body"><div class="grid-2">
+            <label class="field"><span>Port</span><input class="input mono" id="p-port" value="${s.port}"></label>
+            <label class="switch"><input type="checkbox" id="p-online" checked><span class="txt">Online-Modus<small>Accounts bei Mojang prüfen.</small></span></label>
+          </div></div></div>
+        <div class="form-sec"><div class="intro"><h2>Umgebungsvariablen</h2><p>Alles, was das itzg-Image versteht. Die Felder oben schreiben hier hinein.</p></div>
+          <div class="body"><textarea class="input" id="p-env" rows="${env.split('\n').length + 1}" spellcheck="false">${esc(env)}</textarea></div></div>
+      </div>
+      <div class="savebar" style="margin-top:16px"><span class="muted">Änderungen greifen nach einem Neustart des Containers.</span><div class="actions"><button class="btn" data-act="save" data-restart="0">Speichern</button><button class="btn primary" data-act="save" data-restart="1">Speichern & neu starten</button></div></div>`;
+    },
+    players(s) {
+      const box = (key, title, hint, items) => `
+        <div class="panel"><div class="panel-head"><h2>${title} <span class="muted num" style="font-weight:400">${items.length}</span></h2></div>
+          <div class="panel-pad" style="display:flex;flex-direction:column;gap:12px">
+            <form class="add-row" data-list="${key}"><input class="input" id="add-${key}" placeholder="Spielername" autocomplete="off"><button class="btn">Hinzufügen</button></form>
+            ${items.length ? `<ul class="plist">${items.map(p => `<li><span class="who">${avatar(p)}<span>${esc(p)}</span></span><button class="btn sm ghost" data-act="rm-player" data-list="${key}" data-p="${esc(p)}">Entfernen</button></li>`).join('')}</ul>` : `<p class="empty">${hint}</p>`}
+          </div></div>`;
+      return `<div class="stack">
+        <p class="muted">Änderungen gehen sofort per RCON an den laufenden Server und werden für den nächsten Start gespeichert.</p>
+        <div class="lists-3">
+          ${box('whitelist', 'Whitelist', 'Niemand eingetragen. Ohne Whitelist darf jeder beitreten.', s.whitelist)}
+          ${box('ops', 'Operatoren', 'Keine Operatoren.', s.ops)}
+          ${box('bans', 'Gebannt', 'Niemand gebannt.', s.bans)}
+        </div></div>`;
+    },
+    mods(s) {
+      const isPlugin = ['PAPER', 'PURPUR', 'FOLIA'].includes(s.type);
+      const word = isPlugin ? 'Plugins' : 'Mods';
+      const q = state.modQuery.toLowerCase();
+      const results = MOD_SEARCH.filter(m => (isPlugin ? m.src === 'spigot' || m.name === 'BlueMap' : m.src !== 'spigot') && (!q || m.name.toLowerCase().includes(q) || m.d.toLowerCase().includes(q)));
+      const installed = new Set(s.mods.map(m => m.name));
+      return `<div class="stack">
+        ${s.pack ? `<div class="callout info"><div><b>${esc(s.pack.name)} ${s.pack.ver} bringt ${s.pack.mods} Mods mit</b><span class="muted">Diese verwaltet das Modpack. Hier stehen nur zusätzliche Mods, die beim Start über <span class="mono">MODRINTH_PROJECTS</span> bzw. <span class="mono">CURSEFORGE_FILES</span> nachgeladen werden.</span></div></div>` : ''}
+        <div class="panel">
+          <div class="panel-head"><h2>Installierte ${word} <span class="muted num" style="font-weight:400">${s.mods.length}</span></h2>
+            <div class="actions"><label class="btn sm"><input type="file" accept=".jar" id="jar-up" hidden>JAR hochladen</label><button class="btn sm" data-act="toast" data-msg="Alle ${word} auf dem neuesten Stand bis auf EssentialsX.">Auf Updates prüfen</button></div></div>
+          <div class="tbl-wrap"><table class="tbl"><thead><tr><th>Name</th><th>Quelle</th><th>Version</th><th class="right"></th></tr></thead><tbody>
+            ${s.mods.length ? s.mods.map(m => `<tr><td><b>${esc(m.name)}</b></td><td><span class="chip src-${m.src}">${m.src === 'modrinth' ? 'Modrinth' : m.src === 'curseforge' ? 'CurseForge' : m.src === 'upload' ? 'Upload' : 'Spigot'}</span></td>
+              <td class="mono">${m.v}${m.upd ? ` <span style="color:var(--accent)">→ ${m.upd}</span>` : ''}</td>
+              <td class="right"><div class="actions" style="justify-content:flex-end">${m.upd ? `<button class="btn sm" data-act="mod-upd" data-m="${esc(m.name)}">Aktualisieren</button>` : ''}<button class="btn sm ghost" data-act="mod-rm" data-m="${esc(m.name)}">Entfernen</button></div></td></tr>`).join('')
+              : `<tr><td colspan="4" class="muted">Noch keine zusätzlichen ${word}.</td></tr>`}
+          </tbody></table></div>
+        </div>
+        <div class="panel">
+          <div class="panel-head"><h2>${word} hinzufügen</h2><span class="muted" style="font-size:12px">Gefiltert auf ${typeName(s.type)} ${s.version}</span></div>
+          <div class="panel-pad stack">
+            <div class="search"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="7" cy="7" r="4.5"/><path d="m10.5 10.5 3.5 3.5"/></svg><input class="input" id="mod-q" placeholder="${isPlugin ? 'Spigot und Modrinth durchsuchen' : 'Modrinth und CurseForge durchsuchen'}" value="${esc(state.modQuery)}" autocomplete="off"></div>
+            <ul class="plist" id="mod-results">${results.map(m => `<li><span class="who" style="flex-direction:column;align-items:flex-start;gap:0"><b>${esc(m.name)}</b><span class="muted" style="font-size:12px">${esc(m.d)} · ${m.v}</span></span><span class="actions"><span class="chip src-${m.src}">${m.src === 'modrinth' ? 'Modrinth' : m.src === 'curseforge' ? 'CurseForge' : 'Spigot'}</span>${installed.has(m.name) ? '<button class="btn sm" disabled>Installiert</button>' : `<button class="btn sm" data-act="mod-add" data-m="${esc(m.name)}">Hinzufügen</button>`}</span></li>`).join('') || '<li class="empty">Keine Treffer.</li>'}</ul>
+          </div>
+        </div></div>`;
+    },
+    files(s) {
+      const F = filesOf(s);
+      const cur = F.find(f => f.name === state.file) || F.find(f => f.content);
+      return `<div class="stack">
+        <div class="actions"><label class="btn"><input type="file" accept=".zip" id="world-up" hidden>Welt hochladen (ZIP)</label><button class="btn" data-act="toast" data-msg="Im fertigen Dashboard startet hier der Download von world.zip (${s.disk}).">Welt herunterladen</button><span class="muted" style="font-size:12px">Hochladen ersetzt die aktuelle Welt. Vorher wird automatisch ein Backup erstellt.</span></div>
+        <div class="panel files">
+          <div class="tree">${F.map(f => f.dir
+            ? `<button class="dir" type="button" data-act="toast" data-msg="Ordner aufklappen folgt im fertigen Dashboard."><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M1.5 4h5l1.5 1.5h6.5v8h-13z"/></svg>${f.name}/<span class="sz">${f.size}</span></button>`
+            : `<button type="button" data-act="file" data-f="${f.name}" aria-current="${cur && cur.name === f.name}"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M3.5 1.5h6l3 3v10h-9z"/></svg>${f.name}<span class="sz">${f.size}</span></button>`).join('')}</div>
+          <div class="editor">
+            <div class="editor-head"><span class="mono">/data/${cur.name}</span><div class="actions"><button class="btn sm ghost" data-act="file" data-f="${cur.name}">Verwerfen</button><button class="btn sm primary" data-act="toast" data-msg="${cur.name} gespeichert." data-kind="ok">Speichern</button></div></div>
+            <textarea id="file-ed" spellcheck="false">${esc(cur.content)}</textarea>
+          </div>
+        </div></div>`;
+    },
+    backups(s) {
+      const list = backups[s.id] || [];
+      return `<div class="stack">
+        <div class="panel"><div class="panel-head"><h2>Zeitplan</h2><button class="btn primary" data-act="backup-now">Jetzt sichern</button></div>
+          <div class="panel-pad"><div class="grid-3">
+            <label class="field"><span>Intervall</span><select class="input" id="b-int"><option>Aus</option><option>Alle 6 Stunden</option><option selected>Täglich</option><option>Wöchentlich</option></select></label>
+            <label class="field"><span>Uhrzeit</span><input class="input mono" id="b-time" value="04:00"></label>
+            <label class="field"><span>Aufbewahren</span><select class="input" id="b-keep"><option>3 Backups</option><option selected>7 Backups</option><option>14 Backups</option><option>30 Backups</option></select></label>
+          </div>
+          <div class="grid-2" style="margin-top:16px">
+            <label class="switch"><input type="checkbox" id="b-pre" checked><span class="txt">Vor jedem Update sichern<small>Ermöglicht Rollback bei Problemen.</small></span></label>
+            <label class="switch"><input type="checkbox" id="b-pause" checked><span class="txt">Nicht sichern, wenn pausiert<small>Spart Speicher, wenn sich nichts geändert hat.</small></span></label>
+          </div>
+          <p class="muted" style="font-size:12px;margin-top:14px">Ablauf: <span class="mono">save-off</span> → Archiv nach <span class="mono">/srv/forgecraft/${s.id}/backups</span> → <span class="mono">save-on</span>. Spieler bleiben verbunden.</p></div></div>
+        <div class="panel"><div class="panel-head"><h2>Vorhandene Backups <span class="muted num" style="font-weight:400">${list.length}</span></h2><span class="muted" style="font-size:12px">${list.length ? 'Belegt ' + de(list.length * 3.8) + ' GB' : ''}</span></div>
+          <div class="tbl-wrap"><table class="tbl"><thead><tr><th>Zeitpunkt</th><th>Anlass</th><th class="hide-sm">Größe</th><th class="right"></th></tr></thead><tbody>
+          ${list.length ? list.map((b, i) => `<tr><td class="num">${b.at}</td><td>${b.why}</td><td class="hide-sm num">${b.size}</td><td class="right"><div class="actions" style="justify-content:flex-end"><button class="btn sm" data-act="restore" data-i="${i}">Wiederherstellen</button><button class="btn sm ghost" data-act="toast" data-msg="Im fertigen Dashboard startet hier der Download.">Herunterladen</button></div></td></tr>`).join('')
+            : '<tr><td colspan="4" class="muted">Noch keine Backups. „Jetzt sichern“ erstellt das erste.</td></tr>'}
+          </tbody></table></div></div></div>`;
+    },
+  };
+  const opt = (list, cur) => list.map(([v, l]) => `<option value="${v}" ${v === cur ? 'selected' : ''}>${l}</option>`).join('');
+
+  function envOf(s) {
+    const E = [['EULA', 'TRUE']];
+    if (s.pack && s.pack.src === 'modrinth') E.push(['TYPE', 'MODRINTH'], ['MODRINTH_MODPACK', s.pack.slug], ['MODRINTH_VERSION', s.pack.ver]);
+    else if (s.pack) E.push(['TYPE', 'AUTO_CURSEFORGE'], ['CF_SLUG', s.pack.slug], ['CF_FILE_ID', '6894211'], ['CF_API_KEY', '${CF_API_KEY}']);
+    else E.push(['TYPE', s.type], ['VERSION', s.version]);
+    E.push(['MEMORY', s.ramMax + 'G']);
+    if (s.aikar) E.push(['USE_AIKAR_FLAGS', 'TRUE']);
+    if (s.autopause) E.push(['ENABLE_AUTOPAUSE', 'TRUE']);
+    E.push(['MOTD', s.motd], ['MODE', s.mode], ['DIFFICULTY', s.diff], ['MAX_PLAYERS', String(s.max)], ['VIEW_DISTANCE', String(s.view)], ['SIMULATION_DISTANCE', String(s.sim)]);
+    if (s.seed) E.push(['SEED', s.seed]);
+    if (s.whitelist.length) E.push(['ENABLE_WHITELIST', 'TRUE'], ['WHITELIST', s.whitelist.join(',')]);
+    if (s.ops.length) E.push(['OPS', s.ops.join(',')]);
+    const extra = s.mods.filter(m => m.src === 'modrinth').map(m => m.name.toLowerCase().replace(/\s+/g, '-'));
+    if (extra.length) E.push(['MODRINTH_PROJECTS', extra.join(',')]);
+    const sp = s.mods.filter(m => m.src === 'spigot');
+    if (sp.length) E.push(['SPIGET_RESOURCES', sp.map((m, i) => [28140, 9089][i] || 1000 + i).join(',')]);
+    return E.map(([k, v]) => `${k}=${v}`).join('\n');
+  }
+  function filesOf(s) {
+    const props = `#Minecraft server properties\nmotd=${s.motd}\ngamemode=${s.mode}\ndifficulty=${s.diff}\nmax-players=${s.max}\nview-distance=${s.view}\nsimulation-distance=${s.sim}\npvp=${s.pvp}\nonline-mode=true\nwhite-list=${s.whitelist.length > 0}\nenable-rcon=true\nrcon.port=25575\nserver-port=25565\nlevel-name=world\nlevel-seed=${s.seed}\nspawn-protection=16`;
+    const loaderDir = ['PAPER', 'PURPUR', 'FOLIA'].includes(s.type) ? 'plugins' : 'mods';
+    return [
+      { name: 'config', dir: 1, size: '38 Dateien' }, { name: loaderDir, dir: 1, size: (s.pack ? s.pack.mods : 0) + s.mods.length + ' Dateien' },
+      { name: 'world', dir: 1, size: s.disk }, { name: 'logs', dir: 1, size: '14 Dateien' },
+      { name: 'server.properties', size: '1,4 KB', content: props },
+      { name: 'ops.json', size: '0,2 KB', content: JSON.stringify(s.ops.map(n => ({ name: n, level: 4, bypassesPlayerLimit: false })), null, 2) },
+      { name: 'whitelist.json', size: '0,3 KB', content: JSON.stringify(s.whitelist.map(n => ({ name: n })), null, 2) },
+      { name: 'banned-players.json', size: '0,1 KB', content: JSON.stringify(s.bans.map(n => ({ name: n, source: 'Server', expires: 'forever', reason: 'Griefing' })), null, 2) },
+      { name: 'eula.txt', size: '0,1 KB', content: '#By changing the setting below to TRUE you are indicating your agreement to our EULA\neula=true' },
+    ];
+  }
+
+  /* ---------------- Modals ---------------- */
+  function openModal(html) { $('#modal-card').innerHTML = html; $('#modal').hidden = false; const f = $('#modal-card select, #modal-card input'); if (f) f.focus(); }
+  function closeModal() { $('#modal').hidden = true; }
+
+  function openUpdate() {
+    const s = byId(state.server);
+    const pk = s.pack && PACKS[s.pack.src].find(p => p.slug === s.pack.slug);
+    const modes = s.pack ? [['pack', 'Modpack-Version'], ['image', 'Server-Image']] : [['mc', 'Minecraft-Version'], ['image', 'Server-Image']];
+    const body = mode => {
+      if (mode === 'mc') return `
+        <div class="field"><span>Minecraft-Version</span><div class="ver-flow"><span class="cur">${s.version}</span><span class="muted">→</span><select class="input" id="u-ver">${VERSIONS.map(v => `<option ${v === (s.update && s.update.mc || s.version) ? 'selected' : ''}>${v}</option>`).join('')}</select></div></div>
+        <div class="field"><span>Server-Software</span><select class="input" id="u-type">${TYPES.map(t => `<option value="${t.id}" ${t.id === s.type ? 'selected' : ''}>${t.name}</option>`).join('')}</select><small>Ein Wechsel des Loaders (z. B. Paper → Fabric) entfernt inkompatible Plugins und Mods.</small></div>
+        <div class="callout warn"><div><b>Kein Downgrade</b><span class="muted">Welten lassen sich nicht auf ältere Versionen zurückführen. Forgecraft verhindert Downgrades ohne Backup.</span></div></div>`;
+      if (mode === 'pack') return `
+        <div class="field"><span>${esc(s.pack.name)}</span><div class="ver-flow"><span class="cur">${s.pack.ver}</span><span class="muted">→</span><select class="input" id="u-pack">${(pk ? pk.vers : [s.pack.ver]).map(v => `<option ${v === (s.update && s.update.pack) ? 'selected' : ''}>${v}${v === (s.update && s.update.pack) ? ' (neueste)' : ''}</option>`).join('')}</select></div><small>Minecraft- und Loader-Version gibt das Modpack vor.</small></div>
+        <div class="callout info"><div><b>Was passiert</b><span class="muted">Das itzg-Image lädt die neue Pack-Version, ersetzt die Mods und behält Welt und eigene Konfiguration.</span></div></div>`;
+      return `
+        <div class="field"><span>Image</span><div class="ver-flow"><span class="cur">itzg/minecraft-server:${s.image}</span></div><small>Zuletzt gezogen vor 9 Tagen. Ein neuer Pull holt Fehlerbehebungen des Images; die Minecraft-Version bleibt gleich.</small></div>`;
+    };
+    let mode = modes[0][0];
+    const render = () => openModal(`
+      <div class="modal-head"><h2 id="modal-title">${esc(s.name)} aktualisieren</h2><button class="btn sm ghost" data-act="close" aria-label="Schließen">✕</button></div>
+      <div class="modal-body">
+        <div class="seg">${modes.map(([k, l]) => `<button type="button" data-act="u-mode" data-m="${k}" aria-pressed="${k === mode}">${l}</button>`).join('')}</div>
+        ${body(mode)}
+        <label class="switch"><input type="checkbox" id="u-backup" checked><span class="txt">Vorher Backup erstellen <span class="v2">v2</span><small>Dauert bei ${s.disk} etwa 40 Sekunden.</small></span></label>
+        ${s.online.length ? `<label class="switch"><input type="checkbox" id="u-warn" checked><span class="txt">Spieler 60 Sekunden vorher warnen<small>${s.online.length} Spieler online.</small></span></label>` : ''}
+      </div>
+      <div class="modal-foot"><button class="btn ghost" data-act="close">Abbrechen</button><button class="btn primary" data-act="do-update">Update ausführen</button></div>`);
+    updRender = m => { mode = m; render(); };
+    updMode = () => mode;
+    render();
+  }
+  let updRender = null, updMode = null;
+  function doUpdate() {
+    const s = byId(state.server); const mode = updMode();
+    let msg = '';
+    if (mode === 'mc') { const v = $('#u-ver').value, t = $('#u-type').value; msg = `${s.name} läuft jetzt mit ${typeName(t)} ${v}.`; s.version = v; s.type = t; s.image = javaFor(v); delete s.update; }
+    else if (mode === 'pack') { const v = $('#u-pack').value.split(' ')[0]; msg = `${s.pack.name} ${v} installiert.`; s.pack.ver = v; delete s.update; }
+    else msg = 'Image aktualisiert, Container neu erstellt.';
+    if ($('#u-backup') && $('#u-backup').checked) { (backups[s.id] = backups[s.id] || []).unshift({ at: 'Gerade eben', size: s.disk, why: 'Vor Update' }); }
+    closeModal();
+    s.status = 'updating'; s.online = []; s.log.push([now(), 'cmd', '[forgecraft] Backup erstellt'], [now(), 'cmd', '[forgecraft] docker compose up -d --force-recreate'], [now(), 'info', 'Downloading server files …']);
+    refresh();
+    setTimeout(() => { s.status = 'stopped'; startServer(s, 'aktualisiert'); toast(msg, 'ok'); }, 1600);
+  }
+
+  function openUninstall() {
+    const s = byId(state.server);
+    openModal(`
+      <div class="modal-head"><h2 id="modal-title">${esc(s.name)} deinstallieren</h2><button class="btn sm ghost" data-act="close" aria-label="Schließen">✕</button></div>
+      <div class="modal-body">
+        <label class="radio-card"><input type="radio" name="un" value="keep" checked><span>Container entfernen, Daten behalten<small>Welt, Konfiguration und Backups bleiben in /srv/forgecraft/${s.id}. Lässt sich später wieder übernehmen.</small></span></label>
+        <label class="radio-card"><input type="radio" name="un" value="backup"><span>Backup erstellen, dann alles löschen <span class="v2">v2</span><small>Ein letztes Archiv bleibt unter /srv/forgecraft/_archiv.</small></span></label>
+        <label class="radio-card"><input type="radio" name="un" value="all"><span>Alles löschen<small>Container, Welt (${s.disk}) und alle Backups. Nicht umkehrbar.</small></span></label>
+        <label class="field"><span>Zum Bestätigen <span class="mono">${s.id}</span> eingeben</span><input class="input mono" id="un-confirm" autocomplete="off"></label>
+      </div>
+      <div class="modal-foot"><button class="btn ghost" data-act="close">Abbrechen</button><button class="btn danger-solid" id="un-go" data-act="do-uninstall" disabled>Deinstallieren</button></div>`);
+    $('#un-confirm').focus();
+  }
+  function doUninstall() {
+    const s = byId(state.server); const how = $('input[name=un]:checked').value;
+    servers.splice(servers.indexOf(s), 1); closeModal();
+    toast(how === 'all' ? `${s.name} vollständig gelöscht.` : how === 'backup' ? `${s.name} gesichert und gelöscht.` : `${s.name} entfernt. Daten liegen weiter in /srv/forgecraft/${s.id}.`);
+    go('overview');
+  }
+
+  /* ---------------- Wizard ---------------- */
+  const STEP_NAMES = ['Grundlage', 'Software', 'Ressourcen', 'Spielwelt', 'Prüfen'];
+  const slug = s => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 24);
+  function wizMc() { return wiz.kind === 'pack' && wiz.pack ? wiz.pack.mc : wiz.version; }
+  function renderWizard() {
+    $$('#stepper li').forEach((li, i) => { li.className = i + 1 < wiz.step ? 'done' : i + 1 === wiz.step ? 'cur' : ''; });
+    $('#wiz-prev').style.visibility = wiz.step === 1 ? 'hidden' : 'visible';
+    $('#wiz-next').textContent = wiz.step === 5 ? 'Server erstellen' : 'Weiter';
+    $('#wiz-body').innerHTML = WIZ[wiz.step]();
+    wizValidate();
+  }
+  function wizValidate() {
+    let ok = true;
+    if (wiz.step === 2 && wiz.kind === 'pack') ok = !!wiz.pack;
+    if (wiz.step === 3) ok = !!slug(wiz.name) && !servers.some(s => s.id === slug(wiz.name));
+    if (wiz.step === 5) ok = wiz.eula;
+    $('#wiz-next').disabled = !ok;
+    const ni = $('#w-name-hint');
+    if (ni) { const sl = slug(wiz.name); ni.textContent = !sl ? 'Pflichtfeld' : servers.some(s => s.id === sl) ? `„${sl}“ ist schon vergeben.` : `Container: mc-${sl} · Ordner: /srv/forgecraft/${sl}`; ni.style.color = !sl || servers.some(s => s.id === sl) ? 'var(--crit)' : ''; }
+  }
+  const WIZ = {
+    1: () => `
+      <div><h2>Womit soll der Server starten?</h2><p class="muted" style="margin-top:4px">Du kannst später Mods ergänzen oder die Version wechseln.</p></div>
+      <div class="choice-2">
+        <button class="choice" data-act="w-kind" data-k="software" aria-pressed="${wiz.kind === 'software'}"><b>Server-Software</b><span>Vanilla, Paper, Fabric, Forge und weitere. Leere Welt, du entscheidest über Plugins und Mods.</span></button>
+        <button class="choice" data-act="w-kind" data-k="pack" aria-pressed="${wiz.kind === 'pack'}"><b>Modpack</b><span>Fertiges Paket von Modrinth oder CurseForge. Loader, Version und Mods kommen automatisch.</span></button>
+      </div>`,
+    2: () => wiz.kind === 'software' ? `
+      <div><h2>Server-Software</h2></div>
+      <div class="types">${TYPES.map(t => `<button class="choice" data-act="w-type" data-t="${t.id}" aria-pressed="${wiz.type === t.id}"><b>${t.name}</b><span>${t.d}</span></button>`).join('')}</div>
+      <div class="grid-2">
+        <label class="field"><span>Minecraft-Version</span><select class="input" id="w-version" data-w="version">${VERSIONS.map(v => `<option ${v === wiz.version ? 'selected' : ''}>${v}${v === VERSIONS[0] ? ' (neueste)' : ''}</option>`).join('')}</select></label>
+        <div class="field"><span>Java-Laufzeit</span><div class="input mono" style="background:transparent" id="w-java">itzg/minecraft-server:${javaFor(wiz.version)}</div><small>Automatisch passend zur Version gewählt.</small></div>
+      </div>` : `
+      <div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:center"><h2>Modpack wählen</h2>
+        <div class="seg"><button type="button" data-act="w-src" data-s="modrinth" aria-pressed="${wiz.src === 'modrinth'}">Modrinth</button><button type="button" data-act="w-src" data-s="curseforge" aria-pressed="${wiz.src === 'curseforge'}">CurseForge</button></div></div>
+      ${wiz.src === 'curseforge' ? '<p class="muted" style="font-size:12px;margin-top:-8px">CurseForge-API-Key ist hinterlegt <span style="color:var(--ok)">✓</span></p>' : ''}
+      <div class="search"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="7" cy="7" r="4.5"/><path d="m10.5 10.5 3.5 3.5"/></svg><input class="input" id="w-q" placeholder="Modpacks durchsuchen, z. B. optimized" value="${esc(wiz.query)}" autocomplete="off"></div>
+      <div class="packs" id="w-packs">${packList()}</div>
+      <div id="w-packver">${packVer()}</div>`,
+    3: () => `
+      <div><h2>Name & Ressourcen</h2></div>
+      <div class="grid-2">
+        <label class="field"><span>Name</span><input class="input" id="w-name" data-w="name" value="${esc(wiz.name)}" placeholder="z. B. Survival 2026" autocomplete="off"><small id="w-name-hint"></small></label>
+        <label class="field"><span>Port</span><input class="input mono" id="w-port" data-w="port" value="${wiz.port}"><small>Nächster freier Port im Bereich 25565–25600.</small></label>
+      </div>
+      <label class="field"><span>Arbeitsspeicher</span><div class="range-row"><input type="range" id="w-ram" data-w="ram" min="1" max="16" value="${wiz.ram}" data-out="w-ram-out"><output id="w-ram-out">${wiz.ram} GB</output></div><small>Frei auf dem Host: ${de(32 - hostStats().ramUsed)} GB. ${wiz.kind === 'pack' && wiz.pack && wiz.pack.mods > 200 ? 'Große Modpacks brauchen meist 8 GB oder mehr.' : 'Für Vanilla und Paper reichen meist 4 GB.'}</small></label>
+      <div class="grid-2">
+        <label class="switch"><input type="checkbox" id="w-ap" data-w="autopause" ${wiz.autopause ? 'checked' : ''}><span class="txt">Autopause<small>Einfrieren, solange niemand online ist.</small></span></label>
+        <label class="switch"><input type="checkbox" id="w-aikar" data-w="aikar" ${wiz.aikar ? 'checked' : ''}><span class="txt">Aikar-Flags<small>Optimierte JVM-Einstellungen.</small></span></label>
+        <label class="switch"><input type="checkbox" id="w-as" data-w="autostart" ${wiz.autostart ? 'checked' : ''}><span class="txt">Mit dem Host starten<small>Restart-Policy „unless-stopped“.</small></span></label>
+      </div>`,
+    4: () => `
+      <div><h2>Spielwelt</h2></div>
+      <label class="field"><span>Nachricht im Serverbrowser (MOTD)</span><input class="input" id="w-motd" data-w="motd" value="${esc(wiz.motd)}"></label>
+      <div class="grid-3">
+        <label class="field"><span>Spielmodus</span><select class="input" id="w-mode" data-w="mode">${opt([['survival', 'Überleben'], ['creative', 'Kreativ'], ['adventure', 'Abenteuer']], wiz.mode)}</select></label>
+        <label class="field"><span>Schwierigkeit</span><select class="input" id="w-diff" data-w="diff">${opt([['peaceful', 'Friedlich'], ['easy', 'Leicht'], ['normal', 'Normal'], ['hard', 'Schwer']], wiz.diff)}</select></label>
+        <label class="field"><span>Max. Spieler</span><input class="input num" id="w-max" data-w="max" type="number" min="1" value="${wiz.max}"></label>
+      </div>
+      <label class="field"><span>Seed</span><input class="input mono" id="w-seed" data-w="seed" value="${esc(wiz.seed)}" placeholder="leer = zufällig"></label>
+      <div class="grid-2">
+        <label class="switch"><input type="checkbox" id="w-wl" data-w="whitelist" ${wiz.whitelist ? 'checked' : ''}><span class="txt">Whitelist<small>Spieler trägst du nach dem Start im Reiter „Spieler“ ein.</small></span></label>
+        <label class="switch"><input type="checkbox" id="w-om" data-w="onlineMode" ${wiz.onlineMode ? 'checked' : ''}><span class="txt">Online-Modus<small>Nur gekaufte Accounts.</small></span></label>
+      </div>`,
+    5: () => {
+      const sl = slug(wiz.name);
+      const sw = wiz.kind === 'pack' ? `${wiz.pack.name} ${wiz.packVer}` : `${typeName(wiz.type)} ${wiz.version}`;
+      return `
+      <div><h2>Prüfen & erstellen</h2></div>
+      <div class="summary">
+        <dl class="kv">
+          <dt>Name</dt><dd>${esc(wiz.name)}</dd>
+          <dt>Software</dt><dd>${esc(sw)}${wiz.kind === 'pack' ? ` <span class="chip src-${wiz.src}">${wiz.src === 'modrinth' ? 'Modrinth' : 'CurseForge'}</span>` : ''}</dd>
+          <dt>Minecraft</dt><dd>${wizMc()}${wiz.kind === 'pack' ? ' · ' + wiz.pack.loader : ''}</dd>
+          <dt>Image</dt><dd class="mono">${javaFor(wizMc())}</dd>
+          <dt>Port</dt><dd class="mono">${wiz.port}</dd>
+          <dt>RAM</dt><dd>${wiz.ram} GB${wiz.autopause ? ' · Autopause' : ''}</dd>
+          <dt>Welt</dt><dd>${{ survival: 'Überleben', creative: 'Kreativ', adventure: 'Abenteuer' }[wiz.mode]}, ${{ peaceful: 'friedlich', easy: 'leicht', normal: 'normal', hard: 'schwer' }[wiz.diff]}, bis ${wiz.max} Spieler</dd>
+          <dt>Ordner</dt><dd class="mono">/srv/forgecraft/${sl}</dd>
+        </dl>
+        <div class="field"><span class="label">compose.yml</span><pre class="code">${composeYaml()}</pre></div>
+      </div>
+      <label class="switch"><input type="checkbox" id="w-eula" data-w="eula" ${wiz.eula ? 'checked' : ''}><span class="txt">Ich akzeptiere die Minecraft-EULA<small>Pflicht für jeden Minecraft-Server. Nachzulesen unter minecraft.net/eula.</small></span></label>`;
+    },
+  };
+  function packList() {
+    const q = wiz.query.toLowerCase();
+    const list = PACKS[wiz.src].filter(p => !q || p.name.toLowerCase().includes(q) || p.d.toLowerCase().includes(q));
+    if (!list.length) return '<p class="empty">Kein Modpack gefunden.</p>';
+    return list.map(p => `<button class="pack" data-act="w-pack" data-slug="${p.slug}" aria-pressed="${wiz.pack && wiz.pack.slug === p.slug}">
+      <span class="ico" style="background:${p.col}">${p.name[0]}</span>
+      <span class="txt"><b>${esc(p.name)}</b><p>${esc(p.d)}</p><span class="tags"><span class="chip">${p.loader}</span><span class="chip">${p.mc}</span><span class="chip">${p.mods} Mods</span></span></span>
+      <span class="dl">${p.dl}<br>Downloads</span></button>`).join('');
+  }
+  function packVer() {
+    if (!wiz.pack) return '';
+    return `<div class="grid-2"><label class="field"><span>Pack-Version</span><select class="input" id="w-pv" data-w="packVer">${wiz.pack.vers.map(v => `<option ${v === wiz.packVer ? 'selected' : ''}>${v}</option>`).join('')}</select></label>
+      <div class="field"><span>Ergibt</span><div class="input mono" style="background:transparent">${wiz.pack.loader} · MC ${wiz.pack.mc} · ${javaFor(wiz.pack.mc)}</div></div></div>`;
+  }
+  function composeYaml() {
+    const sl = slug(wiz.name);
+    const k = s => `<span class="k">${s}</span>`, v = s => `<span class="s">"${esc(s)}"</span>`;
+    const env = [['EULA', 'TRUE']];
+    if (wiz.kind === 'pack' && wiz.src === 'modrinth') env.push(['TYPE', 'MODRINTH'], ['MODRINTH_MODPACK', wiz.pack.slug], ['MODRINTH_VERSION', wiz.packVer]);
+    else if (wiz.kind === 'pack') env.push(['TYPE', 'AUTO_CURSEFORGE'], ['CF_SLUG', wiz.pack.slug], ['CF_API_KEY', '${CF_API_KEY}']);
+    else env.push(['TYPE', wiz.type], ['VERSION', wiz.version]);
+    env.push(['MEMORY', wiz.ram + 'G']);
+    if (wiz.aikar) env.push(['USE_AIKAR_FLAGS', 'TRUE']);
+    if (wiz.autopause) env.push(['ENABLE_AUTOPAUSE', 'TRUE']);
+    env.push(['MOTD', wiz.motd], ['MODE', wiz.mode], ['DIFFICULTY', wiz.diff], ['MAX_PLAYERS', String(wiz.max)]);
+    if (wiz.seed) env.push(['SEED', wiz.seed]);
+    if (wiz.whitelist) env.push(['ENABLE_WHITELIST', 'TRUE']);
+    if (!wiz.onlineMode) env.push(['ONLINE_MODE', 'FALSE']);
+    return `${k('services')}:
+  ${k('mc-' + sl)}:
+    ${k('image')}: itzg/minecraft-server:${javaFor(wizMc())}
+    ${k('container_name')}: mc-${sl}
+    ${k('environment')}:
+${env.map(([a, b]) => `      ${k(a)}: ${v(b)}`).join('\n')}
+    ${k('ports')}:
+      - ${v(wiz.port + ':25565')}
+    ${k('volumes')}:
+      - ./data:/data
+    ${k('labels')}:
+      ${k('forgecraft.managed')}: ${v('true')}
+    ${k('restart')}: ${wiz.autostart ? 'unless-stopped' : 'no'}
+    ${k('stdin_open')}: true
+    ${k('tty')}: true`;
+  }
+  function wizNext() {
+    if (wiz.step === 5) return install();
+    if (wiz.step === 1 && wiz.kind === 'pack' && !wiz.pack) wiz.query = '';
+    if (wiz.step === 2 && !wiz.name) wiz.name = wiz.kind === 'pack' ? wiz.pack.name : `${typeName(wiz.type)} ${wiz.version}`;
+    if (wiz.step === 2 && wiz.kind === 'pack' && wiz.pack.mods > 200 && wiz.ram < 8) wiz.ram = 8;
+    wiz.step++; renderWizard();
+  }
+
+  /* ---------------- Installation ---------------- */
+  function install() {
+    const sl = slug(wiz.name), w = { ...wiz };
+    go('install');
+    $('#inst-title').textContent = `${w.name} wird eingerichtet`;
+    $('#inst-sub').textContent = 'Du kannst die Seite verlassen. Der Container arbeitet im Hintergrund weiter.';
+    $('#inst-ctr').textContent = 'mc-' + sl;
+    $('#inst-go').disabled = true; $('#inst-go').dataset.id = sl;
+    const mods = w.kind === 'pack' ? w.pack.mods : 0;
+    const steps = [
+      ['Compose-Datei schreiben', `/srv/forgecraft/${sl}/compose.yml`],
+      [`Image ziehen`, `itzg/minecraft-server:${javaFor(w.kind === 'pack' ? w.pack.mc : w.version)}`],
+      w.kind === 'pack' ? [`Modpack herunterladen`, `${w.pack.name} ${w.packVer}`] : [`Server-Software laden`, `${typeName(w.type)} ${w.version}`],
+      ...(mods ? [[`Mods installieren`, `0 / ${mods}`]] : []),
+      ['Server starten', 'Welt „world“ erzeugen'],
+    ];
+    const logs = [
+      ['cmd', `[forgecraft] docker compose -p mc-${sl} up -d`], ['info', `Pulling itzg/minecraft-server … done`], ['info', `[init] Running as uid=1000 gid=1000`],
+      ['info', w.kind === 'pack' ? `[mc-image-helper] Resolving ${w.src === 'modrinth' ? 'Modrinth' : 'CurseForge'} modpack ${w.pack.slug}` : `[init] Resolving type given ${w.type}`],
+      ['info', `[mc-image-helper] Downloaded ${w.kind === 'pack' ? 'modpack index' : 'server jar'}`],
+      ...(mods ? [['info', `[mc-image-helper] Downloading ${mods} mod files`], ['info', `[mc-image-helper] Installed ${mods} mods`]] : []),
+      ['info', `[init] Starting the Minecraft server …`], ['info', 'Preparing level "world"'], ['info', 'Preparing spawn area: 84%'], ['info', 'Done (24.117s)! For help, type "help"'],
+    ];
+    const ul = $('#inst-steps'), lg = $('#inst-log');
+    ul.innerHTML = steps.map(([a, b]) => `<li><span class="ic"></span><span>${esc(a)}<small>${esc(b)}</small></span></li>`).join('');
+    lg.innerHTML = '';
+    const lis = $$('li', ul);
+    let i = 0, li = 0;
+    const tick = () => {
+      if (state.view !== 'install') return;
+      if (li < logs.length) { lg.innerHTML += fmtLine([now(), logs[li][0], logs[li][1]]); lg.scrollTop = lg.scrollHeight; li++; }
+      const target = Math.min(steps.length, Math.floor(li / logs.length * steps.length));
+      lis.forEach((el, k) => { el.className = k < target ? 'ok' : k === target ? 'run' : ''; el.querySelector('.ic').textContent = k < target ? '✓' : ''; });
+      if (mods && lis[3] && lis[3].className === 'run') lis[3].querySelector('small').textContent = `${Math.min(mods, Math.round(mods * (li - 5) / 2))} / ${mods}`;
+      if (mods && lis[3] && lis[3].className === 'ok') lis[3].querySelector('small').textContent = `${mods} / ${mods}`;
+      if (li >= logs.length) {
+        lis.forEach(el => { el.className = 'ok'; el.querySelector('.ic').textContent = '✓'; });
+        servers.push({ id: sl, name: w.name, type: w.kind === 'pack' ? w.pack.loader.toUpperCase() : w.type, version: w.kind === 'pack' ? w.pack.mc : w.version,
+          pack: w.kind === 'pack' ? { src: w.src, slug: w.pack.slug, name: w.pack.name, ver: w.packVer, mods } : null, status: 'running', online: [], max: +w.max, ram: +(w.ram * .4).toFixed(1), ramMax: +w.ram, cpu: 12,
+          port: +w.port, image: javaFor(w.kind === 'pack' ? w.pack.mc : w.version), since: 'gerade eben', disk: '0,4 GB', autopause: w.autopause, aikar: w.aikar,
+          whitelist: [], ops: [], bans: [], mods: [], motd: w.motd, mode: w.mode, diff: w.diff, seed: w.seed, view: 10, sim: 10, pvp: true,
+          log: logs.map(([a, b]) => [now(), a, b]), cpuHist: Array.from({ length: 40 }, () => 8 + Math.random() * 10) });
+        $('#inst-title').textContent = `${w.name} läuft`;
+        $('#inst-sub').textContent = `Verbinden mit <Host-IP>:${w.port}`;
+        $('#inst-go').disabled = false; renderRack(); toast(`${w.name} ist bereit.`, 'ok');
+        return;
+      }
+      setTimeout(tick, 520);
+    };
+    tick();
+  }
+
+  /* ---------------- Toasts ---------------- */
+  function toast(msg, kind = '') {
+    const t = document.createElement('div'); t.className = 'toast ' + kind; t.textContent = msg;
+    $('#toasts').appendChild(t); setTimeout(() => t.remove(), 3800);
+  }
+
+  /* ---------------- Konsole ---------------- */
+  function sendCmd(cmd) {
+    const s = byId(state.server); if (!cmd) return;
+    s.log.push([now(), 'cmd', '> ' + cmd]);
+    const c = cmd.split(' ')[0];
+    const reply = {
+      list: `There are ${s.online.length} of a max of ${s.max} players online: ${s.online.join(', ')}`,
+      'save-all': 'Saved the game', weather: 'Set the weather to clear', time: 'Set the time to 1000',
+      say: `[Server] ${cmd.slice(4)}`, help: '/help, /list, /say, /save-all, /time, /weather, /whitelist, /op, /kick …',
+    }[c] || (['op', 'deop', 'kick', 'ban', 'pardon', 'whitelist', 'gamerule', 'difficulty', 'tp', 'give'].includes(c) ? 'OK' : 'Unknown or incomplete command, see below for error');
+    s.log.push([now(), reply.startsWith('Unknown') ? 'warn' : 'info', reply]);
+    const lg = $('#log'); if (lg) { lg.innerHTML = s.log.map(fmtLine).join(''); lg.scrollTop = lg.scrollHeight; }
+  }
+  // Wie im echten Dashboard: Stats und Logs fließen nur, solange die Konsole sichtbar ist.
+  setInterval(() => {
+    if (state.view !== 'server' || state.tab !== 'console' || document.hidden) return;
+    const s = byId(state.server); if (!s || s.status !== 'running') return;
+    s.cpu = Math.max(3, Math.min(95, s.cpu + (Math.random() - .5) * 14));
+    s.cpuHist.push(s.cpu); s.cpuHist.shift();
+    const cv = $('#cpu-val'), sp = $('#cpu-spark');
+    if (cv) cv.textContent = Math.round(s.cpu) + ' %';
+    if (sp) sp.innerHTML = spark(s.cpuHist);
+    if (Math.random() < .18) {
+      const pool = s.online.length ? [['chat', `<${s.online[0]}> bin gleich zurück`], ['info', 'Saving the game (autosave)'], ['info', `${s.online[s.online.length - 1]} has made the advancement [Diamonds!]`]] : [['info', 'Saving the game (autosave)']];
+      s.log.push([now(), ...pool[Math.floor(Math.random() * pool.length)]]);
+      const lg = $('#log'); if (lg) { const atEnd = lg.scrollHeight - lg.scrollTop - lg.clientHeight < 30; lg.innerHTML = s.log.map(fmtLine).join(''); if (atEnd) lg.scrollTop = lg.scrollHeight; }
+    }
+  }, 2000);
+
+  /* ---------------- Events ---------------- */
+  document.addEventListener('click', e => {
+    const el = e.target.closest('[data-act]'); if (!el) return;
+    if (el.tagName === 'TR' && e.target.closest('button')) return;
+    const a = el.dataset.act, s = byId(state.server);
+    switch (a) {
+      case 'go': go(el.dataset.view); break;
+      case 'open': go('server', { server: el.dataset.id, tab: byId(el.dataset.id).status === 'crashed' ? 'console' : state.server === el.dataset.id ? state.tab : 'console', file: 'server.properties', modQuery: '' }); break;
+      case 'start': startServer(byId(el.dataset.id)); break;
+      case 'stop': stopServer(byId(el.dataset.id)); break;
+      case 'restart': { const x = byId(el.dataset.id); x.online = []; startServer(x, 'neu gestartet'); break; }
+      case 'tab': state.tab = el.dataset.tab; renderServer(); break;
+      case 'open-update': openUpdate(); break;
+      case 'u-mode': updRender(el.dataset.m); break;
+      case 'do-update': doUpdate(); break;
+      case 'open-uninstall': openUninstall(); break;
+      case 'do-uninstall': doUninstall(); break;
+      case 'close': closeModal(); break;
+      case 'quick': sendCmd(el.dataset.cmd); break;
+      case 'kick': s.online = s.online.filter(p => p !== el.dataset.p); s.log.push([now(), 'cmd', '> kick ' + el.dataset.p], [now(), 'info', `Kicked ${el.dataset.p}: Kicked by an operator`]); refresh(); break;
+      case 'rm-player': s[el.dataset.list] = s[el.dataset.list].filter(p => p !== el.dataset.p); renderServer(); toast(`${el.dataset.p} entfernt.`); break;
+      case 'save': toast(el.dataset.restart === '1' ? 'Gespeichert. Container wird neu erstellt.' : 'Gespeichert. Greift beim nächsten Neustart.', 'ok'); if (el.dataset.restart === '1') { s.motd = $('#p-motd').value; s.online = []; startServer(s, 'mit neuer Konfiguration gestartet'); } break;
+      case 'mod-add': { const m = MOD_SEARCH.find(x => x.name === el.dataset.m); s.mods.push({ name: m.name, src: m.src, v: m.v }); renderServer(); toast(`${m.name} wird beim nächsten Neustart installiert.`, 'ok'); break; }
+      case 'mod-rm': s.mods = s.mods.filter(m => m.name !== el.dataset.m); renderServer(); toast(`${el.dataset.m} wird beim nächsten Neustart entfernt.`); break;
+      case 'mod-upd': { const m = s.mods.find(x => x.name === el.dataset.m); m.v = m.upd; delete m.upd; renderServer(); toast(`${m.name} auf ${m.v} aktualisiert.`, 'ok'); break; }
+      case 'file': state.file = el.dataset.f; renderServer(); break;
+      case 'backup-now': (backups[s.id] = backups[s.id] || []).unshift({ at: 'Gerade eben', size: s.disk, why: 'Manuell' }); renderServer(); toast('Backup erstellt.', 'ok'); break;
+      case 'restore': openModal(`
+        <div class="modal-head"><h2 id="modal-title">Backup wiederherstellen</h2><button class="btn sm ghost" data-act="close" aria-label="Schließen">✕</button></div>
+        <div class="modal-body"><p>Der Server wird gestoppt und die Welt durch den Stand von <b>${backups[s.id][el.dataset.i].at}</b> ersetzt. Vom aktuellen Stand wird vorher ein Backup erstellt.</p></div>
+        <div class="modal-foot"><button class="btn ghost" data-act="close">Abbrechen</button><button class="btn primary" data-act="do-restore">Wiederherstellen</button></div>`); break;
+      case 'do-restore': closeModal(); (backups[s.id] = backups[s.id] || []).unshift({ at: 'Gerade eben', size: s.disk, why: 'Vor Wiederherstellung' }); s.online = []; startServer(s, 'aus Backup wiederhergestellt'); break;
+      case 'import': state.importDone = true; servers.push({ id: 'mc-old', name: 'mc-old', type: 'VANILLA', version: '1.20.4', pack: null, status: 'running', online: [], max: 10, ram: 1.6, ramMax: 3, cpu: 6, port: 25570, image: 'java17', since: '41 T', disk: '2,9 GB', autopause: false, aikar: false, whitelist: [], ops: [], bans: [], mods: [], motd: 'A Minecraft Server', mode: 'survival', diff: 'easy', seed: '', view: 10, sim: 10, pvp: true, log: [], cpuHist: Array(40).fill(6) }); servers.at(-1).log = seedLog(servers.at(-1)); refresh(); toast('mc-old übernommen. Labels gesetzt, Compose-Datei erzeugt.', 'ok'); break;
+      case 'import-hide': state.importDone = true; renderOverview(); break;
+      case 'w-kind': wiz.kind = el.dataset.k; renderWizard(); break;
+      case 'w-type': wiz.type = el.dataset.t; $$('[data-act=w-type]').forEach(b => b.setAttribute('aria-pressed', String(b === el))); break;
+      case 'w-src': wiz.src = el.dataset.s; wiz.pack = null; renderWizard(); break;
+      case 'w-pack': wiz.pack = PACKS[wiz.src].find(p => p.slug === el.dataset.slug); wiz.packVer = wiz.pack.vers[0]; $$('[data-act=w-pack]').forEach(b => b.setAttribute('aria-pressed', String(b === el))); $('#w-packver').innerHTML = packVer(); wizValidate(); break;
+      case 'wiz-next': wizNext(); break;
+      case 'wiz-prev': wiz.step--; renderWizard(); break;
+      case 'inst-go': go('server', { server: el.dataset.id, tab: 'console' }); break;
+      case 'cf-check': $('#cf-state').textContent = 'Gültig · gerade geprüft'; toast('CurseForge-API-Key ist gültig.', 'ok'); break;
+      case 'logout': $('#app').hidden = true; $('#login').hidden = false; $('#login-pass').focus(); break;
+      case 'toast': toast(el.dataset.msg, el.dataset.kind || ''); break;
+    }
+  });
+  document.addEventListener('input', e => {
+    const t = e.target;
+    if (t.dataset.out) $('#' + t.dataset.out).textContent = t.value + ' GB';
+    if (t.id === 'un-confirm') $('#un-go').disabled = t.value.trim() !== state.server;
+    if (t.id === 'w-q') { wiz.query = t.value; $('#w-packs').innerHTML = packList(); }
+    if (t.id === 'mod-q') { state.modQuery = t.value; const pos = t.selectionStart; renderServer(); const n = $('#mod-q'); n.focus(); n.setSelectionRange(pos, pos); }
+    if (t.dataset.w && wiz) {
+      const k = t.dataset.w;
+      wiz[k] = t.type === 'checkbox' ? t.checked : t.type === 'range' || t.type === 'number' ? +t.value : t.value.replace(' (neueste)', '');
+      if (k === 'version') $('#w-java').textContent = 'itzg/minecraft-server:' + javaFor(wiz.version);
+      wizValidate();
+    }
+  });
+  document.addEventListener('change', e => {
+    const t = e.target;
+    if (t.id === 'jar-up' && t.files[0]) { const s = byId(state.server); s.mods.push({ name: t.files[0].name.replace(/\.jar$/, ''), src: 'upload', v: 'lokal' }); renderServer(); toast(`${t.files[0].name} hochgeladen.`, 'ok'); }
+    if (t.id === 'world-up' && t.files[0]) toast(`„${t.files[0].name}“ würde jetzt hochgeladen und als Welt eingesetzt.`);
+  });
+  document.addEventListener('submit', e => {
+    e.preventDefault();
+    const f = e.target;
+    if (f.id === 'cmd-form') { const i = $('#cmd-input'); sendCmd(i.value.trim()); i.value = ''; i.focus(); }
+    if (f.id === 'login-form') { $('#login').hidden = true; $('#app').hidden = false; go('overview'); toast('Angemeldet.', 'ok'); }
+    if (f.dataset.list) {
+      const s = byId(state.server), inp = f.querySelector('input'), n = inp.value.trim();
+      if (n && !s[f.dataset.list].includes(n)) { s[f.dataset.list].push(n); renderServer(); toast(`${n} hinzugefügt.`, 'ok'); $('#add-' + f.dataset.list).focus(); }
+    }
+  });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('#modal').hidden) closeModal(); });
+  $('#modal').addEventListener('click', e => { if (e.target.id === 'modal') closeModal(); });
+
+  /* ---------------- Custom Select ----------------
+     Erweitert jedes select.input automatisch. Das native Element bleibt im DOM und
+     erhält Wert + input/change-Events, damit Formulare und Handler unverändert funktionieren. */
+  const CHEV = '<svg class="cs-chev" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m4 6 4 4 4-4"/></svg>';
+  let csSeq = 0, csOpen = null;
+  function csLabel(sel, btn) { const o = sel.options[sel.selectedIndex]; btn.innerHTML = `<span class="cs-val">${esc(o ? o.text : '')}</span>${CHEV}`; }
+  function enhanceSelect(sel) {
+    sel.dataset.cs = '1';
+    const wrap = document.createElement('div'); wrap.className = 'cselect';
+    const btn = document.createElement('button');
+    btn.type = 'button'; btn.className = 'input cs-btn'; btn.disabled = sel.disabled;
+    btn.setAttribute('role', 'combobox'); btn.setAttribute('aria-haspopup', 'listbox'); btn.setAttribute('aria-expanded', 'false');
+    sel.parentNode.insertBefore(wrap, sel); wrap.append(btn, sel);
+    sel.tabIndex = -1; sel.setAttribute('aria-hidden', 'true');
+    csLabel(sel, btn);
+    sel.addEventListener('change', () => csLabel(sel, btn));
+  }
+  function csShow(btn) {
+    csClose();
+    const sel = btn.nextElementSibling;
+    const list = document.createElement('ul');
+    list.className = 'cs-list'; list.setAttribute('role', 'listbox'); list.id = 'cs-list-' + (++csSeq);
+    list.innerHTML = [...sel.options].map((o, i) => `<li class="cs-opt" role="option" id="${list.id}-${i}" data-i="${i}" aria-selected="${i === sel.selectedIndex}">${esc(o.text)}</li>`).join('');
+    document.body.appendChild(list);
+    btn.setAttribute('aria-expanded', 'true'); btn.setAttribute('aria-controls', list.id);
+    csOpen = { sel, btn, list, idx: sel.selectedIndex };
+    csPlace(); csActive(Math.max(0, sel.selectedIndex));
+  }
+  function csPlace() {
+    if (!csOpen) return;
+    const { btn, list } = csOpen;
+    if (!btn.isConnected) return csClose();
+    const r = btn.getBoundingClientRect(), below = innerHeight - r.bottom - 8, above = r.top - 8;
+    list.style.minWidth = r.width + 'px';
+    list.style.left = Math.max(8, Math.min(r.left, innerWidth - list.offsetWidth - 8)) + 'px';
+    if (below < Math.min(list.scrollHeight, 280) && above > below) {
+      list.style.top = ''; list.style.bottom = (innerHeight - r.top + 4) + 'px'; list.style.maxHeight = Math.min(280, above) + 'px';
+    } else {
+      list.style.bottom = ''; list.style.top = (r.bottom + 4) + 'px'; list.style.maxHeight = Math.min(280, below) + 'px';
+    }
+  }
+  function csActive(i) {
+    const { list, btn } = csOpen, opts = list.children;
+    i = Math.max(0, Math.min(opts.length - 1, i)); csOpen.idx = i;
+    [...opts].forEach((o, k) => o.classList.toggle('active', k === i));
+    btn.setAttribute('aria-activedescendant', opts[i].id);
+    opts[i].scrollIntoView({ block: 'nearest' });
+  }
+  function csPick(i) {
+    const { sel, btn } = csOpen;
+    csClose(); btn.focus();
+    if (sel.selectedIndex === i) return;
+    sel.selectedIndex = i;
+    sel.dispatchEvent(new Event('input', { bubbles: true }));
+    sel.dispatchEvent(new Event('change', { bubbles: true }));
+  }
+  function csClose() {
+    if (!csOpen) return;
+    csOpen.list.remove(); csOpen.btn.setAttribute('aria-expanded', 'false'); csOpen.btn.removeAttribute('aria-activedescendant');
+    csOpen = null;
+  }
+  document.addEventListener('click', e => {
+    const opt = e.target.closest('.cs-opt');
+    if (opt && csOpen) return csPick(+opt.dataset.i);
+    const btn = e.target.closest('.cs-btn');
+    if (btn) return csOpen && csOpen.btn === btn ? csClose() : csShow(btn);
+    if (csOpen && !e.target.closest('.cs-list')) csClose();
+  }, true);
+  document.addEventListener('mouseover', e => { const o = e.target.closest('.cs-opt'); if (o && csOpen) csActive(+o.dataset.i); });
+  window.addEventListener('keydown', e => {
+    const btn = e.target.closest && e.target.closest('.cs-btn'); if (!btn) return;
+    const open = csOpen && csOpen.btn === btn;
+    if (!open) { if (['ArrowDown', 'ArrowUp', 'Enter', ' '].includes(e.key)) { e.preventDefault(); csShow(btn); } return; }
+    const n = csOpen.list.children.length;
+    if (e.key === 'ArrowDown') { e.preventDefault(); csActive(csOpen.idx + 1); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); csActive(csOpen.idx - 1); }
+    else if (e.key === 'Home') { e.preventDefault(); csActive(0); }
+    else if (e.key === 'End') { e.preventDefault(); csActive(n - 1); }
+    else if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); csPick(csOpen.idx); }
+    else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); csClose(); }
+    else if (e.key === 'Tab') csClose();
+    else if (e.key.length === 1) {
+      const opts = [...csOpen.list.children], ch = e.key.toLowerCase();
+      for (let k = 1; k <= n; k++) { const j = (csOpen.idx + k) % n; if (opts[j].textContent.toLowerCase().startsWith(ch)) { csActive(j); break; } }
+    }
+  }, true);
+  window.addEventListener('scroll', e => { if (csOpen && !csOpen.list.contains(e.target)) csPlace(); }, true);
+  window.addEventListener('resize', csPlace);
+  new MutationObserver(() => {
+    $$('select.input:not([data-cs])').forEach(enhanceSelect);
+    if (csOpen && !csOpen.btn.isConnected) csClose();
+  }).observe(document.body, { childList: true, subtree: true });
+  $$('select.input').forEach(enhanceSelect);
+
+  const initial = (location.hash || '').slice(1);
+  if (initial === 'wizard' || initial === 'settings') go(initial);
+  else if (initial && byId(initial)) go('server', { server: initial });
+  else go('overview');
+})();
+</script>

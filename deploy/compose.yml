@@ -1,0 +1,17 @@
+# Forgecraft selbst als Container.
+# Wichtig: Das Datenverzeichnis muss im Container unter DEMSELBEN Pfad liegen wie auf dem Host,
+# weil Docker die Bind-Mounts der Minecraft-Server auf dem Host auflöst.
+services:
+  forgecraft:
+    build: ..
+    image: forgecraft:latest
+    container_name: forgecraft
+    restart: unless-stopped
+    ports:
+      - "8420:8420"          # nur im LAN/VPN freigeben
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /srv/forgecraft:/srv/forgecraft
+    environment:
+      FORGECRAFT_DATA: /srv/forgecraft
+    mem_limit: 96m

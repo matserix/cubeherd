@@ -1,0 +1,101 @@
+{{define "pill"}}<span class="pill s-{{.CSS}}">{{.Label}}</span>{{end}}
+
+{{/* ---------- Übersicht ---------- */}}
+{{define "hostTiles"}}
+<div class="panel"><span class="label">CPU · {{.Host.Cores}} Kerne</span>
+  {{if ge .Host.CPUPercent 0.0}}<div class="val"><b>{{printf "%.0f" .Host.CPUPercent}} %</b><span>Auslastung</span></div><div class="meter {{level .Host.CPUPercent}}"><i style="width:{{printf "%.0f" .Host.CPUPercent}}%"></i></div>
+  {{else}}<div class="val"><b>–</b><span>auf diesem System nicht messbar</span></div><div class="meter"><i style="width:0"></i></div>{{end}}
+</div>
+<div class="panel"><span class="label">Arbeitsspeicher{{if eq .Host.Source "docker"}} · Docker-VM{{end}}</span>
+  {{if .Host.MemUsed}}<div class="val"><b>{{gb .Host.MemUsed}} GB</b><span>von {{gb .Host.MemTotal}} GB</span></div>
+  {{else}}<div class="val"><b>{{gb .Host.MemTotal}} GB</b><span>gesamt · {{gb .Alloc}} GB zugewiesen</span></div>{{end}}
+  {{$p := pct .Host.MemUsed .Host.MemTotal}}{{if not .Host.MemUsed}}{{$p = pct .Alloc .Host.MemTotal}}{{end}}
+  <div class="meter {{level $p}}"><i style="width:{{printf "%.0f" $p}}%"></i></div>
+</div>
+<div class="panel"><span class="label">Speicher · Datenverzeichnis</span>
+  {{$d := pct .Host.DiskUsed .Host.DiskTotal}}
+  <div class="val"><b>{{gb .Host.DiskUsed}} GB</b><span>von {{gb .Host.DiskTotal}} GB</span></div><div class="meter {{level $d}}"><i style="width:{{printf "%.0f" $d}}%"></i></div>
+</div>
+<div class="panel self"><span class="label">Forgecraft selbst</span><div class="val"><b>{{.SelfMB}} MB</b><span>{{.Goroutines}} Goroutinen</span></div><span class="muted" style="font-size:12px">Werte werden nur abgefragt, solange diese Seite offen ist.</span></div>
+{{end}}
+
+{{define "serverRows"}}
+{{range .}}{{template "serverRow" .}}{{else}}
+<tr><td colspan="6" class="muted" style="padding:28px 18px">Noch keine Server. <a href="/servers/new">Den ersten Server anlegen</a></td></tr>
+{{end}}
+{{end}}
+
+{{define "serverRow"}}
+<tr id="row-{{.S.ID}}">
+  <td class="t-name"><a href="/servers/{{.S.ID}}" style="color:inherit;text-decoration:none"><b>{{.S.Name}}</b></a><span>{{.S.SoftwareLabel}}</span>
+    {{with .S.Pack}} <span class="chip src-{{$.S.Kind}}">{{.Name}} {{.VersionLabel}}</span>{{end}}</td>
+  <td>{{template "pill" .Status}}</td>
+  <td class="hide-sm num">{{if .Status.Live}}{{len .Online}} / {{.MaxPlayers}}{{else}}<span class="muted">–</span>{{end}}</td>
+  <td class="hide-sm">{{if .MemUsed}}{{$p := pct .MemUsed (mulGB .S.MemoryGB)}}<div class="ram-cell"><span class="num">{{gb .MemUsed}} / {{.S.MemoryGB}} GB</span><div class="meter {{level $p}}"><i style="width:{{printf "%.0f" $p}}%"></i></div></div>{{else}}<span class="muted num">{{.S.MemoryGB}} GB zugewiesen</span>{{end}}</td>
+  <td class="hide-sm mono">{{.S.Port}}</td>
+  <td class="right">{{template "rowAction" .}}</td>
+</tr>
+{{end}}
+
+{{define "rowAction"}}
+{{if .Status.Busy}}<button class="btn sm" disabled>{{.Status.Label}} …</button>
+{{else if .Status.Up}}<button class="btn sm" hx-post="/servers/{{.S.ID}}/action/stop" hx-vals='{"ctx":"row"}' hx-target="#row-{{.S.ID}}" hx-swap="outerHTML">Stoppen</button>
+{{else}}<button class="btn sm" hx-post="/servers/{{.S.ID}}/action/start" hx-vals='{"ctx":"row"}' hx-target="#row-{{.S.ID}}" hx-swap="outerHTML">Starten</button>{{end}}
+{{end}}
+
+{{/* ---------- Server-Kopf (live per SSE) ---------- */}}
+{{define "srvHead"}}
+{{$s := .V.S}}{{$st := .V.Status}}
+<div class="srv-head">
+  <div>
+    <div class="srv-title"><h1>{{$s.Name}}</h1>{{template "pill" $st}}</div>
+    <div class="srv-meta">
+      <span>{{$s.SoftwareLabel}}</span>
+      {{with $s.Pack}}<span class="chip src-{{$s.Kind}}">{{.Name}} {{.VersionLabel}}</span>{{end}}
+      <span class="mono">:{{$s.Port}}</span>
+      <span class="mono">{{$s.JavaTag}}</span>
+      {{if .Disk}}<span>{{gb .Disk}} GB belegt</span>{{end}}
+      {{with since .V.Since}}<span>läuft seit {{.}}</span>{{end}}
+    </div>
+  </div>
+  <div class="actions">
+    {{if $st.Busy}}<button class="btn" disabled><span class="spin-on-req" style="display:inline-block"></span>{{$st.Label}} …</button>
+    {{else if $st.Up}}<button class="btn" hx-post="/servers/{{$s.ID}}/action/restart" hx-target="#srv-head">Neu starten</button><button class="btn" hx-post="/servers/{{$s.ID}}/action/stop" hx-target="#srv-head">Stoppen</button>
+    {{else}}<button class="btn primary" hx-post="/servers/{{$s.ID}}/action/start" hx-target="#srv-head">Starten</button>{{end}}
+    <button class="btn" hx-get="/servers/{{$s.ID}}/update" hx-target="#modal-card" {{if $st.Busy}}disabled{{end}}>Update{{if .Update}} <span class="badge">1</span>{{end}}</button>
+    <button class="btn danger" hx-get="/servers/{{$s.ID}}/uninstall" hx-target="#modal-card" {{if $st.Busy}}disabled{{end}}>Deinstallieren</button>
+  </div>
+</div>
+{{if eq (print $st) "crashed"}}
+<div class="callout crit"><div><b>Server ist abgestürzt</b><span class="mono" style="white-space:pre-wrap;font-size:12.5px">{{.V.CrashReason}}</span></div>
+  <div class="actions" style="flex:none"><button class="btn sm" hx-get="/servers/{{$s.ID}}/update" hx-target="#modal-card">Version ändern</button><button class="btn sm" hx-post="/servers/{{$s.ID}}/action/start" hx-target="#srv-head">Erneut starten</button></div></div>
+{{else if eq (print $st) "paused"}}
+<div class="callout info"><div><b>Pausiert, weil niemand online ist</b><span class="muted">Autopause hält den Prozess an und spart CPU. Der Server wacht beim nächsten Verbindungsversuch automatisch auf.</span></div></div>
+{{else if or (eq (print $st) "installing") (eq (print $st) "preparing")}}
+<div class="callout accent"><div><b>Server wird eingerichtet</b><span class="muted">{{if eq (print $st) "preparing"}}Das itzg-Image lädt Server-Software{{if $s.Pack}}, Modpack und Mods{{end}}. Bei großen Modpacks dauert das einige Minuten; Statusabfragen schlagen so lange fehl.{{else}}Image, Server-Software{{if $s.Pack}} und Modpack{{end}} werden geladen. Das dauert beim ersten Start einige Minuten.{{end}} Du kannst die Seite verlassen.</span></div></div>
+{{else if eq (print $st) "unhealthy"}}
+<div class="callout warn"><div><b>Server reagiert nicht auf Statusabfragen</b><span class="muted">Der Prozess läuft, beantwortet aber keine Pings. Häufig hilft ein Blick in die Konsole.</span></div></div>
+{{else if .V.OpError}}
+<div class="callout crit"><div><b>Letzte Aktion fehlgeschlagen</b><span class="mono" style="font-size:12.5px">{{.V.OpError}}</span></div></div>
+{{else if .Update}}
+<div class="callout accent"><div><b>Update verfügbar</b><span class="muted">{{.Update}}</span></div><div class="actions" style="flex:none"><button class="btn sm primary" hx-get="/servers/{{$s.ID}}/update" hx-target="#modal-card">Ansehen</button></div></div>
+{{end}}
+{{if and .V.Restarts (ne (print $st) "crashed")}}
+<div class="callout warn"><div><b>Der Server ist {{.V.Restarts}}-mal abgestürzt und wurde automatisch neu gestartet</b>{{with .V.CrashReason}}<span class="mono" style="white-space:pre-wrap;font-size:12.5px">{{.}}</span>{{end}}<span class="muted">Bei Modpacks ist meist zu wenig Arbeitsspeicher die Ursache. Aktuell: {{$s.MemoryGB}} GB Container, davon {{heapGB $s.MemoryGB $s.Modded}} GB Java-Heap.</span></div>
+  <div class="actions" style="flex:none"><a class="btn sm" href="/servers/{{$s.ID}}?tab=settings" style="text-decoration:none">RAM anpassen</a></div></div>
+{{end}}
+{{end}}
+
+{{/* ---------- Konsole ---------- */}}
+{{define "logLine"}}<div class="lv-{{.Level}}">{{.Text}}</div>{{end}}
+
+{{define "stats"}}
+<div class="panel stat"><span class="label">CPU</span><div class="val"><b>{{printf "%.1f" .CPU}} %</b><span class="muted" style="font-size:12px">vom Host</span></div>{{.Spark}}</div>
+<div class="panel stat"><span class="label">Arbeitsspeicher</span>{{$p := pct .MemUsed (mulGB .MemGB)}}<div class="val"><b>{{gb .MemUsed}} GB</b><span class="muted num" style="font-size:12px">von {{.MemGB}} GB</span></div><div class="meter {{level $p}}"><i style="width:{{printf "%.0f" $p}}%"></i></div></div>
+{{end}}
+
+{{define "players"}}
+<div class="val"><span class="label">Online</span><span class="muted num" style="font-size:12px">{{len .Online}} / {{.Max}}</span></div>
+{{if .Online}}<ul class="plist">{{range .Online}}<li><span class="who">{{avatar .}}<span>{{.}}</span></span><button class="btn sm ghost" hx-post="/servers/{{$.ID}}/command" hx-vals='{"cmd":"kick {{.}}"}' hx-target="#log" hx-swap="beforeend">Kicken</button></li>{{end}}</ul>
+{{else}}<p class="empty">{{if .Live}}Niemand online.{{else}}Server läuft nicht.{{end}}</p>{{end}}
+{{end}}

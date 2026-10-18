@@ -1,0 +1,46 @@
+{{define "layout"}}<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>{{if .Title}}{{.Title}} · {{end}}Forgecraft</title>
+<link rel="icon" href="{{static "favicon.svg"}}" type="image/svg+xml">
+<link rel="stylesheet" href="{{static "app.css"}}">
+<script src="{{static "htmx.min.js"}}" defer></script>
+<script src="{{static "sse.js"}}" defer></script>
+<script src="{{static "app.js"}}" defer></script>
+<meta name="htmx-config" content='{"includeIndicatorStyles":false,"defaultSwapStyle":"innerHTML"}'>
+</head>
+<body>
+{{if eq .Nav "login"}}{{template "content" .}}{{else}}
+<div class="app" id="app">
+  <aside class="side">
+    <a class="brand" href="/" style="text-decoration:none;color:inherit">{{template "logo"}}<b>Forgecraft</b></a>
+    <nav class="nav" aria-label="Hauptnavigation">
+      <a href="/" class="navlink" aria-current="{{eq .Nav "overview"}}" title="Übersicht"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1.5" y="1.5" width="5.5" height="5.5" rx="1"/><rect x="9" y="1.5" width="5.5" height="5.5" rx="1"/><rect x="1.5" y="9" width="5.5" height="5.5" rx="1"/><rect x="9" y="9" width="5.5" height="5.5" rx="1"/></svg><span class="nav-txt">Übersicht</span></a>
+      <a href="/servers/new" class="navlink" aria-current="{{eq .Nav "wizard"}}" title="Neuer Server"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 3v10M3 8h10"/></svg><span class="nav-txt">Neuer Server</span></a>
+      <a href="/settings" class="navlink" aria-current="{{eq .Nav "settings"}}" title="Einstellungen"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="2.2"/><path d="M8 1.5v2M8 12.5v2M1.5 8h2M12.5 8h2M3.4 3.4l1.4 1.4M11.2 11.2l1.4 1.4M3.4 12.6l1.4-1.4M11.2 4.8l1.4-1.4"/></svg><span class="nav-txt">Einstellungen</span></a>
+    </nav>
+    <div class="rack-wrap">
+      <div class="rack-head"><span class="label">Server</span><span class="label num">{{len .Rack}}</span></div>
+      <div class="rack">
+        {{range .Rack}}<a href="/servers/{{.S.ID}}" aria-current="{{eq $.Current .S.ID}}"><span class="nm"><i class="dot s-{{.Status.CSS}}"></i><span>{{.S.Name}}</span></span><span class="meta">{{.Status.Label}}</span></a>
+        {{else}}<p class="muted" style="padding:0 10px;font-size:13px">Noch keine Server.</p>{{end}}
+      </div>
+    </div>
+    <div class="side-foot">
+      <div class="row"><span>Forgecraft</span><span class="num">{{.Version}}</span></div>
+      <form method="post" action="/logout"><button class="btn sm ghost" style="padding-left:0">Abmelden</button></form>
+    </div>
+  </aside>
+  <main class="main" id="main">
+    {{template "content" .}}
+  </main>
+</div>
+<div class="modal" id="modal" hidden><div class="modal-card" role="dialog" aria-modal="true" id="modal-card"></div></div>
+{{end}}
+<div class="toasts" id="toasts" aria-live="polite"></div>
+</body>
+</html>{{end}}
+
+{{define "logo"}}<svg viewBox="0 0 24 24" aria-hidden="true" width="26" height="26"><path d="M12 2 21 7 12 12 3 7Z" fill="var(--accent-2)"/><path d="M3 7 12 12V22L3 17Z" fill="var(--accent)"/><path d="M21 7 12 12V22L21 17Z" fill="var(--accent-3)"/></svg>{{end}}

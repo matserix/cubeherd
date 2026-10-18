@@ -1,0 +1,6 @@
+forgecraft-data/
+/bin/
+/forgecraft
+*.tmp
+.DS_Store
+forgecraft-data-ct/

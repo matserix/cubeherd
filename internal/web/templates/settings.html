@@ -1,0 +1,59 @@
+{{define "content"}}
+{{$d := .Data}}{{$c := $d.Cfg}}
+<section class="view">
+  <div class="view-head"><div><h1>Einstellungen</h1><p class="sub">Gilt für alle Server und das Dashboard selbst.</p></div></div>
+  <form class="stack" hx-post="/settings">
+  <div class="panel form-sections">
+    <div class="form-sec">
+      <div class="intro"><h2>Modpack-Quellen</h2><p>Modrinth funktioniert ohne Schlüssel. Für die CurseForge-Suche brauchst du einen eigenen API-Key.</p></div>
+      <div class="body">
+        <label class="field"><span>CurseForge-API-Key</span>
+          <div class="add-row"><input class="input mono" name="cfApiKey" type="password" value="{{$c.CFAPIKey}}" autocomplete="off" placeholder="$2a$10$…"><button class="btn" type="button" hx-post="/settings/cf-check" hx-include="[name=cfApiKey]" hx-target="#cf-state">Prüfen</button></div>
+          <small id="cf-state">{{if $c.CFAPIKey}}Hinterlegt.{{else}}Nicht hinterlegt.{{end}}</small>
+          <small>Kostenlos unter console.curseforge.com. Das itzg-Image bringt für die Installation einen eigenen Key mit; deiner wird zusätzlich als <span class="mono">CF_API_KEY</span> übergeben.</small>
+        </label>
+      </div>
+    </div>
+    <div class="form-sec">
+      <div class="intro"><h2>Standards für neue Server</h2><p>Vorbelegung im Assistenten.</p></div>
+      <div class="body">
+        <div class="grid-2">
+          <label class="field"><span>Port-Bereich von</span><input class="input mono" name="portMin" value="{{$c.PortMin}}" inputmode="numeric"></label>
+          <label class="field"><span>bis</span><input class="input mono" name="portMax" value="{{$c.PortMax}}" inputmode="numeric"></label>
+          <label class="field"><span>Standard-RAM</span><select class="input" name="defaultMemoryGb">{{range $d.RAMOptions}}<option value="{{.}}" {{if eq . $c.DefaultMemoryGB}}selected{{end}}>{{.}} GB</option>{{end}}</select></label>
+          <label class="field"><span>Sitzung gültig für</span><select class="input" name="sessionDays">{{range list "1" "7" "30"}}<option value="{{.}}" {{if eq . (print $c.SessionDays)}}selected{{end}}>{{.}} {{if eq . "1"}}Tag{{else}}Tage{{end}}</option>{{end}}</select></label>
+        </div>
+        <label class="switch"><input type="checkbox" name="defaultAutopause" {{if $c.DefaultAutopause}}checked{{end}}><span class="txt">Autopause standardmäßig an<small>Server frieren ein, solange niemand verbunden ist.</small></span></label>
+      </div>
+    </div>
+    <div class="form-sec">
+      <div class="intro"><h2>System</h2><p>Wird über Umgebungsvariablen beim Start festgelegt.</p></div>
+      <div class="body">
+        <dl class="kv">
+          <dt>Datenverzeichnis</dt><dd class="mono">{{$d.DataDir}}</dd>
+          <dt>Lauscht auf</dt><dd class="mono">{{$d.Listen}}</dd>
+          <dt>Docker</dt><dd>{{if $d.DockerErr}}<span style="color:var(--crit)">{{$d.DockerErr}}</span>{{else}}{{$d.Docker.ServerVersion}} · {{$d.Docker.OperatingSystem}} · {{$d.Docker.Architecture}}{{end}}</dd>
+          <dt>Socket</dt><dd class="mono">{{$d.DockerHost}}</dd>
+          <dt>Forgecraft</dt><dd class="num">{{$d.Version}} · {{$d.SelfMB}} MB RAM · läuft seit {{since $d.Started}}</dd>
+        </dl>
+      </div>
+    </div>
+  </div>
+  <div class="savebar"><span class="muted">Gilt sofort für neue Server.</span><button class="btn primary">Speichern</button></div>
+  </form>
+
+  <form class="panel form-sections" hx-post="/settings/password">
+    <div class="form-sec">
+      <div class="intro"><h2>Passwort ändern</h2><p>Meldet alle anderen Sitzungen ab.</p></div>
+      <div class="body">
+        <div class="grid-3">
+          <label class="field"><span>Aktuelles Passwort</span><input class="input" name="current" type="password" autocomplete="current-password" required></label>
+          <label class="field"><span>Neues Passwort</span><input class="input" name="password" type="password" autocomplete="new-password" minlength="10" required></label>
+          <label class="field"><span>Wiederholen</span><input class="input" name="password2" type="password" autocomplete="new-password" minlength="10" required></label>
+        </div>
+        <div><button class="btn">Passwort ändern</button></div>
+      </div>
+    </div>
+  </form>
+</section>
+{{end}}

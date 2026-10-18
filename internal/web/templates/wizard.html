@@ -1,0 +1,136 @@
+{{define "content"}}
+{{$d := .Data}}
+<section class="view">
+  <div class="view-head">
+    <div><h1>Neuer Server</h1><p class="sub">Forgecraft erzeugt daraus eine Compose-Datei und startet den Container.</p></div>
+  </div>
+  <form class="wiz" id="wizard" hx-post="/servers" autocomplete="off">
+    <ol class="stepper" id="stepper"><li>Grundlage</li><li>Software</li><li>Ressourcen</li><li>Spielwelt</li><li>Prüfen</li></ol>
+    <div class="panel wiz-card">
+
+      <div class="wiz-body wiz-step" data-step="1">
+        <div><h2>Womit soll der Server starten?</h2><p class="muted" style="margin-top:4px">Du kannst später die Version wechseln.</p></div>
+        <div class="choice-2">
+          <label class="choice"><input type="radio" name="kind" value="software" checked><b>Server-Software</b><span>Vanilla, Paper, Fabric, Forge und weitere. Leere Welt, du entscheidest über Plugins und Mods.</span></label>
+          <label class="choice"><input type="radio" name="kind" value="modrinth"><b>Modpack von Modrinth</b><span>Fertiges Paket, ohne API-Key. Loader, Version und Mods kommen automatisch.</span></label>
+          <label class="choice"><input type="radio" name="kind" value="curseforge"><b>Modpack von CurseForge</b><span>{{if $d.HasCFKey}}Größte Auswahl. Dein API-Key ist hinterlegt.{{else}}Für die Suche brauchst du einen CurseForge-API-Key in den <a href="/settings">Einstellungen</a>.{{end}}</span></label>
+        </div>
+      </div>
+
+      <div class="wiz-body wiz-step" data-step="2" hidden>
+        <div data-kind-only="software" class="stack">
+          <h2>Server-Software</h2>
+          <div class="types">
+            {{range $i, $t := types}}<label class="choice"><input type="radio" name="type" value="{{$t.ID}}" data-name="{{$t.Name}}" {{if eq $t.ID "PAPER"}}checked{{end}}><b>{{$t.Name}}</b><span>{{$t.Desc}}</span></label>{{end}}
+          </div>
+          <div class="grid-2">
+            <label class="field"><span>Minecraft-Version</span>
+              <select class="input" name="version" id="w-version" hx-get="/wizard/java" hx-trigger="change" hx-target="#w-java">
+                {{range $i, $v := $d.Releases}}<option value="{{$v}}">{{$v}}{{if eq $i 0}} (neueste){{end}}</option>{{end}}
+              </select></label>
+            <div class="field"><span>Java-Laufzeit</span><div class="input mono" style="background:transparent" id="w-java">{{template "javaTag" $d.Java}}</div><small>Automatisch passend zur Version (laut Mojang).</small></div>
+          </div>
+        </div>
+        {{range list "modrinth" "curseforge"}}
+        <div data-kind-only="{{.}}" class="stack" hidden>
+          <h2>Modpack von {{srcName .}} wählen</h2>
+          <div class="search"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="7" cy="7" r="4.5"/><path d="m10.5 10.5 3.5 3.5"/></svg>
+            <input class="input" type="search" name="q_{{.}}" placeholder="Modpacks durchsuchen" hx-get="/wizard/packs?src={{.}}" hx-trigger="input changed delay:350ms, search" hx-target="#packs-{{.}}" hx-include="this"></div>
+          <div class="packs" id="packs-{{.}}" hx-get="/wizard/packs?src={{.}}" hx-trigger="intersect once"><p class="empty">Lade beliebte Modpacks …</p></div>
+          <div id="packver-{{.}}"></div>
+        </div>
+        {{end}}
+      </div>
+
+      <div class="wiz-body wiz-step" data-step="3" hidden>
+        <h2>Name & Ressourcen</h2>
+        <div class="grid-2">
+          <label class="field"><span>Name</span><input class="input" name="name" id="w-name" placeholder="z. B. Survival" maxlength="40" required><small>Daraus entsteht die ID für Container und Ordner.</small></label>
+          <label class="field"><span>Port</span><input class="input mono" name="port" id="w-port" value="{{$d.Port}}" inputmode="numeric"><small>Nächster freier Port im Bereich {{$d.PortRange}}.</small></label>
+        </div>
+        <label class="field"><span>Arbeitsspeicher (Container-Limit)</span><div class="range-row"><input type="range" name="memory" id="w-ram" min="1" max="{{$d.MaxRAM}}" value="{{$d.RAM}}" data-out="w-ram-out" data-heap="auto"><output id="w-ram-out" style="min-width:150px">{{$d.RAM}} GB</output></div>
+          <small>Java bekommt davon automatisch etwas weniger; der Rest bleibt für Mods, Threads und System. Vanilla und Paper kommen mit 4 GB aus, große Modpacks wie ATM brauchen 10 GB oder mehr. Docker stellt insgesamt {{$d.HostRAM}} GB bereit.</small></label>
+        <div class="grid-2">
+          <label class="switch"><input type="checkbox" name="autopause" {{if $d.Autopause}}checked{{end}}><span class="txt">Autopause<small>Einfrieren, solange niemand online ist.</small></span></label>
+          <label class="switch"><input type="checkbox" name="aikar" checked><span class="txt">Aikar-Flags<small>Optimierte JVM-Einstellungen.</small></span></label>
+          <label class="switch"><input type="checkbox" name="autostart" checked><span class="txt">Mit dem Host starten<small>Restart-Policy „unless-stopped“.</small></span></label>
+        </div>
+      </div>
+
+      <div class="wiz-body wiz-step" data-step="4" hidden>
+        <h2>Spielwelt</h2>
+        <label class="field"><span>Nachricht im Serverbrowser (MOTD)</span><input class="input" name="motd" value="Ein Forgecraft-Server" maxlength="120"></label>
+        <div class="grid-3">
+          <label class="field"><span>Spielmodus</span><select class="input" name="mode"><option value="survival">Überleben</option><option value="creative">Kreativ</option><option value="adventure">Abenteuer</option></select></label>
+          <label class="field"><span>Schwierigkeit</span><select class="input" name="difficulty"><option value="peaceful">Friedlich</option><option value="easy">Leicht</option><option value="normal" selected>Normal</option><option value="hard">Schwer</option></select></label>
+          <label class="field"><span>Max. Spieler</span><input class="input num" name="maxPlayers" type="number" min="1" max="1000" value="10"></label>
+        </div>
+        <label class="field"><span>Seed</span><input class="input mono" name="seed" placeholder="leer = zufällig" maxlength="64"></label>
+        <div class="grid-2">
+          <label class="switch"><input type="checkbox" name="whitelist" checked><span class="txt">Whitelist<small>Spieler trägst du nach dem Start im Reiter „Spieler“ ein.</small></span></label>
+          <label class="switch"><input type="checkbox" name="onlineMode" checked><span class="txt">Online-Modus<small>Nur gekaufte Accounts.</small></span></label>
+        </div>
+      </div>
+
+      <div class="wiz-body wiz-step" data-step="5" hidden>
+        <h2>Prüfen & erstellen</h2>
+        <div id="w-summary" hx-post="/wizard/preview" hx-trigger="fc-preview" hx-include="#wizard"><p class="empty">Wird berechnet …</p></div>
+        <label class="switch"><input type="checkbox" name="eula" id="w-eula"><span class="txt">Ich akzeptiere die Minecraft-EULA<small>Pflicht für jeden Minecraft-Server. Nachzulesen unter minecraft.net/eula.</small></span></label>
+      </div>
+
+      <div class="wiz-foot">
+        <button class="btn ghost" type="button" id="wiz-prev">Zurück</button>
+        <div class="actions">
+          <button class="btn primary" type="button" id="wiz-next">Weiter</button>
+          <button class="btn primary" type="submit" id="wiz-create" hidden>Server erstellen <span class="spin-on-req"></span></button>
+        </div>
+      </div>
+    </div>
+  </form>
+</section>
+{{end}}
+
+{{define "javaTag"}}itzg/minecraft-server:{{.}}{{end}}
+
+{{define "packs"}}
+{{if .Error}}<p class="err">{{.Error}}</p>
+{{else}}{{range .Packs}}
+<label class="pack">
+  <input type="radio" name="pack_slug_{{.Source}}" value="{{.Slug}}" hx-get="/wizard/packversions?src={{.Source}}&slug={{.Slug}}&id={{.ID}}" hx-trigger="change" hx-target="#packver-{{.Source}}">
+  <span class="ico" style="background:var(--surface-3)">{{if .IconURL}}<img src="{{.IconURL}}" alt="" loading="lazy" referrerpolicy="no-referrer">{{else}}{{initial .Title}}{{end}}</span>
+  <span class="txt"><b>{{.Title}}</b><p>{{.Desc}}</p><span class="tags">{{with .Loader}}<span class="chip">{{.}}</span>{{end}}{{with .MC}}<span class="chip">{{.}}</span>{{end}}</span></span>
+  <span class="dl">{{num .Downloads}}<br>Downloads</span>
+</label>
+{{else}}<p class="empty">Kein Modpack gefunden.</p>{{end}}{{end}}
+{{end}}
+
+{{define "packVersions"}}
+{{if .Error}}<p class="err">{{.Error}}</p>{{else}}
+<input type="hidden" name="pack_id_{{.Src}}" value="{{.ID}}">
+<input type="hidden" name="pack_name_{{.Src}}" value="{{.Name}}">
+<input type="hidden" name="pack_icon_{{.Src}}" value="{{.Icon}}">
+<div class="grid-2">
+  <label class="field"><span>Pack-Version</span><select class="input" name="pack_version_{{.Src}}">{{range $i, $v := .Versions}}<option value="{{$v.ID}}">{{$v.Name}}{{with $v.MC}} · MC {{.}}{{end}}{{with $v.Loader}} · {{.}}{{end}}{{if eq $i 0}} (neueste){{end}}</option>{{end}}</select></label>
+  <div class="field"><span>Hinweis</span><small style="padding-top:8px">Loader und Minecraft-Version gibt das Modpack vor. Das Java-Image wählt Forgecraft passend dazu.</small></div>
+</div>
+{{end}}
+{{end}}
+
+{{define "preview"}}
+{{if .Error}}<p class="err">{{.Error}}</p>{{else}}
+<div class="summary">
+  <dl class="kv">
+    <dt>Name</dt><dd>{{.S.Name}}</dd>
+    <dt>ID</dt><dd class="mono">{{.S.ID}}</dd>
+    <dt>Software</dt><dd>{{if .S.Pack}}{{.S.Pack.Name}} {{.S.Pack.VersionLabel}} <span class="chip src-{{.S.Kind}}">{{srcName .S.Kind}}</span>{{else}}{{.S.SoftwareLabel}}{{end}}</dd>
+    <dt>Minecraft</dt><dd>{{.S.Version}}{{if .S.Pack}} · {{typeName .S.Type}}{{end}}</dd>
+    <dt>Image</dt><dd class="mono">{{.S.ImageRef}}</dd>
+    <dt>Port</dt><dd class="mono">{{.S.Port}}</dd>
+    <dt>RAM</dt><dd>{{.S.MemoryGB}} GB Container · {{heapGB .S.MemoryGB .S.Modded}} GB Java-Heap{{if .S.Autopause}} · Autopause{{end}}</dd>
+    <dt>Welt</dt><dd>{{modeName .S.Props.Mode}}, {{diffName .S.Props.Difficulty}}, bis {{.S.Props.MaxPlayers}} Spieler</dd>
+    <dt>Ordner</dt><dd class="mono">{{.Dir}}</dd>
+  </dl>
+  <div class="field"><span class="label">compose.yml</span><pre class="code">{{.Compose}}</pre></div>
+</div>
+{{end}}
+{{end}}

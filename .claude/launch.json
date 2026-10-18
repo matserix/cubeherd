@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "forgecraft",
+      "runtimeExecutable": "go",
+      "runtimeArgs": ["run", "./cmd/forgecraft"],
+      "port": 8420
+    }
+  ]
+}

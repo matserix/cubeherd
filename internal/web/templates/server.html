@@ -1,0 +1,166 @@
+{{define "content"}}
+{{$d := .Data}}{{$s := $d.V.S}}
+<section class="view" hx-ext="sse" sse-connect="/servers/{{$s.ID}}/events?tab={{$d.Tab}}">
+  <div id="srv-head" sse-swap="status">{{template "srvHead" $d}}</div>
+  <div class="tabs" role="tablist">
+    {{range $d.Tabs}}<a role="tab" class="tab" href="/servers/{{$s.ID}}?tab={{.Key}}" aria-selected="{{eq $d.Tab .Key}}">{{.Label}}{{if .V2}} <span class="v2">v2</span>{{end}}</a>{{end}}
+  </div>
+  <div id="tab-body">
+    {{if eq $d.Tab "console"}}{{template "tabConsole" $d}}
+    {{else if eq $d.Tab "settings"}}{{template "tabSettings" $d}}
+    {{else if eq $d.Tab "players"}}{{template "tabPlayers" $d}}
+    {{else}}{{template "tabV2" $d}}{{end}}
+  </div>
+</section>
+{{end}}
+
+{{define "tabConsole"}}
+{{$s := .V.S}}{{$live := .V.Status.Live}}
+<div class="console-grid">
+  <div class="panel console">
+    <div class="console-head"><span class="live">Live</span><span class="muted">Stream nur, solange diese Seite offen ist</span></div>
+    <div class="log" id="log" sse-swap="log" hx-swap="beforeend"></div>
+    <form class="cmd" id="cmd-form" hx-post="/servers/{{$s.ID}}/command" hx-target="#log" hx-swap="beforeend">
+      <span class="prompt">&gt;</span>
+      <input id="cmd-input" name="cmd" placeholder="Befehl per RCON senden, z. B. list" autocomplete="off" maxlength="400">
+      <button class="btn sm">Senden</button>
+    </form>
+    <div class="quick">
+      {{range list "list" "save-all" "weather clear" "time set day"}}<button class="btn sm ghost" hx-post="/servers/{{$s.ID}}/command" hx-vals='{"cmd":"{{.}}"}' hx-target="#log" hx-swap="beforeend">{{.}}</button>{{end}}
+    </div>
+  </div>
+  <div class="stack">
+    <div class="stack" id="stats" sse-swap="stats">{{template "stats" .Stats}}</div>
+    <div class="panel stat" id="players" sse-swap="players">{{template "players" .Players}}</div>
+  </div>
+</div>
+{{end}}
+
+{{define "tabSettings"}}
+{{$s := .V.S}}{{$p := $s.Props}}
+<form class="stack" hx-post="/servers/{{$s.ID}}/settings">
+<div class="panel form-sections">
+  <div class="form-sec"><div class="intro"><h2>Spielwelt</h2><p>Landet als Umgebungsvariablen im Container und von dort in <span class="mono">server.properties</span>.</p></div>
+    <div class="body">
+      <label class="field"><span>Nachricht im Serverbrowser (MOTD)</span><input class="input" name="motd" value="{{$p.MOTD}}" maxlength="120"></label>
+      <div class="grid-3">
+        <label class="field"><span>Spielmodus</span><select class="input" name="mode">{{range list "survival" "creative" "adventure" "spectator"}}<option value="{{.}}" {{if eq . $p.Mode}}selected{{end}}>{{modeName .}}</option>{{end}}</select></label>
+        <label class="field"><span>Schwierigkeit</span><select class="input" name="difficulty">{{range list "peaceful" "easy" "normal" "hard"}}<option value="{{.}}" {{if eq . $p.Difficulty}}selected{{end}}>{{diffName .}}</option>{{end}}</select></label>
+        <label class="field"><span>Max. Spieler</span><input class="input num" name="maxPlayers" type="number" min="1" max="1000" value="{{$p.MaxPlayers}}"></label>
+        <label class="field"><span>Sichtweite (Chunks)</span><input class="input num" name="viewDistance" type="number" min="2" max="32" value="{{if $p.ViewDistance}}{{$p.ViewDistance}}{{end}}" placeholder="10"></label>
+        <label class="field"><span>Simulationsweite</span><input class="input num" name="simDistance" type="number" min="2" max="32" value="{{if $p.SimDistance}}{{$p.SimDistance}}{{end}}" placeholder="10"></label>
+        <label class="field"><span>Seed</span><input class="input mono" name="seed" value="{{$p.Seed}}" placeholder="zufällig" maxlength="64"><small>Nur bei neuer Welt wirksam.</small></label>
+      </div>
+      <div class="grid-2">
+        <label class="switch"><input type="checkbox" name="pvp" {{if $p.PVP}}checked{{end}}><span class="txt">PvP<small>Spieler können sich gegenseitig verletzen.</small></span></label>
+        <label class="switch"><input type="checkbox" name="whitelist" {{if $p.Whitelist}}checked{{end}}><span class="txt">Whitelist aktiv<small>Nur eingetragene Spieler dürfen beitreten.</small></span></label>
+      </div>
+    </div></div>
+  <div class="form-sec"><div class="intro"><h2>Ressourcen</h2><p>Der Arbeitsspeicher ist das Limit des Containers. Java bekommt davon etwas weniger, der Rest bleibt für {{if $s.Modded}}Mods, {{end}}Threads und System.</p></div>
+    <div class="body">
+      <label class="field"><span>Arbeitsspeicher (Container-Limit)</span><div class="range-row"><input type="range" name="memory" min="1" max="{{.MaxRAM}}" value="{{$s.MemoryGB}}" data-out="p-ram-out" data-heap="{{if $s.Modded}}1{{else}}0{{end}}"><output id="p-ram-out" style="min-width:150px">{{$s.MemoryGB}} GB · Heap {{heapGB $s.MemoryGB $s.Modded}} GB</output></div>
+        <small>Docker stellt insgesamt {{.HostRAM}} GB bereit.</small></label>
+      <div class="grid-2">
+        <label class="switch"><input type="checkbox" name="aikar" {{if $s.Aikar}}checked{{end}}><span class="txt">Aikar-Flags<small>Bewährte GC-Einstellungen für Minecraft.</small></span></label>
+        <label class="switch"><input type="checkbox" name="autopause" {{if $s.Autopause}}checked{{end}}><span class="txt">Autopause<small>Prozess anhalten, wenn niemand online ist.</small></span></label>
+        <label class="switch"><input type="checkbox" name="autostart" {{if $s.Autostart}}checked{{end}}><span class="txt">Mit dem Host starten<small>Restart-Policy „unless-stopped“.</small></span></label>
+        <label class="switch"><input type="checkbox" disabled><span class="txt"><span>CPU-Limit <span class="v2">v2</span></span><small>Harte Grenze auf Docker-Ebene.</small></span></label>
+      </div>
+    </div></div>
+  <div class="form-sec"><div class="intro"><h2>Netzwerk</h2></div>
+    <div class="body"><div class="grid-2">
+      <label class="field"><span>Port</span><input class="input mono" name="port" value="{{$s.Port}}" inputmode="numeric"></label>
+      <label class="switch"><input type="checkbox" name="onlineMode" {{if $p.OnlineMode}}checked{{end}}><span class="txt">Online-Modus<small>Accounts bei Mojang prüfen.</small></span></label>
+    </div></div></div>
+  <div class="form-sec"><div class="intro"><h2>Zusätzliche Variablen</h2><p>Alles, was das itzg-Image versteht, eine Variable pro Zeile. Gleichnamige Werte überschreiben die Felder oben.</p></div>
+    <div class="body">
+      <textarea class="input" name="extraEnv" rows="5" spellcheck="false" placeholder="z. B. SPAWN_PROTECTION=0">{{.ExtraEnv}}</textarea>
+      <details><summary class="muted" style="cursor:pointer;font-size:13px">Erzeugte Umgebung ansehen</summary><pre class="code" style="margin-top:10px">{{.FullEnv}}</pre></details>
+    </div></div>
+</div>
+<div class="savebar"><span class="muted">Änderungen greifen nach einem Neustart des Containers.</span><div class="actions"><button class="btn" name="apply" value="0">Speichern</button><button class="btn primary" name="apply" value="1">Speichern & neu starten</button></div></div>
+</form>
+{{end}}
+
+{{define "tabPlayers"}}
+<div class="stack" id="players-tab">{{template "playersBody" .}}</div>
+{{end}}
+
+{{define "playersBody"}}
+{{$s := .V.S}}
+<p class="muted">{{if .V.Status.Live}}Änderungen gehen sofort per RCON an den laufenden Server und gelten auch nach jedem Neustart.{{else}}Der Server läuft nicht. Whitelist und Operatoren werden beim nächsten Start übernommen, Bans erst wieder, wenn er läuft.{{end}}</p>
+<div class="lists-3">
+  {{template "playerBox" dict "ID" $s.ID "Key" "whitelist" "Title" "Whitelist" "Hint" "Niemand eingetragen." "Items" $s.Whitelist "Enabled" true}}
+  {{template "playerBox" dict "ID" $s.ID "Key" "ops" "Title" "Operatoren" "Hint" "Keine Operatoren." "Items" $s.Ops "Enabled" true}}
+  {{template "playerBox" dict "ID" $s.ID "Key" "bans" "Title" "Gebannt" "Hint" "Niemand gebannt." "Items" .Bans "Enabled" .V.Status.Live}}
+</div>
+{{end}}
+
+{{define "playerBox"}}
+<div class="panel"><div class="panel-head"><h2>{{.Title}} <span class="muted num" style="font-weight:400">{{len .Items}}</span></h2></div>
+  <div class="panel-pad" style="display:flex;flex-direction:column;gap:12px">
+    <form class="add-row" hx-post="/servers/{{.ID}}/players/{{.Key}}/add" hx-target="#players-tab">
+      <input class="input" name="player" placeholder="Spielername" autocomplete="off" pattern="[A-Za-z0-9_]{2,16}" required {{if not .Enabled}}disabled{{end}}><button class="btn" {{if not .Enabled}}disabled{{end}}>Hinzufügen</button></form>
+    {{if .Items}}<ul class="plist">{{range .Items}}<li><span class="who">{{avatar .}}<span>{{.}}</span></span><button class="btn sm ghost" hx-post="/servers/{{$.ID}}/players/{{$.Key}}/remove" hx-vals='{"player":"{{.}}"}' hx-target="#players-tab" {{if not $.Enabled}}disabled{{end}}>Entfernen</button></li>{{end}}</ul>
+    {{else}}<p class="empty">{{.Hint}}</p>{{end}}
+  </div></div>
+{{end}}
+
+{{define "tabV2"}}
+<div class="panel v2-panel">
+  <span class="v2">v2</span>
+  {{if eq .Tab "mods"}}<h2>Mods & Plugins einzeln verwalten</h2>
+    <ul><li>Suche über Modrinth, CurseForge und Spigot, gefiltert auf Loader und Version</li><li>Eigene JAR-Dateien hochladen</li><li>Updates einzelner Mods erkennen</li></ul>
+  {{else if eq .Tab "files"}}<h2>Dateien & Welten</h2>
+    <ul><li>Datei-Browser mit Editor für Konfigurationsdateien</li><li>Welt als ZIP hoch- und herunterladen</li></ul>
+    <p class="muted" style="font-size:13px">Bis dahin liegen die Dateien unter <span class="mono">{{.DataDir}}</span>.</p>
+  {{else}}<h2>Backups</h2>
+    <ul><li>Manuell und per Zeitplan, mit Aufbewahrungsregel</li><li>Automatisch vor jedem Update</li><li>Wiederherstellen per Klick</li></ul>
+  {{end}}
+  <p class="muted">Dieser Bereich folgt nach dem MVP.</p>
+</div>
+{{end}}
+
+{{/* ---------- Modals ---------- */}}
+{{define "updateModal"}}
+{{$s := .S}}
+<div class="modal-head"><h2>{{$s.Name}} aktualisieren</h2><button class="btn sm ghost" data-close aria-label="Schließen">✕</button></div>
+<form hx-post="/servers/{{$s.ID}}/update">
+<div class="modal-body">
+  <div class="seg">
+    {{range .Modes}}<label><input type="radio" name="mode" value="{{.Key}}" hx-get="/servers/{{$s.ID}}/update?mode={{.Key}}" hx-target="#modal-card" hx-trigger="change" {{if eq .Key $.Mode}}checked{{end}}>{{.Label}}</label>{{end}}
+  </div>
+  {{if .Error}}<p class="err">{{.Error}}</p>{{end}}
+  {{if eq .Mode "mc"}}
+    <div class="field"><span>Minecraft-Version</span><div class="ver-flow"><span class="cur">{{$s.Version}}</span><span class="muted">→</span>
+      <select class="input" name="version">{{range $i, $v := .Releases}}<option value="{{$v}}" {{if eq $v $.Target}}selected{{end}}>{{$v}}{{if eq $i 0}} (neueste){{end}}</option>{{end}}</select></div></div>
+    <label class="field"><span>Server-Software</span><select class="input" name="type">{{range types}}<option value="{{.ID}}" {{if eq .ID $s.Type}}selected{{end}}>{{.Name}}</option>{{end}}</select><small>Ein Wechsel des Loaders (z. B. Paper → Fabric) macht vorhandene Plugins und Mods unbrauchbar.</small></label>
+    <div class="callout warn"><div><b>Kein Downgrade</b><span class="muted">Welten lassen sich nicht auf ältere Versionen zurückführen. Forgecraft lässt Downgrades nur mit ausdrücklicher Bestätigung zu.</span></div></div>
+    <label class="switch"><input type="checkbox" name="allowDowngrade"><span class="txt">Downgrade trotzdem erlauben<small>Nur wenn du ein Backup der Welt hast.</small></span></label>
+  {{else if eq .Mode "pack"}}
+    <div class="field"><span>{{$s.Pack.Name}}</span><div class="ver-flow"><span class="cur">{{$s.Pack.VersionLabel}}</span><span class="muted">→</span>
+      <select class="input" name="packVersion">{{range $i, $v := .PackVersions}}<option value="{{$v.ID}}" {{if eq $v.ID $s.Pack.Version}}selected{{end}}>{{$v.Name}}{{with $v.MC}} · MC {{.}}{{end}}{{if eq $i 0}} (neueste){{end}}</option>{{end}}</select></div>
+      <small>Minecraft- und Loader-Version gibt das Modpack vor.</small></div>
+    <div class="callout info"><div><b>Was passiert</b><span class="muted">Das itzg-Image lädt die neue Pack-Version, ersetzt die Mods und behält Welt und eigene Konfiguration.</span></div></div>
+  {{else}}
+    <div class="field"><span>Image</span><div class="ver-flow"><span class="cur">{{$s.ImageRef}}</span></div><small>Holt die neueste Fassung des itzg-Images (Fehlerbehebungen, Hilfsprogramme). Die Minecraft-Version bleibt gleich.</small></div>
+  {{end}}
+  <label class="switch"><input type="checkbox" disabled><span class="txt"><span>Vorher Backup erstellen <span class="v2">v2</span></span><small>Kommt mit den Backups.</small></span></label>
+</div>
+<div class="modal-foot"><button class="btn ghost" type="button" data-close>Abbrechen</button><button class="btn primary">Update ausführen <span class="spin-on-req"></span></button></div>
+</form>
+{{end}}
+
+{{define "uninstallModal"}}
+{{$s := .S}}
+<div class="modal-head"><h2>{{$s.Name}} deinstallieren</h2><button class="btn sm ghost" data-close aria-label="Schließen">✕</button></div>
+<form hx-post="/servers/{{$s.ID}}/uninstall">
+<div class="modal-body">
+  <label class="radio-card"><input type="radio" name="mode" value="keep" checked><span>Container entfernen, Daten behalten<small>Welt und Konfiguration bleiben in <span class="mono">{{.Dir}}.removed</span>{{if $s.DataVol}} bzw. im Volume <span class="mono">{{$s.DataVol}}</span>{{end}}.</small></span></label>
+  <label class="radio-card"><input type="radio" name="mode" value="backup" disabled><span>Backup erstellen, dann alles löschen <span class="v2">v2</span><small>Kommt mit den Backups.</small></span></label>
+  <label class="radio-card"><input type="radio" name="mode" value="all"><span>Alles löschen<small>Container und Ordner {{if $s.DataDir}}(die Daten unter <span class="mono">{{$s.DataDir}}</span> bleiben, sie liegen außerhalb von Forgecraft){{else if $s.DataVol}}(das Volume <span class="mono">{{$s.DataVol}}</span> bleibt erhalten){{else}}inklusive Welt{{end}}. Nicht umkehrbar.</small></span></label>
+  <label class="field"><span>Zum Bestätigen <span class="mono">{{$s.ID}}</span> eingeben</span><input class="input mono" name="confirm" autocomplete="off" data-confirm="{{$s.ID}}" data-confirm-btn="un-go" autofocus></label>
+</div>
+<div class="modal-foot"><button class="btn ghost" type="button" data-close>Abbrechen</button><button class="btn danger-solid" id="un-go" disabled>Deinstallieren <span class="spin-on-req"></span></button></div>
+</form>
+{{end}}
