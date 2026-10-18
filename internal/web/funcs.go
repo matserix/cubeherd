@@ -38,6 +38,9 @@ var funcs = template.FuncMap{
 	},
 	"list":     func(v ...string) []string { return v },
 	"joinPath": joinRel,
+	"idleName": func(m string) string {
+		return map[string]string{"pause": "Pausieren (Autopause)", "stop": "Stoppen (Autostop)", "none": "Weiterlaufen"}[m]
+	},
 	"size": func(n int64) string {
 		switch {
 		case n >= 1<<30:

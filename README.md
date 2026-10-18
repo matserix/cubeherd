@@ -42,7 +42,7 @@ Wer Forgecraft bedienen kann, steuert Docker und damit praktisch den ganzen Host
 Forgecraft deshalb nur im LAN oder per VPN erreichbar machen, nie direkt im Internet.
 Es gibt ein Admin-Konto (bcrypt), signierte Session-Cookies (`SameSite=Strict`), eine Login-Drosselung und einen CSRF-Schutz.
 
-## Funktionen (v0.1)
+## Funktionen
 
 - **Anlegen:** Vanilla, Paper, Purpur, Folia, Fabric, Quilt, Forge, NeoForge oder ein Modpack von Modrinth bzw. CurseForge.
   Das Java-Image wird aus Mojangs Versionsdaten abgeleitet (z. B. `java25` für Minecraft 26.x).
@@ -56,8 +56,7 @@ Es gibt ein Admin-Konto (bcrypt), signierte Session-Cookies (`SameSite=Strict`),
 - **Mods & Plugins:** Suche bei Modrinth, CurseForge und Spigot, eintragen und austragen (itzg installiert beim Start), eigene JARs hochladen.
   Funktioniert auch zusätzlich zu Modpacks.
 - **Dateien & Welten:** Datei-Browser mit Editor, Hochladen, Herunterladen, Löschen; Welt als ZIP exportieren und einspielen.
-
-Als Nächstes folgen CPU-Limits und Autostop.
+- **Leerlauf & Limits:** pausieren oder ganz stoppen, wenn niemand spielt; CPU-Limit pro Server.
 
 Jeder Server liegt als `servers/<id>/compose.yml` im Datenverzeichnis und lässt sich auch ohne Forgecraft mit `docker compose` betreiben.
 Details zur Architektur stehen in [ARCHITECTURE.md](ARCHITECTURE.md).

@@ -185,3 +185,19 @@ func TestAddonEnv(t *testing.T) {
 		}
 	}
 }
+
+func TestAutostopAndCPU(t *testing.T) {
+	s := &Server{ID: "x", Kind: KindSoftware, Type: "PAPER", Version: "1.21.10", MemoryGB: 4, Autopause: true, Autostart: true, Autostop: true, AutostopMinutes: 15, CPUs: 2}
+	env := FormatEnv(s.Env(""))
+	if !strings.Contains(env, "ENABLE_AUTOSTOP=TRUE") || !strings.Contains(env, "AUTOSTOP_TIMEOUT_EST=900") || strings.Contains(env, "ENABLE_AUTOPAUSE") {
+		t.Errorf("autostop must replace autopause:\n%s", env)
+	}
+	c := Compose(s, "")
+	if !strings.Contains(c, `restart: "no"`) || !strings.Contains(c, `cpus: "2"`) {
+		t.Errorf("compose:\n%s", c)
+	}
+	s.Autostop, s.CPUs = false, 0
+	if c := Compose(s, ""); !strings.Contains(c, `restart: "unless-stopped"`) || strings.Contains(c, "cpus:") {
+		t.Errorf("compose without limits:\n%s", c)
+	}
+}

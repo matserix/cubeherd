@@ -277,7 +277,8 @@ type View struct {
 	CrashReason string
 	Since       time.Time
 	OpError     string
-	Restarts    int // unexpected restarts of the current container (restart policy)
+	Restarts    int  // unexpected restarts of the current container (restart policy)
+	AutoStopped bool // stopped by itzg autostop after idling
 }
 
 func (m *Manager) inspect(ctx context.Context, s *server.Server) *docker.ContainerJSON {
@@ -324,6 +325,22 @@ func (m *Manager) View(ctx context.Context, s *server.Server, withStats bool) Vi
 	}
 	if v.C != nil {
 		v.Restarts = v.C.RestartCount
+	}
+	if v.Status == server.StatusStopped && s.Autostop && v.C != nil {
+		key := fmt.Sprintf("autostop:%s:%d", s.ID, v.C.State.FinishedAt.Unix())
+		e := m.cached(key, 24*time.Hour, func() cacheEntry {
+			found := false
+			lctx, cancel := context.WithTimeout(ctx, 3*time.Second)
+			defer cancel()
+			_ = m.Docker.Logs(lctx, s.Container(), false, 150, v.C.Config.Tty, func(l string) {
+				found = found || strings.Contains(l, "[Autostop]")
+			})
+			if found {
+				return cacheEntry{max: 1}
+			}
+			return cacheEntry{}
+		})
+		v.AutoStopped = e.max == 1
 	}
 	if v.C != nil && (v.Status == server.StatusCrashed || v.Restarts > 0) {
 		v.CrashReason = m.crashReason(ctx, s, v.C)

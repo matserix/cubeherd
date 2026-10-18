@@ -62,11 +62,14 @@
     <div class="body">
       <label class="field"><span>Arbeitsspeicher (Container-Limit)</span><div class="range-row"><input type="range" name="memory" min="1" max="{{.MaxRAM}}" value="{{$s.MemoryGB}}" data-out="p-ram-out" data-heap="{{if $s.Modded}}1{{else}}0{{end}}"><output id="p-ram-out" style="min-width:150px">{{$s.MemoryGB}} GB · Heap {{heapGB $s.MemoryGB $s.Modded}} GB</output></div>
         <small>Docker stellt insgesamt {{.HostRAM}} GB bereit.</small></label>
+      <div class="grid-3">
+        <label class="field"><span>CPU-Limit</span><select class="input" name="cpus">{{range .CPUOptions}}<option value="{{.Value}}" {{if eq .Value $.CPUValue}}selected{{end}}>{{.Label}}</option>{{end}}</select><small>Harte Grenze auf Docker-Ebene. Schützt die anderen Server vor einem, der alles beansprucht.</small></label>
+        <label class="field"><span>Bei Leerlauf</span><select class="input" name="idle">{{range list "pause" "stop" "none"}}<option value="{{.}}" {{if eq . $s.IdleMode}}selected{{end}}>{{idleName .}}</option>{{end}}</select><small>Pausieren wacht beim Verbinden von selbst auf; Stoppen gibt auch den Arbeitsspeicher frei, danach startest du von Hand.</small></label>
+        <label class="field"><span>Stoppen nach (Minuten)</span><input class="input num" name="idleMinutes" type="number" min="5" max="1440" value="{{$s.IdleMinutes}}"><small>Gilt nur für „Stoppen“.</small></label>
+      </div>
       <div class="grid-2">
         <label class="switch"><input type="checkbox" name="aikar" {{if $s.Aikar}}checked{{end}}><span class="txt">Aikar-Flags<small>Bewährte GC-Einstellungen für Minecraft.</small></span></label>
-        <label class="switch"><input type="checkbox" name="autopause" {{if $s.Autopause}}checked{{end}}><span class="txt">Autopause<small>Prozess anhalten, wenn niemand online ist.</small></span></label>
-        <label class="switch"><input type="checkbox" name="autostart" {{if $s.Autostart}}checked{{end}}><span class="txt">Mit dem Host starten<small>Restart-Policy „unless-stopped“.</small></span></label>
-        <label class="switch"><input type="checkbox" disabled><span class="txt"><span>CPU-Limit <span class="v2">v2</span></span><small>Harte Grenze auf Docker-Ebene.</small></span></label>
+        <label class="switch"><input type="checkbox" name="autostart" {{if $s.Autostart}}checked{{end}}><span class="txt">Mit dem Host starten<small>Restart-Policy „unless-stopped“. Bei „Stoppen bei Leerlauf“ automatisch aus, sonst würde Docker den Server sofort wieder starten.</small></span></label>
       </div>
     </div></div>
   <div class="form-sec"><div class="intro"><h2>Netzwerk</h2></div>
@@ -264,7 +267,7 @@
       <button class="btn sm ghost danger" type="button" hx-post="/servers/{{.ID}}/files/delete" hx-vals='{{jsonVals "path" .Path}}' hx-confirm="{{.Entry.Name}} wirklich löschen?">Löschen</button>
       {{if .IsText}}<button class="btn sm primary">Speichern</button>{{end}}
     </div></div>
-  {{with .Hint}}<div class="callout info" style="margin:12px 14px 0"><div><span class="muted">{{.}}</span></div></div>{{end}}
+  {{with .Hint}}<div class="callout info" style="margin:12px 14px"><div><span class="muted">{{.}}</span></div></div>{{end}}
   {{if .IsText}}<textarea name="content" spellcheck="false" aria-label="Inhalt von {{.Entry.Name}}">{{.Text}}</textarea>
   {{else}}<div class="v2-panel"><b>{{.Entry.Name}}</b><p class="muted">{{size .Entry.Size}} · {{if gt .Entry.Size 1048576}}zu groß für den Editor{{else}}keine Textdatei{{end}}. Du kannst die Datei herunterladen.</p></div>{{end}}
 </form>

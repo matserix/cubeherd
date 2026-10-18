@@ -69,6 +69,9 @@
 {{if eq (print $st) "crashed"}}
 <div class="callout crit"><div><b>Server ist abgestürzt</b><span class="mono" style="white-space:pre-wrap;font-size:12.5px">{{.V.CrashReason}}</span></div>
   <div class="actions" style="flex:none"><button class="btn sm" hx-get="/servers/{{$s.ID}}/update" hx-target="#modal-card">Version ändern</button><button class="btn sm" hx-post="/servers/{{$s.ID}}/action/start" hx-target="#srv-head">Erneut starten</button></div></div>
+{{else if .V.AutoStopped}}
+<div class="callout info"><div><b>Im Leerlauf automatisch gestoppt</b><span class="muted">Nach {{$s.IdleMinutes}} Minuten ohne Spieler. Der Container belegt jetzt weder CPU noch Arbeitsspeicher. Starte ihn, wenn wieder jemand spielen will.</span></div>
+  <div class="actions" style="flex:none"><button class="btn sm primary" hx-post="/servers/{{$s.ID}}/action/start" hx-target="#srv-head">Starten</button></div></div>
 {{else if eq (print $st) "paused"}}
 <div class="callout info"><div><b>Pausiert, weil niemand online ist</b><span class="muted">Autopause hält den Prozess an und spart CPU. Der Server wacht beim nächsten Verbindungsversuch automatisch auf.</span></div></div>
 {{else if or (eq (print $st) "installing") (eq (print $st) "preparing")}}

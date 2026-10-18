@@ -3,6 +3,7 @@ package server
 import (
 	"encoding/json"
 	"fmt"
+	"strconv"
 	"strings"
 )
 
@@ -33,11 +34,10 @@ func Compose(s *Server, cfKey string) string {
 	}
 	fmt.Fprintf(&b, "    volumes:\n      - %s\n", q(data+":/data"))
 	fmt.Fprintf(&b, "    labels:\n      forgecraft.id: %s\n", q(s.ID))
-	restart := "no"
-	if s.Autostart {
-		restart = "unless-stopped"
+	fmt.Fprintf(&b, "    restart: %s\n", q(s.RestartPolicy()))
+	if s.CPUs > 0 {
+		fmt.Fprintf(&b, "    cpus: %s\n", q(strconv.FormatFloat(s.CPUs, 'f', -1, 64)))
 	}
-	fmt.Fprintf(&b, "    restart: %s\n", q(restart))
 	// MemoryGB is the container limit; the heap (MEMORY) is derived from it with headroom.
 	fmt.Fprintf(&b, "    mem_limit: %s\n    memswap_limit: %s\n", q(fmt.Sprintf("%dg", s.MemoryGB)), q(fmt.Sprintf("%dg", s.MemoryGB)))
 	b.WriteString("    stop_grace_period: 1m\n")

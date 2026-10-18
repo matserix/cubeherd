@@ -97,8 +97,8 @@ func TestRenderPartials(t *testing.T) {
 	}
 	s := &server.Server{ID: "atm", Name: "ATM", Kind: server.KindModrinth, Type: "NEOFORGE", Version: "1.21.1", MemoryGB: 8,
 		Pack: &server.Pack{Name: "ATM10", VersionLabel: "4.15"}, Props: server.Props{MaxPlayers: 10}}
-	for _, st := range []server.Status{server.StatusRunning, server.StatusPreparing, server.StatusCrashed, server.StatusPaused, server.StatusUnhealthy, server.StatusInstalling} {
-		v := manager.View{S: s, Status: st, Restarts: 2, CrashReason: "OutOfMemoryError", MemUsed: 3 << 30}
+	for _, st := range []server.Status{server.StatusStopped, server.StatusRunning, server.StatusPreparing, server.StatusCrashed, server.StatusPaused, server.StatusUnhealthy, server.StatusInstalling} {
+		v := manager.View{S: s, Status: st, Restarts: 2, CrashReason: "OutOfMemoryError", MemUsed: 3 << 30, AutoStopped: st == server.StatusStopped}
 		for page, name := range map[string]any{"srvHead": serverPage{V: v, Disk: int64(5 << 30), Update: "x"}, "serverRow": v} {
 			p := "server"
 			if page == "serverRow" {
@@ -112,7 +112,7 @@ func TestRenderPartials(t *testing.T) {
 	if _, err := a.renderString("server", "stats", statsData{CPU: 12, Spark: spark([]float64{1, 5, 3}), MemUsed: 2 << 30, MemGB: 8}); err != nil {
 		t.Error(err)
 	}
-	if _, err := a.renderString("server", "tabSettings", serverPage{V: manager.View{S: s}, MaxRAM: 16, HostRAM: "7,7"}); err != nil {
+	if _, err := a.renderString("server", "tabSettings", serverPage{V: manager.View{S: s}, MaxRAM: 16, HostRAM: "7,7", CPUOptions: []cpuOption{{"0", "Unbegrenzt"}, {"2", "2 Kerne"}}, CPUValue: "2"}); err != nil {
 		t.Error(err)
 	}
 	bd := backupsData{ID: "atm", Plan: server.DefaultBackupPlan(), Busy: true, Next: time.Now().Add(time.Hour),

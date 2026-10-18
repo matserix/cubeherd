@@ -362,21 +362,23 @@ var tabs = []tab{{"console", "Konsole", false}, {"settings", "Einstellungen", fa
 	{"mods", "Mods & Plugins", false}, {"backups", "Backups", false}, {"files", "Dateien", false}}
 
 type serverPage struct {
-	V        manager.View
-	Tab      string
-	Tabs     []tab
-	Disk     int64
-	Update   string
-	Stats    statsData
-	Players  playersData
-	MaxRAM   int
-	HostRAM  string
-	ExtraEnv string
-	FullEnv  string
-	Bans     []string
-	DataDir  string
-	Backups  backupsData
-	Addons   addonsData
+	V          manager.View
+	Tab        string
+	Tabs       []tab
+	Disk       int64
+	Update     string
+	Stats      statsData
+	Players    playersData
+	MaxRAM     int
+	HostRAM    string
+	CPUOptions []cpuOption
+	CPUValue   string
+	ExtraEnv   string
+	FullEnv    string
+	Bans       []string
+	DataDir    string
+	Backups    backupsData
+	Addons     addonsData
 }
 
 type statsData struct {
@@ -433,6 +435,7 @@ func (a *App) serverPageData(ctx context.Context, s *server.Server, tabKey strin
 	d.Players = playersData{ID: s.ID, Online: d.V.Online, Max: d.V.MaxPlayers, Live: d.V.Status.Live()}
 	switch tabKey {
 	case "settings":
+		d.CPUOptions, d.CPUValue = a.cpuOptions(ctx, s)
 		d.ExtraEnv = server.FormatEnv(s.ExtraEnv)
 		env := s.Env(a.Cfg.Get().CFAPIKey)
 		for i := range env {
@@ -453,6 +456,38 @@ func (a *App) serverTabData(r *http.Request, d *serverPage, s *server.Server) {
 	if d.Tab == "mods" {
 		d.Addons = a.addonsData(r, s)
 	}
+}
+
+type cpuOption struct{ Value, Label string }
+
+func cpuValue(f float64) string { return strconv.FormatFloat(f, 'f', -1, 64) }
+
+func (a *App) cpuOptions(ctx context.Context, s *server.Server) ([]cpuOption, string) {
+	cores := a.Host.Read(ctx).Cores
+	if cores <= 0 {
+		cores = 8
+	}
+	opts := []cpuOption{{"0", "Unbegrenzt"}}
+	for _, n := range []float64{0.5, 1, 2, 3, 4, 6, 8, 12, 16} {
+		if n <= float64(cores) {
+			label := cpuValue(n) + " Kerne"
+			if n == 1 {
+				label = "1 Kern"
+			} else if n == 0.5 {
+				label = "½ Kern"
+			}
+			opts = append(opts, cpuOption{cpuValue(n), label})
+		}
+	}
+	cur := cpuValue(s.CPUs)
+	found := false
+	for _, o := range opts {
+		found = found || o.Value == cur
+	}
+	if !found {
+		opts = append(opts, cpuOption{cur, strings.Replace(cur, ".", ",", 1) + " Kerne"})
+	}
+	return opts, cur
 }
 
 func (a *App) bans(s *server.Server) []string {
@@ -575,7 +610,19 @@ func (a *App) serverSettings(w http.ResponseWriter, r *http.Request) {
 	}
 	s.Port = port
 	s.MemoryGB = formInt(r, "memory", s.MemoryGB, 1, 64)
-	s.Aikar, s.Autopause, s.Autostart = checked(r, "aikar"), checked(r, "autopause"), checked(r, "autostart")
+	s.Aikar, s.Autostart = checked(r, "aikar"), checked(r, "autostart")
+	switch r.FormValue("idle") {
+	case "stop":
+		s.Autostop, s.Autopause = true, false
+	case "none":
+		s.Autostop, s.Autopause = false, false
+	default:
+		s.Autostop, s.Autopause = false, true
+	}
+	s.AutostopMinutes = formInt(r, "idleMinutes", 30, 5, 1440)
+	if cpus, err := strconv.ParseFloat(r.FormValue("cpus"), 64); err == nil && cpus >= 0 && cpus <= 256 {
+		s.CPUs = cpus
+	}
 	s.Props.MOTD = strings.TrimSpace(r.FormValue("motd"))
 	s.Props.Mode, s.Props.Difficulty = r.FormValue("mode"), r.FormValue("difficulty")
 	s.Props.MaxPlayers = formInt(r, "maxPlayers", s.Props.MaxPlayers, 1, 1000)

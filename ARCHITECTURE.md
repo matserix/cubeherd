@@ -70,7 +70,15 @@ internal/web          Handler, Templates, SSE, statische Assets
 - **MVP (v0.1):** Anlegen (Software, Modrinth, CurseForge), Start/Stop/Neustart, Konsole mit RCON, Live-Stats,
   Einstellungen, Spieler (Whitelist/OPs/Bans), Updates (MC-Version, Modpack-Version, Image), Deinstallieren,
   Übernahme bestehender itzg-Container, globale Einstellungen.
-- **v2:** ~~Backups~~, ~~Mods/Plugins~~, ~~Datei-Browser~~ (fertig), CPU-Limits, Autostop.
+- **v2:** Backups, Mods/Plugins, Datei-Browser, CPU-Limit und Autostop – alles fertig.
+
+## Leerlauf & Limits
+
+- „Bei Leerlauf“ ist eine Wahl: pausieren (`ENABLE_AUTOPAUSE`, wacht beim Verbinden auf), stoppen (`ENABLE_AUTOSTOP` mit
+  `AUTOSTOP_TIMEOUT_EST/INIT`, gibt auch den RAM frei) oder weiterlaufen. Beides schließt sich laut itzg aus.
+- Autostop erzwingt `restart: "no"`, sonst würde Docker den gestoppten Server sofort neu starten. Erkennung im Dashboard über
+  `[Autostop] Stopping Java process` in den letzten Log-Zeilen (gecacht pro Container-Ende).
+- CPU-Limit über `cpus:` in der Compose-Datei (Docker `NanoCpus`).
 
 ## Dateien & Welten
 

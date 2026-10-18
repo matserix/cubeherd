@@ -178,24 +178,29 @@ type KV struct {
 }
 
 type Server struct {
-	ID        string      `json:"id"`
-	Name      string      `json:"name"`
-	Kind      string      `json:"kind"`
-	Type      string      `json:"type"`    // itzg TYPE for software servers, loader for packs
-	Version   string      `json:"version"` // Minecraft version
-	Pack      *Pack       `json:"pack,omitempty"`
-	JavaTag   string      `json:"javaTag"`
-	Port      int         `json:"port"`
-	MemoryGB  int         `json:"memoryGb"`
-	Autopause bool        `json:"autopause"`
-	Aikar     bool        `json:"aikar"`
-	Autostart bool        `json:"autostart"`
-	Props     Props       `json:"props"`
-	Whitelist []string    `json:"whitelist"`
-	Ops       []string    `json:"ops"`
-	ExtraEnv  []KV        `json:"extraEnv"`
-	Backup    *BackupPlan `json:"backup,omitempty"`
-	Addons    []Addon     `json:"addons,omitempty"`
+	ID        string `json:"id"`
+	Name      string `json:"name"`
+	Kind      string `json:"kind"`
+	Type      string `json:"type"`    // itzg TYPE for software servers, loader for packs
+	Version   string `json:"version"` // Minecraft version
+	Pack      *Pack  `json:"pack,omitempty"`
+	JavaTag   string `json:"javaTag"`
+	Port      int    `json:"port"`
+	MemoryGB  int    `json:"memoryGb"`
+	Autopause bool   `json:"autopause"`
+	Aikar     bool   `json:"aikar"`
+	Autostart bool   `json:"autostart"`
+	// Autostop stops the container after AutostopMinutes without players (itzg ENABLE_AUTOSTOP).
+	// It excludes Autopause and forces restart policy "no".
+	Autostop        bool        `json:"autostop,omitempty"`
+	AutostopMinutes int         `json:"autostopMinutes,omitempty"`
+	CPUs            float64     `json:"cpus,omitempty"` // container CPU limit; 0 = unlimited
+	Props           Props       `json:"props"`
+	Whitelist       []string    `json:"whitelist"`
+	Ops             []string    `json:"ops"`
+	ExtraEnv        []KV        `json:"extraEnv"`
+	Backup          *BackupPlan `json:"backup,omitempty"`
+	Addons          []Addon     `json:"addons,omitempty"`
 	// AddonSources remembers sources used before: an explicitly empty list makes itzg remove
 	// files it installed earlier, while an unset variable leaves them in place.
 	AddonSources []string  `json:"addonSources,omitempty"`
@@ -214,6 +219,33 @@ func (s *Server) Plan() BackupPlan {
 		return DefaultBackupPlan()
 	}
 	return *s.Backup
+}
+
+// IdleMinutes is the autostop delay (default 30 minutes).
+func (s *Server) IdleMinutes() int {
+	if s.AutostopMinutes <= 0 {
+		return 30
+	}
+	return s.AutostopMinutes
+}
+
+// IdleMode is "stop", "pause" or "none".
+func (s *Server) IdleMode() string {
+	switch {
+	case s.Autostop:
+		return "stop"
+	case s.Autopause:
+		return "pause"
+	}
+	return "none"
+}
+
+// RestartPolicy is the compose restart value; autostop requires "no".
+func (s *Server) RestartPolicy() string {
+	if s.Autostart && !s.Autostop {
+		return "unless-stopped"
+	}
+	return "no"
 }
 
 // Modded reports whether the server loads mods (more memory outside the Java heap).
@@ -272,7 +304,10 @@ func (s *Server) Env(cfKey string) []KV {
 	if s.Aikar {
 		e = append(e, KV{"USE_AIKAR_FLAGS", "TRUE"})
 	}
-	if s.Autopause {
+	if s.Autostop {
+		secs := fmt.Sprint(s.IdleMinutes() * 60)
+		e = append(e, KV{"ENABLE_AUTOSTOP", "TRUE"}, KV{"AUTOSTOP_TIMEOUT_EST", secs}, KV{"AUTOSTOP_TIMEOUT_INIT", secs})
+	} else if s.Autopause {
 		// After SIGCONT the server sees a huge tick gap; without this the watchdogs kill it.
 		e = append(e, KV{"ENABLE_AUTOPAUSE", "TRUE"}, KV{"MAX_TICK_TIME", "-1"})
 		if IsPluginType(s.Type) {
