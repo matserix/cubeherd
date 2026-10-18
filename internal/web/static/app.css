@@ -424,3 +424,11 @@ textarea.input { font-family: var(--font-mono); font-size: 13px; line-height: 1.
 .srv-meta .chip { white-space: normal; }
 .chip.src-spiget::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--warn); }
 details summary::marker { color: var(--faint); }
+
+/* Datei-Browser */
+.crumbs { display: flex; flex-wrap: wrap; align-items: center; gap: 2px; padding: 2px 4px 8px; border-bottom: 1px solid var(--line); margin-bottom: 6px; }
+.crumbs button { width: auto !important; padding: 3px 6px !important; font-family: var(--font-mono); font-size: 12px; color: var(--accent) !important; }
+.tree-upload { margin-top: auto; padding-top: 8px; border-top: 1px solid var(--line); }
+.tree-upload .btn { width: 100%; justify-content: flex-start; }
+.editor form { display: flex; flex-direction: column; }
+.btn { color: var(--fg); }

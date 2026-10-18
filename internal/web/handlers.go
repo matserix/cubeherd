@@ -359,7 +359,7 @@ type tab struct {
 }
 
 var tabs = []tab{{"console", "Konsole", false}, {"settings", "Einstellungen", false}, {"players", "Spieler", false},
-	{"mods", "Mods & Plugins", false}, {"backups", "Backups", false}, {"files", "Dateien", true}}
+	{"mods", "Mods & Plugins", false}, {"backups", "Backups", false}, {"files", "Dateien", false}}
 
 type serverPage struct {
 	V        manager.View

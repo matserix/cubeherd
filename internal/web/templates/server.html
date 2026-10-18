@@ -11,7 +11,7 @@
     {{else if eq $d.Tab "players"}}{{template "tabPlayers" $d}}
     {{else if eq $d.Tab "backups"}}{{template "tabBackups" $d.Backups}}
     {{else if eq $d.Tab "mods"}}{{template "tabMods" $d.Addons}}
-    {{else}}{{template "tabV2" $d}}{{end}}
+    {{else}}{{template "tabFiles" $d}}{{end}}
   </div>
 </section>
 {{end}}
@@ -223,19 +223,51 @@
 {{end}}
 {{end}}
 
-{{define "tabV2"}}
-<div class="panel v2-panel">
-  <span class="v2">v2</span>
-  {{if eq .Tab "mods"}}<h2>Mods & Plugins einzeln verwalten</h2>
-    <ul><li>Suche über Modrinth, CurseForge und Spigot, gefiltert auf Loader und Version</li><li>Eigene JAR-Dateien hochladen</li><li>Updates einzelner Mods erkennen</li></ul>
-  {{else if eq .Tab "files"}}<h2>Dateien & Welten</h2>
-    <ul><li>Datei-Browser mit Editor für Konfigurationsdateien</li><li>Welt als ZIP hoch- und herunterladen</li></ul>
-    <p class="muted" style="font-size:13px">Bis dahin liegen die Dateien unter <span class="mono">{{.DataDir}}</span>.</p>
-  {{else}}<h2>Backups</h2>
-    <ul><li>Manuell und per Zeitplan, mit Aufbewahrungsregel</li><li>Automatisch vor jedem Update</li><li>Wiederherstellen per Klick</li></ul>
-  {{end}}
-  <p class="muted">Dieser Bereich folgt nach dem MVP.</p>
+{{define "tabFiles"}}
+{{$s := .V.S}}
+<div class="stack">
+  <div class="actions">
+    <a class="btn" href="/servers/{{$s.ID}}/world.zip" download style="text-decoration:none">Welt herunterladen (ZIP)</a>
+    <form hx-post="/servers/{{$s.ID}}/world" hx-encoding="multipart/form-data" hx-trigger="change" hx-confirm="Die aktuelle Welt wird durch die hochgeladene ersetzt. Vorher entsteht automatisch ein Backup. Fortfahren?">
+      <label class="btn"><input type="file" name="world" accept=".zip" hidden>Welt hochladen (ZIP) <span class="spin-on-req"></span></label>
+    </form>
+    <span class="muted" style="font-size:12px">Singleplayer-Welten funktionieren direkt. Vor dem Ersetzen wird automatisch gesichert.</span>
+  </div>
+  <div class="panel files">
+    <div class="tree" id="file-tree" hx-get="/servers/{{$s.ID}}/files/list?path=" hx-trigger="load"><p class="empty" style="padding:8px">Lade …</p></div>
+    <div class="editor" id="file-editor"><div class="editor-head"><span class="muted">Keine Datei geöffnet</span></div>
+      <div class="v2-panel"><p class="muted">Links eine Datei wählen. Textdateien bis 1 MB lassen sich hier bearbeiten, alles andere herunterladen.</p></div></div>
+  </div>
 </div>
+{{end}}
+
+{{define "fileTree"}}
+<nav class="crumbs">{{range $i, $c := .Crumbs}}{{if $i}}<span class="muted">/</span>{{end}}<button type="button" hx-get="/servers/{{$.ID}}/files/list?path={{urlquery $c.Path}}" hx-target="#file-tree">{{$c.Name}}</button>{{end}}</nav>
+{{if .Error}}<p class="err" style="padding:8px">{{.Error}}</p>{{end}}
+{{range .Entries}}{{$p := joinPath $.Path .Name}}
+  {{if .Dir}}<button class="dir" type="button" hx-get="/servers/{{$.ID}}/files/list?path={{urlquery $p}}" hx-target="#file-tree"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M1.5 4h5l1.5 1.5h6.5v8h-13z"/></svg>{{.Name}}/</button>
+  {{else}}<button type="button" hx-get="/servers/{{$.ID}}/files/view?path={{urlquery $p}}" hx-target="#file-editor"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M3.5 1.5h6l3 3v10h-9z"/></svg>{{.Name}}<span class="sz">{{size .Size}}</span></button>{{end}}
+{{else}}{{if not .Error}}<p class="empty" style="padding:8px">Leerer Ordner.</p>{{end}}{{end}}
+{{if .Truncated}}<p class="muted" style="padding:8px;font-size:12px">Nur die ersten 1000 Einträge werden angezeigt.</p>{{end}}
+<form class="tree-upload" hx-post="/servers/{{.ID}}/files/upload" hx-encoding="multipart/form-data" hx-trigger="change" hx-target="#file-tree">
+  <input type="hidden" name="path" value="{{.Path}}">
+  <label class="btn sm ghost"><input type="file" name="file" hidden>Datei hierher hochladen <span class="spin-on-req"></span></label>
+</form>
+{{end}}
+
+{{define "fileEditor"}}
+<form class="editor" hx-post="/servers/{{.ID}}/files/save" style="flex:1">
+  <input type="hidden" name="path" value="{{.Path}}">
+  <div class="editor-head"><span class="mono" style="overflow-wrap:anywhere">/data/{{.Path}}</span>
+    <div class="actions">
+      <a class="btn sm ghost" href="/servers/{{.ID}}/files/download?path={{.Path}}" download style="text-decoration:none">Herunterladen</a>
+      <button class="btn sm ghost danger" type="button" hx-post="/servers/{{.ID}}/files/delete" hx-vals='{{jsonVals "path" .Path}}' hx-confirm="{{.Entry.Name}} wirklich löschen?">Löschen</button>
+      {{if .IsText}}<button class="btn sm primary">Speichern</button>{{end}}
+    </div></div>
+  {{with .Hint}}<div class="callout info" style="margin:12px 14px 0"><div><span class="muted">{{.}}</span></div></div>{{end}}
+  {{if .IsText}}<textarea name="content" spellcheck="false" aria-label="Inhalt von {{.Entry.Name}}">{{.Text}}</textarea>
+  {{else}}<div class="v2-panel"><b>{{.Entry.Name}}</b><p class="muted">{{size .Entry.Size}} · {{if gt .Entry.Size 1048576}}zu groß für den Editor{{else}}keine Textdatei{{end}}. Du kannst die Datei herunterladen.</p></div>{{end}}
+</form>
 {{end}}
 
 {{/* ---------- Modals ---------- */}}

@@ -141,6 +141,18 @@ func TestRenderPartials(t *testing.T) {
 	if _, err := a.renderString("server", "addonResults", map[string]any{"S": s, "Hits": []sources.AddonHit{{Source: "modrinth", Ref: "lithium", Title: "Lithium"}}, "Installed": map[string]bool{"modrinth:lithium": true}}); err != nil {
 		t.Error(err)
 	}
+	td := treeData{ID: "atm", Path: "Meine Welt", Crumbs: crumbs("Meine Welt"), Entries: []manager.Entry{{Name: "a&b #1.txt", Size: 12}, {Name: "region", Dir: true}}}
+	if out, err := a.renderString("server", "fileTree", td); err != nil {
+		t.Error(err)
+	} else if !strings.Contains(out, "path=Meine&#43;Welt%2Fa%26b&#43;%231.txt") {
+		t.Errorf("file path not query-escaped:\n%s", out)
+	}
+	if _, err := a.renderString("server", "fileEditor", map[string]any{"ID": "atm", "Path": "server.properties", "Entry": manager.Entry{Name: "server.properties", Size: 10}, "Text": "a=b", "IsText": true, "Hint": "x", "Live": true}); err != nil {
+		t.Error(err)
+	}
+	if _, err := a.renderString("server", "tabFiles", serverPage{V: manager.View{S: s}}); err != nil {
+		t.Error(err)
+	}
 	if _, err := a.renderString("wizard", "preview", map[string]any{"S": s, "Compose": "x", "Dir": "/x"}); err != nil {
 		t.Error(err)
 	}

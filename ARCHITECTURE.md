@@ -70,7 +70,17 @@ internal/web          Handler, Templates, SSE, statische Assets
 - **MVP (v0.1):** Anlegen (Software, Modrinth, CurseForge), Start/Stop/Neustart, Konsole mit RCON, Live-Stats,
   Einstellungen, Spieler (Whitelist/OPs/Bans), Updates (MC-Version, Modpack-Version, Image), Deinstallieren,
   Übernahme bestehender itzg-Container, globale Einstellungen.
-- **v2:** ~~Backups~~ und ~~Mods/Plugins~~ (fertig), Datei-Browser, CPU-Limits, Autostop.
+- **v2:** ~~Backups~~, ~~Mods/Plugins~~, ~~Datei-Browser~~ (fertig), CPU-Limits, Autostop.
+
+## Dateien & Welten
+
+- Datei-Browser auf `/data`: Server mit Host-Ordner direkt über das Dateisystem (Symlinks, die herausführen, werden abgewiesen),
+  Server mit Docker-Volume über `docker exec` bzw. `docker run --rm` mit dem Server-Image. Pfade gehen als Umgebungsvariable in die Shell.
+- Editor für UTF-8-Textdateien bis 1 MB; größere oder binäre Dateien nur zum Herunterladen. Windows-Zeilenenden werden beim Speichern normalisiert.
+- Welt-Download: `tar` der Welt-Ordner (`level-name`, `_nether`, `_the_end`) aus dem Container, im Dashboard on-the-fly zu ZIP
+  (Region-Dateien unkomprimiert gespeichert, sie sind schon komprimiert). Läuft der Server, wird vorher `save-all flush` ausgeführt.
+- Welt-Upload: ZIP wird neben den Server gestreamt, der Ordner mit `level.dat` gesucht (z. B. „Meine Welt/“), Server gestoppt, gesichert,
+  alte Welt entfernt und der Inhalt als tar in den Container entpackt (Besitzer 1000). ZIP-Slip, `__MACOSX` und Symlinks werden verworfen.
 
 ## Mods & Plugins
 

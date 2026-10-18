@@ -55,8 +55,9 @@ Es gibt ein Admin-Konto (bcrypt), signierte Session-Cookies (`SameSite=Strict`),
 - **Backups:** manuell, per Zeitplan, automatisch vor Updates, Wiederherstellen, Herunterladen.
 - **Mods & Plugins:** Suche bei Modrinth, CurseForge und Spigot, eintragen und austragen (itzg installiert beim Start), eigene JARs hochladen.
   Funktioniert auch zusätzlich zu Modpacks.
+- **Dateien & Welten:** Datei-Browser mit Editor, Hochladen, Herunterladen, Löschen; Welt als ZIP exportieren und einspielen.
 
-Als Nächstes folgen ein Datei-Browser, CPU-Limits und Autostop.
+Als Nächstes folgen CPU-Limits und Autostop.
 
 Jeder Server liegt als `servers/<id>/compose.yml` im Datenverzeichnis und lässt sich auch ohne Forgecraft mit `docker compose` betreiben.
 Details zur Architektur stehen in [ARCHITECTURE.md](ARCHITECTURE.md).

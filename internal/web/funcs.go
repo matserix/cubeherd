@@ -36,7 +36,19 @@ var funcs = template.FuncMap{
 		}
 		return m
 	},
-	"list": func(v ...string) []string { return v },
+	"list":     func(v ...string) []string { return v },
+	"joinPath": joinRel,
+	"size": func(n int64) string {
+		switch {
+		case n >= 1<<30:
+			return de(float64(n)/(1<<30)) + " GB"
+		case n >= 1<<20:
+			return de(float64(n)/(1<<20)) + " MB"
+		case n >= 1<<10:
+			return de(float64(n)/(1<<10)) + " KB"
+		}
+		return strconv.FormatInt(n, 10) + " B"
+	},
 	"addonSrcName": func(s string) string {
 		return map[string]string{"modrinth": "Modrinth", "curseforge": "CurseForge", "spiget": "Spigot"}[s]
 	},
