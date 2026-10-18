@@ -359,7 +359,7 @@ type tab struct {
 }
 
 var tabs = []tab{{"console", "Konsole", false}, {"settings", "Einstellungen", false}, {"players", "Spieler", false},
-	{"backups", "Backups", false}, {"mods", "Mods & Plugins", true}, {"files", "Dateien", true}}
+	{"mods", "Mods & Plugins", false}, {"backups", "Backups", false}, {"files", "Dateien", true}}
 
 type serverPage struct {
 	V        manager.View
@@ -376,6 +376,7 @@ type serverPage struct {
 	Bans     []string
 	DataDir  string
 	Backups  backupsData
+	Addons   addonsData
 }
 
 type statsData struct {
@@ -448,6 +449,12 @@ func (a *App) serverPageData(ctx context.Context, s *server.Server, tabKey strin
 	return d
 }
 
+func (a *App) serverTabData(r *http.Request, d *serverPage, s *server.Server) {
+	if d.Tab == "mods" {
+		d.Addons = a.addonsData(r, s)
+	}
+}
+
 func (a *App) bans(s *server.Server) []string {
 	b, err := a.M.ReadDataFile(s, "banned-players.json")
 	if err != nil {
@@ -475,7 +482,9 @@ func (a *App) serverPage(w http.ResponseWriter, r *http.Request) {
 	if !valid {
 		t = "console"
 	}
-	a.render(w, r, "server", Page{Title: s.Name, Nav: "server", Current: s.ID, Data: a.serverPageData(r.Context(), s, t)})
+	d := a.serverPageData(r.Context(), s, t)
+	a.serverTabData(r, &d, s)
+	a.render(w, r, "server", Page{Title: s.Name, Nav: "server", Current: s.ID, Data: d})
 }
 
 func (a *App) serverAction(w http.ResponseWriter, r *http.Request) {

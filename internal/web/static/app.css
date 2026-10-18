@@ -422,3 +422,5 @@ textarea.input { font-family: var(--font-mono); font-size: 13px; line-height: 1.
 .srv-head > div { min-width: 0; }
 .srv-title h1 { overflow-wrap: anywhere; }
 .srv-meta .chip { white-space: normal; }
+.chip.src-spiget::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--warn); }
+details summary::marker { color: var(--faint); }

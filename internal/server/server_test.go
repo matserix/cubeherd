@@ -160,3 +160,28 @@ func TestStartupLine(t *testing.T) {
 		t.Error("WARN lines with exceptions must stay warnings")
 	}
 }
+
+func TestAddonEnv(t *testing.T) {
+	s := &Server{Kind: KindSoftware, Type: "PAPER", Version: "1.21.10", MemoryGB: 4, Addons: []Addon{
+		{Source: AddonModrinth, Ref: "luckperms"}, {Source: AddonModrinth, Ref: "bluemap", Version: "5.11"},
+		{Source: AddonCurseForge, Ref: "worldedit"}, {Source: AddonSpiget, Ref: "28140"},
+	}}
+	env := FormatEnv(s.Env(""))
+	for _, want := range []string{"MODRINTH_PROJECTS=luckperms,bluemap:5.11", "MODRINTH_DOWNLOAD_DEPENDENCIES=required", "CURSEFORGE_FILES=worldedit", "SPIGET_RESOURCES=28140"} {
+		if !strings.Contains(env, want) {
+			t.Errorf("missing %s in\n%s", want, env)
+		}
+	}
+	s.Addons, s.AddonSources = nil, []string{AddonModrinth}
+	if env := FormatEnv(s.Env("")); !strings.Contains(env, "MODRINTH_PROJECTS=\n") || strings.Contains(env, "CURSEFORGE_FILES") {
+		t.Errorf("used source must be emptied explicitly, unused ones left out:\n%s", env)
+	}
+	if s.AddonDir() != "plugins" || (&Server{Type: "FABRIC"}).AddonDir() != "mods" {
+		t.Error("addon dir")
+	}
+	for _, a := range []Addon{{Source: AddonSpiget, Ref: "12a"}, {Source: AddonModrinth, Ref: "a,b"}, {Source: "x", Ref: "a"}, {Source: AddonModrinth, Ref: "ok", Version: "1 2"}} {
+		if ValidAddon(a) {
+			t.Errorf("should be invalid: %+v", a)
+		}
+	}
+}

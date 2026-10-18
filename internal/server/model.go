@@ -68,6 +68,96 @@ type Props struct {
 	OnlineMode   bool   `json:"onlineMode"`
 }
 
+// Addon is a mod or plugin that itzg installs on start (declarative, see Env).
+type Addon struct {
+	Source  string `json:"source"`            // modrinth | curseforge | spiget
+	Ref     string `json:"ref"`               // Modrinth/CurseForge slug or Spigot resource id
+	Name    string `json:"name"`              // display name
+	Version string `json:"version,omitempty"` // optional pin (Modrinth version id/number, CurseForge file id)
+	IconURL string `json:"iconUrl,omitempty"`
+}
+
+const (
+	AddonModrinth   = "modrinth"
+	AddonCurseForge = "curseforge"
+	AddonSpiget     = "spiget"
+)
+
+var addonRef = regexp.MustCompile(`^[A-Za-z0-9_.-]{1,80}$`)
+
+// ValidAddon checks references before they end up in an environment variable.
+func ValidAddon(a Addon) bool {
+	switch a.Source {
+	case AddonModrinth, AddonCurseForge:
+	case AddonSpiget:
+		if strings.Trim(a.Ref, "0123456789") != "" {
+			return false
+		}
+	default:
+		return false
+	}
+	return addonRef.MatchString(a.Ref) && (a.Version == "" || addonRef.MatchString(a.Version))
+}
+
+// AddonDir is the folder in /data that holds mods or plugins.
+func (s *Server) AddonDir() string {
+	if IsPluginType(s.Type) {
+		return "plugins"
+	}
+	return "mods"
+}
+
+// SupportsAddons is false for Vanilla, which loads neither mods nor plugins.
+func (s *Server) SupportsAddons() bool { return s.Type != "VANILLA" || s.Pack != nil }
+
+// AddonEnv returns the itzg variables for declared mods/plugins (also used to detect pending changes).
+func (s *Server) AddonEnv() []KV {
+	var mr, cf, sp []string
+	for _, a := range s.Addons {
+		ref := a.Ref
+		if a.Version != "" {
+			ref += ":" + a.Version
+		}
+		switch a.Source {
+		case AddonModrinth:
+			mr = append(mr, ref)
+		case AddonCurseForge:
+			cf = append(cf, ref)
+		case AddonSpiget:
+			sp = append(sp, a.Ref)
+		}
+	}
+	used := map[string]bool{}
+	for _, src := range s.AddonSources {
+		used[src] = true
+	}
+	var e []KV
+	if len(mr) > 0 || used[AddonModrinth] {
+		e = append(e, KV{"MODRINTH_PROJECTS", strings.Join(mr, ",")})
+		if len(mr) > 0 {
+			e = append(e, KV{"MODRINTH_DOWNLOAD_DEPENDENCIES", "required"})
+		}
+	}
+	if len(cf) > 0 || used[AddonCurseForge] {
+		e = append(e, KV{"CURSEFORGE_FILES", strings.Join(cf, ",")})
+	}
+	if len(sp) > 0 {
+		e = append(e, KV{"SPIGET_RESOURCES", strings.Join(sp, ",")})
+	}
+	return e
+}
+
+// AddAddon appends an addon and remembers its source.
+func (s *Server) AddAddon(a Addon) {
+	s.Addons = append(s.Addons, a)
+	for _, src := range s.AddonSources {
+		if src == a.Source {
+			return
+		}
+	}
+	s.AddonSources = append(s.AddonSources, a.Source)
+}
+
 // BackupPlan is the per-server backup schedule.
 type BackupPlan struct {
 	Interval     string `json:"interval"` // off | 6h | daily | weekly
@@ -105,10 +195,15 @@ type Server struct {
 	Ops       []string    `json:"ops"`
 	ExtraEnv  []KV        `json:"extraEnv"`
 	Backup    *BackupPlan `json:"backup,omitempty"`
-	DataDir   string      `json:"dataDir,omitempty"`    // imported servers whose data lives in another host folder
-	DataVol   string      `json:"dataVolume,omitempty"` // imported servers whose data lives in a Docker volume
-	Imported  bool        `json:"imported,omitempty"`
-	CreatedAt time.Time   `json:"createdAt"`
+	Addons    []Addon     `json:"addons,omitempty"`
+	// AddonSources remembers sources used before: an explicitly empty list makes itzg remove
+	// files it installed earlier, while an unset variable leaves them in place.
+	AddonSources []string  `json:"addonSources,omitempty"`
+	Uploads      []string  `json:"uploads,omitempty"`    // JAR files uploaded into the mods/plugins folder
+	DataDir      string    `json:"dataDir,omitempty"`    // imported servers whose data lives in another host folder
+	DataVol      string    `json:"dataVolume,omitempty"` // imported servers whose data lives in a Docker volume
+	Imported     bool      `json:"imported,omitempty"`
+	CreatedAt    time.Time `json:"createdAt"`
 }
 
 func (s *Server) Container() string { return "mc-" + s.ID }
@@ -221,6 +316,7 @@ func (s *Server) Env(cfKey string) []KV {
 		add("OPS", strings.Join(s.Ops, ","))
 		add("EXISTING_OPS_FILE", "SYNCHRONIZE")
 	}
+	e = append(e, s.AddonEnv()...)
 	// Extra variables override generated ones with the same key.
 	for _, kv := range s.ExtraEnv {
 		replaced := false

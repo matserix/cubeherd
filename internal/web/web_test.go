@@ -3,6 +3,7 @@ package web
 import (
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -10,6 +11,7 @@ import (
 	"forgecraft/internal/config"
 	"forgecraft/internal/manager"
 	"forgecraft/internal/server"
+	"forgecraft/internal/sources"
 )
 
 func TestASCIIJSON(t *testing.T) {
@@ -125,6 +127,18 @@ func TestRenderPartials(t *testing.T) {
 		t.Error(err)
 	}
 	if _, err := a.renderString("server", "uninstallModal", map[string]any{"S": s, "Dir": "/x", "Archive": "/a"}); err != nil {
+		t.Error(err)
+	}
+	s.Addons = []server.Addon{{Source: "modrinth", Ref: "lithium", Name: `Lith"ium`, IconURL: "https://x/y.png"}}
+	s.Uploads = []string{"custom.jar"}
+	ad := addonsData{S: s, Word: "Mods", Pending: true, Others: 1, Sources: []tab{{Key: "modrinth", Label: "Modrinth"}},
+		Files: []manager.AddonFile{{Name: "custom.jar", Uploaded: true}, {Name: "x.jar"}}}
+	if out, err := a.renderString("server", "tabMods", ad); err != nil {
+		t.Error(err)
+	} else if !strings.Contains(out, "&#34;ref&#34;:&#34;lithium&#34;") {
+		t.Errorf("hx-vals not JSON-escaped as expected")
+	}
+	if _, err := a.renderString("server", "addonResults", map[string]any{"S": s, "Hits": []sources.AddonHit{{Source: "modrinth", Ref: "lithium", Title: "Lithium"}}, "Installed": map[string]bool{"modrinth:lithium": true}}); err != nil {
 		t.Error(err)
 	}
 	if _, err := a.renderString("wizard", "preview", map[string]any{"S": s, "Compose": "x", "Dir": "/x"}); err != nil {

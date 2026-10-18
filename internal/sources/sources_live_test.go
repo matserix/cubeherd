@@ -48,3 +48,27 @@ func TestLiveSources(t *testing.T) {
 		t.Logf("curseforge: %v", err)
 	}
 }
+
+// FC_NET=1 go test ./internal/sources -run LiveAddons -v
+func TestLiveAddons(t *testing.T) {
+	if os.Getenv("FC_NET") == "" {
+		t.Skip("FC_NET not set")
+	}
+	c := New(func() string { return "" })
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	mods, err := c.ModrinthAddons(ctx, AddonQuery{Text: "lithium", Loader: "fabric", MC: "1.21.10"})
+	if err != nil || len(mods) == 0 {
+		t.Fatalf("modrinth mods: %v %v", mods, err)
+	}
+	plugins, err := c.ModrinthAddons(ctx, AddonQuery{Text: "luckperms", Plugins: true, MC: "1.21.10"})
+	if err != nil || len(plugins) == 0 {
+		t.Fatalf("modrinth plugins: %v %v", plugins, err)
+	}
+	t.Logf("mod %s, plugin %s", mods[0].Ref, plugins[0].Ref)
+	if sp, err := c.SpigetAddons(ctx, AddonQuery{Text: "luckperms", Plugins: true}); err != nil {
+		t.Logf("spiget (flaky): %v", err)
+	} else if len(sp) > 0 {
+		t.Logf("spiget %s %s", sp[0].Ref, sp[0].Title)
+	}
+}

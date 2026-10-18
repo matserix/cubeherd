@@ -10,6 +10,7 @@
     {{else if eq $d.Tab "settings"}}{{template "tabSettings" $d}}
     {{else if eq $d.Tab "players"}}{{template "tabPlayers" $d}}
     {{else if eq $d.Tab "backups"}}{{template "tabBackups" $d.Backups}}
+    {{else if eq $d.Tab "mods"}}{{template "tabMods" $d.Addons}}
     {{else}}{{template "tabV2" $d}}{{end}}
   </div>
 </section>
@@ -157,6 +158,69 @@
 </div>
 <div class="modal-foot"><button class="btn ghost" type="button" data-close>Abbrechen</button><button class="btn primary">Wiederherstellen <span class="spin-on-req"></span></button></div>
 </form>
+{{end}}
+
+{{define "tabMods"}}
+{{$s := .S}}
+{{if not $s.SupportsAddons}}
+<div class="callout info"><div><b>Vanilla lädt keine Mods oder Plugins</b><span class="muted">Über „Update“ kannst du die Server-Software wechseln, z. B. auf Paper (Plugins) oder Fabric (Mods). Die Welt bleibt erhalten.</span></div></div>
+{{else}}
+<div class="stack">
+  <div id="addons-installed">{{template "addonInstalled" .}}</div>
+  <div class="panel">
+    <div class="panel-head"><h2>{{.Word}} hinzufügen</h2><span class="muted" style="font-size:12px">Gefiltert auf {{typeName $s.Type}} {{$s.Version}}</span></div>
+    <form class="panel-pad stack" hx-get="/servers/{{$s.ID}}/addons/search" hx-trigger="load, keyup changed delay:350ms from:find input[name=q], change, submit" hx-target="#addon-results" hx-sync="this:replace">
+      <div class="actions" style="justify-content:space-between">
+        <div class="seg">{{range $i, $src := .Sources}}<label><input type="radio" name="src" value="{{$src.Key}}" {{if eq $i 0}}checked{{end}}>{{$src.Label}}</label>{{end}}</div>
+        {{if not .HasCFKey}}<span class="muted" style="font-size:12px">CurseForge-Suche braucht einen API-Key (Einstellungen).</span>{{end}}
+      </div>
+      <div class="search"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="7" cy="7" r="4.5"/><path d="m10.5 10.5 3.5 3.5"/></svg><input class="input" type="search" name="q" placeholder="{{.Word}} durchsuchen" autocomplete="off"></div>
+      <div id="addon-results"><p class="empty">Lade beliebte {{.Word}} …</p></div>
+    </form>
+  </div>
+</div>
+{{end}}
+{{end}}
+
+{{define "addonInstalled"}}
+{{$s := .S}}
+{{if .Pending}}
+<div class="callout warn" style="margin-bottom:16px"><div><b>Änderungen werden beim nächsten Start übernommen</b><span class="muted">itzg lädt neue {{.Word}} beim Start herunter und entfernt ausgetragene.</span></div>
+  <div class="actions" style="flex:none"><button class="btn sm primary" hx-post="/servers/{{$s.ID}}/action/restart" hx-target="#srv-head">Jetzt neu starten</button></div></div>
+{{end}}
+<div class="panel">
+  <div class="panel-head"><h2>Eingetragene {{.Word}} <span class="muted num" style="font-weight:400">{{len $s.Addons}}</span></h2>
+    <form hx-post="/servers/{{$s.ID}}/addons/upload" hx-encoding="multipart/form-data" hx-trigger="change" hx-target="#addons-installed">
+      <label class="btn sm"><input type="file" name="jar" accept=".jar" hidden>JAR hochladen <span class="spin-on-req"></span></label>
+    </form></div>
+  {{with $s.Pack}}<div class="panel-pad" style="padding-bottom:0"><p class="muted" style="font-size:13px">{{.Name}} bringt seine Mods selbst mit. Hier stehen nur zusätzliche {{$.Word}}.</p></div>{{end}}
+  <div class="tbl-wrap"><table class="tbl"><thead><tr><th>Name</th><th>Quelle</th><th class="hide-sm">Version</th><th class="right"></th></tr></thead><tbody>
+  {{range $s.Addons}}<tr>
+    <td><span class="who" style="display:flex;align-items:center;gap:10px">{{if .IconURL}}<img src="{{.IconURL}}" alt="" width="22" height="22" style="border-radius:4px" loading="lazy" referrerpolicy="no-referrer">{{end}}<b>{{.Name}}</b></span></td>
+    <td><span class="chip src-{{.Source}}">{{addonSrcName .Source}}</span></td>
+    <td class="hide-sm muted">{{if .Version}}<span class="mono">{{.Version}}</span>{{else}}neueste passende, beim Start{{end}}</td>
+    <td class="right"><button class="btn sm ghost" hx-post="/servers/{{$s.ID}}/addons/remove" hx-vals='{{jsonVals "src" .Source "ref" .Ref}}' hx-target="#addons-installed">Entfernen</button></td></tr>
+  {{end}}
+  {{range .Files}}{{if .Uploaded}}<tr>
+    <td><b class="mono" style="font-weight:500">{{.Name}}</b></td><td><span class="chip">Upload</span></td><td class="hide-sm muted">{{mb .Size}}</td>
+    <td class="right"><button class="btn sm ghost" hx-post="/servers/{{$s.ID}}/addons/uploads/delete" hx-vals='{{jsonVals "file" .Name}}' hx-target="#addons-installed">Löschen</button></td></tr>{{end}}{{end}}
+  {{if and (not $s.Addons) (not $s.Uploads)}}<tr><td colspan="4" class="muted">Noch keine zusätzlichen {{.Word}}. Unten suchen oder eine JAR hochladen.</td></tr>{{end}}
+  </tbody></table></div>
+  {{if .Others}}<details class="panel-pad" style="border-top:1px solid var(--line)"><summary class="muted" style="cursor:pointer;font-size:13px">{{.Others}} {{if eq .Others 1}}weitere Datei{{else}}weitere Dateien{{end}} im Ordner <span class="mono">{{$s.AddonDir}}/</span> (von itzg{{if $s.Pack}} oder dem Modpack{{end}} verwaltet)</summary>
+    <ul class="plist" style="margin-top:8px">{{range .Files}}{{if not .Uploaded}}<li><span class="mono" style="font-size:12.5px">{{.Name}}</span><span class="muted num" style="font-size:12px">{{mb .Size}}</span></li>{{end}}{{end}}</ul></details>{{end}}
+</div>
+{{end}}
+
+{{define "addonResults"}}
+{{if .Error}}<p class="err">{{.Error}}</p>{{else}}
+<ul class="plist">{{range .Hits}}{{$key := print .Source ":" .Ref}}
+  <li><span class="who" style="gap:12px">{{if .IconURL}}<img src="{{.IconURL}}" alt="" width="32" height="32" style="border-radius:6px;flex:none" loading="lazy" referrerpolicy="no-referrer">{{else}}<span class="ico" style="width:32px;height:32px;border-radius:6px;background:var(--surface-3);display:grid;place-items:center;flex:none">{{initial .Title}}</span>{{end}}
+    <span style="display:flex;flex-direction:column;min-width:0"><b>{{.Title}}</b><span class="muted" style="font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{.Desc}}</span></span></span>
+    <span class="actions" style="flex:none"><span class="muted num hide-sm" style="font-size:12px">{{num .Downloads}}</span>
+      {{if index $.Installed $key}}<button class="btn sm" disabled>Eingetragen</button>
+      {{else}}<button class="btn sm" type="button" hx-post="/servers/{{$.S.ID}}/addons/add" hx-vals='{{jsonVals "src" .Source "ref" .Ref "name" .Title "icon" .IconURL}}' hx-target="#addons-installed">Hinzufügen</button>{{end}}</span></li>
+{{else}}<li class="empty">Nichts gefunden.</li>{{end}}</ul>
+{{end}}
 {{end}}
 
 {{define "tabV2"}}

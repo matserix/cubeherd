@@ -1,6 +1,7 @@
 package web
 
 import (
+	"encoding/json"
 	"fmt"
 	"hash/fnv"
 	"html/template"
@@ -36,6 +37,18 @@ var funcs = template.FuncMap{
 		return m
 	},
 	"list": func(v ...string) []string { return v },
+	"addonSrcName": func(s string) string {
+		return map[string]string{"modrinth": "Modrinth", "curseforge": "CurseForge", "spiget": "Spigot"}[s]
+	},
+	// jsonVals builds an hx-vals object from key/value pairs.
+	"jsonVals": func(kv ...string) string {
+		m := map[string]string{}
+		for i := 0; i+1 < len(kv); i += 2 {
+			m[kv[i]] = kv[i+1]
+		}
+		b, _ := json.Marshal(m)
+		return string(b)
+	},
 	"dt": func(t time.Time) string {
 		if t.IsZero() {
 			return ""

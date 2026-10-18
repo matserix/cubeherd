@@ -70,7 +70,18 @@ internal/web          Handler, Templates, SSE, statische Assets
 - **MVP (v0.1):** Anlegen (Software, Modrinth, CurseForge), Start/Stop/Neustart, Konsole mit RCON, Live-Stats,
   Einstellungen, Spieler (Whitelist/OPs/Bans), Updates (MC-Version, Modpack-Version, Image), Deinstallieren,
   Übernahme bestehender itzg-Container, globale Einstellungen.
-- **v2:** ~~Backups~~ (fertig), Mods/Plugins einzeln (deklarativ über itzg-Variablen), Datei-Browser, CPU-Limits, Autostop.
+- **v2:** ~~Backups~~ und ~~Mods/Plugins~~ (fertig), Datei-Browser, CPU-Limits, Autostop.
+
+## Mods & Plugins
+
+- Deklarativ: Forgecraft pflegt `MODRINTH_PROJECTS` (mit `MODRINTH_DOWNLOAD_DEPENDENCIES=required`), `CURSEFORGE_FILES` und `SPIGET_RESOURCES`.
+  itzg lädt beim Start passend zu Loader und Version herunter und hält nicht gepinnte Einträge aktuell.
+- Entfernen: Für eine Quelle, die schon einmal benutzt wurde, setzt Forgecraft die Variable explizit leer. Nur dann räumt itzg die von
+  ihm installierten Dateien auf; eine fehlende Variable lässt sie liegen. Getestet: Paper + Modrinth-Plugin, ATM10 (CurseForge-Pack) + Modrinth-Mod,
+  die Modpack-Mods bleiben dabei unberührt. Spigot-Plugins räumt itzg nicht auf.
+- Hochgeladene JARs landen direkt in `mods/` bzw. `plugins/` und werden in der Definition gemerkt; nur sie lassen sich im Dashboard löschen.
+- Suche: Modrinth (`project_type:mod` mit Loader, Version und Server-Seite bzw. `project_type:plugin`), CurseForge (eigener API-Key),
+  Spiget (nur kostenlose, direkt herunterladbare Ressourcen; die API ist langsam, Abbruch nach 8 s).
 
 ## Backups
 
