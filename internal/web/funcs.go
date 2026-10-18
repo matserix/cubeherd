@@ -3,8 +3,8 @@ package web
 import (
 	"fmt"
 	"hash/fnv"
-	"math"
 	"html/template"
+	"math"
 	"strconv"
 	"strings"
 	"time"
@@ -36,15 +36,42 @@ var funcs = template.FuncMap{
 		return m
 	},
 	"list": func(v ...string) []string { return v },
+	"dt": func(t time.Time) string {
+		if t.IsZero() {
+			return ""
+		}
+		now := time.Now()
+		switch {
+		case t.YearDay() == now.YearDay() && t.Year() == now.Year():
+			return "Heute, " + t.Format("15:04")
+		case t.YearDay() == now.AddDate(0, 0, -1).YearDay() && t.Year() == now.AddDate(0, 0, -1).Year():
+			return "Gestern, " + t.Format("15:04")
+		case t.YearDay() == now.AddDate(0, 0, 1).YearDay() && t.Year() == now.AddDate(0, 0, 1).Year():
+			return "Morgen, " + t.Format("15:04")
+		}
+		return t.Format("02.01.2006, 15:04")
+	},
+	"mb": func(n int64) string {
+		if n >= 1<<30 {
+			return de(float64(n)/(1<<30)) + " GB"
+		}
+		return de(float64(n)/(1<<20)) + " MB"
+	},
+	"intervalName": func(i string) string {
+		return map[string]string{"off": "Aus", "6h": "Alle 6 Stunden", "daily": "Täglich", "weekly": "Wöchentlich"}[i]
+	},
+	"keepOptions": func() []int { return []int{3, 5, 7, 14, 30} },
 	"initial": func(s string) string {
 		for _, r := range s {
 			return string(r)
 		}
 		return "?"
 	},
-	"mulGB":  func(n int) uint64 { return uint64(n) << 30 },
+	"mulGB": func(n int) uint64 { return uint64(n) << 30 },
 	// Rounded half up like Number.toFixed in app.js, so live and rendered values match.
-	"heapGB": func(gb int, modded bool) string { return de(math.Round(float64(server.HeapMB(gb, modded))/1024*10) / 10) },
+	"heapGB": func(gb int, modded bool) string {
+		return de(math.Round(float64(server.HeapMB(gb, modded))/1024*10) / 10)
+	},
 	"modeName": func(m string) string {
 		return map[string]string{"survival": "Überleben", "creative": "Kreativ", "adventure": "Abenteuer", "spectator": "Zuschauer"}[m]
 	},

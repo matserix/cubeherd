@@ -23,13 +23,15 @@ const (
 	StatusUpdating   Status = "updating"
 	StatusInstalling Status = "installing"
 	StatusPreparing  Status = "preparing" // container runs, itzg still downloads server/modpack files
+	StatusBackingUp  Status = "backingup"
+	StatusRestoring  Status = "restoring"
 )
 
 var statusLabel = map[Status]string{
 	StatusRunning: "Läuft", StatusStarting: "Startet", StatusPaused: "Pausiert", StatusStopped: "Gestoppt",
 	StatusCrashed: "Abgestürzt", StatusMissing: "Nicht erstellt", StatusUnhealthy: "Reagiert nicht",
 	StatusStopping: "Stoppt", StatusUpdating: "Aktualisiert", StatusInstalling: "Wird eingerichtet",
-	StatusPreparing: "Wird eingerichtet",
+	StatusPreparing: "Wird eingerichtet", StatusBackingUp: "Sichert", StatusRestoring: "Stellt wieder her",
 }
 
 func (s Status) Label() string { return statusLabel[s] }
@@ -37,7 +39,7 @@ func (s Status) Label() string { return statusLabel[s] }
 // CSS maps the status to the prototype's pill classes.
 func (s Status) CSS() string {
 	switch s {
-	case StatusStopping, StatusUpdating, StatusInstalling, StatusUnhealthy, StatusPreparing:
+	case StatusStopping, StatusUpdating, StatusInstalling, StatusUnhealthy, StatusPreparing, StatusBackingUp, StatusRestoring:
 		return "starting"
 	case StatusMissing:
 		return "stopped"
@@ -55,7 +57,7 @@ func (s Status) Up() bool {
 
 // Busy reports a Forgecraft action in progress.
 func (s Status) Busy() bool {
-	return s == StatusStopping || s == StatusUpdating || s == StatusInstalling
+	return s == StatusStopping || s == StatusUpdating || s == StatusInstalling || s == StatusBackingUp || s == StatusRestoring
 }
 
 // Derive computes the display status. op is a running Forgecraft action ("" if none).

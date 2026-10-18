@@ -68,35 +68,58 @@ type Props struct {
 	OnlineMode   bool   `json:"onlineMode"`
 }
 
+// BackupPlan is the per-server backup schedule.
+type BackupPlan struct {
+	Interval     string `json:"interval"` // off | 6h | daily | weekly
+	Time         string `json:"time"`     // HH:MM, local time
+	Keep         int    `json:"keep"`     // automatic backups to keep (manual ones are never pruned)
+	BeforeUpdate bool   `json:"beforeUpdate"`
+	OnlyIfActive bool   `json:"onlyIfActive"` // skip scheduled runs while the server is stopped or paused
+}
+
+// DefaultBackupPlan is used for new servers and servers created before backups existed.
+func DefaultBackupPlan() BackupPlan {
+	return BackupPlan{Interval: "daily", Time: "04:00", Keep: 7, BeforeUpdate: true, OnlyIfActive: true}
+}
+
 type KV struct {
 	Key   string `json:"key"`
 	Value string `json:"value"`
 }
 
 type Server struct {
-	ID        string    `json:"id"`
-	Name      string    `json:"name"`
-	Kind      string    `json:"kind"`
-	Type      string    `json:"type"`    // itzg TYPE for software servers, loader for packs
-	Version   string    `json:"version"` // Minecraft version
-	Pack      *Pack     `json:"pack,omitempty"`
-	JavaTag   string    `json:"javaTag"`
-	Port      int       `json:"port"`
-	MemoryGB  int       `json:"memoryGb"`
-	Autopause bool      `json:"autopause"`
-	Aikar     bool      `json:"aikar"`
-	Autostart bool      `json:"autostart"`
-	Props     Props     `json:"props"`
-	Whitelist []string  `json:"whitelist"`
-	Ops       []string  `json:"ops"`
-	ExtraEnv  []KV      `json:"extraEnv"`
-	DataDir   string    `json:"dataDir,omitempty"`    // imported servers whose data lives in another host folder
-	DataVol   string    `json:"dataVolume,omitempty"` // imported servers whose data lives in a Docker volume
-	Imported  bool      `json:"imported,omitempty"`
-	CreatedAt time.Time `json:"createdAt"`
+	ID        string      `json:"id"`
+	Name      string      `json:"name"`
+	Kind      string      `json:"kind"`
+	Type      string      `json:"type"`    // itzg TYPE for software servers, loader for packs
+	Version   string      `json:"version"` // Minecraft version
+	Pack      *Pack       `json:"pack,omitempty"`
+	JavaTag   string      `json:"javaTag"`
+	Port      int         `json:"port"`
+	MemoryGB  int         `json:"memoryGb"`
+	Autopause bool        `json:"autopause"`
+	Aikar     bool        `json:"aikar"`
+	Autostart bool        `json:"autostart"`
+	Props     Props       `json:"props"`
+	Whitelist []string    `json:"whitelist"`
+	Ops       []string    `json:"ops"`
+	ExtraEnv  []KV        `json:"extraEnv"`
+	Backup    *BackupPlan `json:"backup,omitempty"`
+	DataDir   string      `json:"dataDir,omitempty"`    // imported servers whose data lives in another host folder
+	DataVol   string      `json:"dataVolume,omitempty"` // imported servers whose data lives in a Docker volume
+	Imported  bool        `json:"imported,omitempty"`
+	CreatedAt time.Time   `json:"createdAt"`
 }
 
 func (s *Server) Container() string { return "mc-" + s.ID }
+
+// Plan returns the backup plan, falling back to the defaults.
+func (s *Server) Plan() BackupPlan {
+	if s.Backup == nil {
+		return DefaultBackupPlan()
+	}
+	return *s.Backup
+}
 
 // Modded reports whether the server loads mods (more memory outside the Java heap).
 func (s *Server) Modded() bool {

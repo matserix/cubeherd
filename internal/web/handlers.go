@@ -359,7 +359,7 @@ type tab struct {
 }
 
 var tabs = []tab{{"console", "Konsole", false}, {"settings", "Einstellungen", false}, {"players", "Spieler", false},
-	{"mods", "Mods & Plugins", true}, {"files", "Dateien", true}, {"backups", "Backups", true}}
+	{"backups", "Backups", false}, {"mods", "Mods & Plugins", true}, {"files", "Dateien", true}}
 
 type serverPage struct {
 	V        manager.View
@@ -375,6 +375,7 @@ type serverPage struct {
 	FullEnv  string
 	Bans     []string
 	DataDir  string
+	Backups  backupsData
 }
 
 type statsData struct {
@@ -441,6 +442,8 @@ func (a *App) serverPageData(ctx context.Context, s *server.Server, tabKey strin
 		d.FullEnv = server.FormatEnv(env)
 	case "players":
 		d.Bans = a.bans(s)
+	case "backups":
+		d.Backups = a.backupsData(s, d.V.Status)
 	}
 	return d
 }
@@ -749,7 +752,7 @@ func (a *App) updatePost(w http.ResponseWriter, r *http.Request) {
 	default:
 		msg = "Image wird aktualisiert."
 	}
-	if err := a.M.Apply(s, true, true); err != nil {
+	if err := a.M.ApplyUpdate(s, true, true, checked(r, "backupFirst")); err != nil {
 		fail(w, err.Error())
 		return
 	}
@@ -762,7 +765,7 @@ func (a *App) uninstallModal(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	a.partial(w, "server", "uninstallModal", map[string]any{"S": s, "Dir": a.M.Store.Dir(s.ID)})
+	a.partial(w, "server", "uninstallModal", map[string]any{"S": s, "Dir": a.M.Store.Dir(s.ID), "Archive": a.M.ArchiveDir()})
 }
 
 func (a *App) uninstallPost(w http.ResponseWriter, r *http.Request) {
@@ -775,8 +778,11 @@ func (a *App) uninstallPost(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	mode := manager.RemoveKeepData
-	if r.FormValue("mode") == "all" {
+	switch r.FormValue("mode") {
+	case "all":
 		mode = manager.RemoveAll
+	case "backup":
+		mode = manager.RemoveBackup
 	}
 	if err := a.M.Uninstall(s.ID, mode); err != nil {
 		fail(w, err.Error())

@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"forgecraft/internal/auth"
 	"forgecraft/internal/config"
@@ -110,6 +111,20 @@ func TestRenderPartials(t *testing.T) {
 		t.Error(err)
 	}
 	if _, err := a.renderString("server", "tabSettings", serverPage{V: manager.View{S: s}, MaxRAM: 16, HostRAM: "7,7"}); err != nil {
+		t.Error(err)
+	}
+	bd := backupsData{ID: "atm", Plan: server.DefaultBackupPlan(), Busy: true, Next: time.Now().Add(time.Hour),
+		List: []manager.Backup{{Name: "20261018-161712_manual.tar.zst", Time: time.Now(), Reason: "manual", Size: 12 << 20}}}
+	if _, err := a.renderString("server", "tabBackups", bd); err != nil {
+		t.Error(err)
+	}
+	if _, err := a.renderString("server", "restoreModal", map[string]any{"S": s, "B": bd.List[0], "Pack": true}); err != nil {
+		t.Error(err)
+	}
+	if _, err := a.renderString("server", "updateModal", updateData{S: s, Mode: "pack", Modes: []tab{{Key: "pack"}}}); err != nil {
+		t.Error(err)
+	}
+	if _, err := a.renderString("server", "uninstallModal", map[string]any{"S": s, "Dir": "/x", "Archive": "/a"}); err != nil {
 		t.Error(err)
 	}
 	if _, err := a.renderString("wizard", "preview", map[string]any{"S": s, "Compose": "x", "Dir": "/x"}); err != nil {

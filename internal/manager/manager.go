@@ -36,6 +36,9 @@ type Manager struct {
 	crash map[string]crashEntry
 	cache map[string]cacheEntry
 	phase map[string]*phaseEntry
+
+	wake     chan struct{}        // scheduler: recompute next backup
+	attempts map[string]time.Time // scheduler: last attempt per server (also skipped ones)
 }
 
 // phaseEntry tracks the startup progress of one container run by scanning new log lines.
@@ -152,7 +155,8 @@ func (m *Manager) crashReason(ctx context.Context, s *server.Server, c *docker.C
 }
 
 func New(d *docker.Client, st *server.Store, cfg *config.Store, src *sources.Client) *Manager {
-	return &Manager{Docker: d, Store: st, Config: cfg, Sources: src, ops: map[string]*Op{}, disk: map[string]diskEntry{}, crash: map[string]crashEntry{}, cache: map[string]cacheEntry{}, phase: map[string]*phaseEntry{}}
+	return &Manager{Docker: d, Store: st, Config: cfg, Sources: src, ops: map[string]*Op{}, disk: map[string]diskEntry{}, crash: map[string]crashEntry{}, cache: map[string]cacheEntry{}, phase: map[string]*phaseEntry{},
+		wake: make(chan struct{}, 1), attempts: map[string]time.Time{}}
 }
 
 // ---------------- Operations ----------------
@@ -485,15 +489,29 @@ func (m *Manager) Restart(id string) error {
 
 // Apply saves the definition and recreates the container if it is running (or always with force).
 func (m *Manager) Apply(s *server.Server, pull, restart bool) error {
-	if err := m.Store.Save(s, m.cfKey()); err != nil {
-		return err
-	}
+	return m.ApplyUpdate(s, pull, restart, false)
+}
+
+// ApplyUpdate is Apply with an optional backup before anything changes.
+func (m *Manager) ApplyUpdate(s *server.Server, pull, restart, backupFirst bool) error {
 	if !restart && !pull {
-		return nil
+		return m.Store.Save(s, m.cfKey())
 	}
 	return m.run(s.ID, server.StatusUpdating, func(o *Op) error {
-		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Minute)
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Hour)
 		defer cancel()
+		if backupFirst {
+			// Back up with the old definition, before the new compose file is written.
+			old, err := m.Store.Get(s.ID)
+			if err == nil {
+				if _, err := m.backup(ctx, old, o, ReasonUpdate, m.BackupDir(old), ""); err != nil {
+					return fmt.Errorf("Backup vor dem Update fehlgeschlagen, Update abgebrochen: %w", err)
+				}
+			}
+		}
+		if err := m.Store.Save(s, m.cfKey()); err != nil {
+			return err
+		}
 		if pull {
 			if err := m.compose(ctx, s, o, "pull", "--quiet"); err != nil {
 				return err
@@ -507,7 +525,10 @@ func (m *Manager) Apply(s *server.Server, pull, restart bool) error {
 const (
 	RemoveKeepData = "keep"
 	RemoveAll      = "all"
+	RemoveBackup   = "backup" // final backup into <data>/archive, then remove everything
 )
+
+func (m *Manager) ArchiveDir() string { return filepath.Join(m.Store.Root(), "archive") }
 
 func (m *Manager) Uninstall(id, mode string) error {
 	s, err := m.Store.Get(id)
@@ -517,13 +538,18 @@ func (m *Manager) Uninstall(id, mode string) error {
 	return m.run(id, server.StatusStopping, func(o *Op) error {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 		defer cancel()
+		if mode == RemoveBackup {
+			if _, err := m.backup(ctx, s, o, ReasonUninstall, m.ArchiveDir(), s.ID+"-"); err != nil {
+				return fmt.Errorf("Abschluss-Backup fehlgeschlagen, nichts gelöscht: %w", err)
+			}
+		}
 		if err := m.compose(ctx, s, o, "down", "--timeout", "60"); err != nil {
 			// Fall back to removing the container directly (e.g. compose file damaged).
 			if err := m.Docker.Remove(ctx, s.Container(), true); err != nil && !errors.Is(err, docker.ErrNotFound) {
 				return err
 			}
 		}
-		if mode != RemoveAll {
+		if mode == RemoveKeepData {
 			return m.Store.RemoveDefinition(id)
 		}
 		if s.DataDir != "" {

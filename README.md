@@ -34,6 +34,7 @@ sudo FORGECRAFT_DATA=/srv/forgecraft ./forgecraft
 | `FORGECRAFT_DATA` | `/srv/forgecraft` als root, sonst `./forgecraft-data` | Datenverzeichnis |
 | `FORGECRAFT_LISTEN` | `:8420` | Adresse des Web-Servers |
 | `DOCKER_HOST` | `/var/run/docker.sock`, Fallback `~/.docker/run/docker.sock` | Docker-Socket |
+| `TZ` | `UTC` | Zeitzone für Backup-Zeitpläne, z. B. `Europe/Berlin` |
 
 ## Sicherheit
 
@@ -51,8 +52,9 @@ Es gibt ein Admin-Konto (bcrypt), signierte Session-Cookies (`SameSite=Strict`),
 - **Updates:** Minecraft-Version, Modpack-Version, itzg-Image.
 - **Deinstallieren:** Daten behalten oder alles löschen.
 - **Übernahme** bestehender itzg-Container.
+- **Backups:** manuell, per Zeitplan, automatisch vor Updates, Wiederherstellen, Herunterladen.
 
-In Version 2 folgen einzelne Mods/Plugins, ein Datei-Browser, Backups und CPU-Limits.
+Als Nächstes folgen einzelne Mods/Plugins, ein Datei-Browser, CPU-Limits und Autostop.
 
 Jeder Server liegt als `servers/<id>/compose.yml` im Datenverzeichnis und lässt sich auch ohne Forgecraft mit `docker compose` betreiben.
 Details zur Architektur stehen in [ARCHITECTURE.md](ARCHITECTURE.md).

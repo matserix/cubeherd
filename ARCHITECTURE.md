@@ -70,7 +70,18 @@ internal/web          Handler, Templates, SSE, statische Assets
 - **MVP (v0.1):** Anlegen (Software, Modrinth, CurseForge), Start/Stop/Neustart, Konsole mit RCON, Live-Stats,
   Einstellungen, Spieler (Whitelist/OPs/Bans), Updates (MC-Version, Modpack-Version, Image), Deinstallieren,
   Übernahme bestehender itzg-Container, globale Einstellungen.
-- **v2:** Mods/Plugins einzeln, Datei-Browser, Backups, CPU-Limits, Autostop.
+- **v2:** ~~Backups~~ (fertig), Mods/Plugins einzeln (deklarativ über itzg-Variablen), Datei-Browser, CPU-Limits, Autostop.
+
+## Backups
+
+- Archive liegen unter `servers/<id>/backups/<YYYYMMDD-HHMMSS>_<anlass>.tar.zst` (Anlass: manual, schedule, update, restore).
+- Läuft der Server: `save-off` → `save-all flush` → `docker exec … nice ionice tar | zstd -3 -T1` → `save-on`.
+  Gestoppt oder pausiert: dasselbe per `docker run --rm` mit dem Server-Image und `/data` schreibgeschützt.
+- Ausgeschlossen ist, was itzg neu lädt: Logs, Caches, Bibliotheken, Server-JARs; bei Modpacks auch `mods/`.
+- Wiederherstellen stoppt den Server, sichert den aktuellen Stand, löscht nur die im Archiv enthaltenen Einträge und entpackt.
+- Der Zeitplan ist ein einzelner Timer im Dashboard, der bis zum nächsten fälligen Backup schläft. Verpasste Läufe werden 2 Minuten nach dem Start nachgeholt.
+  Zeitzone über `TZ` (Zonendaten sind ins Binary eingebettet).
+- Automatische Backups werden nach der Aufbewahrungsregel gelöscht, manuelle nie.
 
 ## Erkenntnisse aus den Live-Tests
 

@@ -418,3 +418,7 @@ textarea.input { font-family: var(--font-mono); font-size: 13px; line-height: 1.
 .tabs a { text-decoration: none; }
 /* Kopf und Hinweis-Box (beide im SSE-Ziel #srv-head) brauchen denselben Abstand wie die übrigen Blöcke */
 #srv-head { display: flex; flex-direction: column; gap: 16px; }
+/* Lange Server- und Modpack-Namen auf schmalen Bildschirmen umbrechen statt abschneiden */
+.srv-head > div { min-width: 0; }
+.srv-title h1 { overflow-wrap: anywhere; }
+.srv-meta .chip { white-space: normal; }

@@ -116,6 +116,13 @@ func (a *App) Handler() http.Handler {
 	mux.HandleFunc("POST /servers/{id}/players/{list}/{op}", a.serverPlayers)
 	mux.HandleFunc("GET /servers/{id}/update", a.updateModal)
 	mux.HandleFunc("POST /servers/{id}/update", a.updatePost)
+	mux.HandleFunc("POST /servers/{id}/backups", a.backupCreate)
+	mux.HandleFunc("GET /servers/{id}/backups/list", a.backupList)
+	mux.HandleFunc("POST /servers/{id}/backups/plan", a.backupPlan)
+	mux.HandleFunc("GET /servers/{id}/backups/{name}", a.backupDownload)
+	mux.HandleFunc("POST /servers/{id}/backups/{name}/delete", a.backupDelete)
+	mux.HandleFunc("GET /servers/{id}/backups/{name}/restore", a.restoreModal)
+	mux.HandleFunc("POST /servers/{id}/backups/{name}/restore", a.restorePost)
 	mux.HandleFunc("GET /servers/{id}/uninstall", a.uninstallModal)
 	mux.HandleFunc("POST /servers/{id}/uninstall", a.uninstallPost)
 

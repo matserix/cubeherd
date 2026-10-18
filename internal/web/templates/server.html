@@ -9,6 +9,7 @@
     {{if eq $d.Tab "console"}}{{template "tabConsole" $d}}
     {{else if eq $d.Tab "settings"}}{{template "tabSettings" $d}}
     {{else if eq $d.Tab "players"}}{{template "tabPlayers" $d}}
+    {{else if eq $d.Tab "backups"}}{{template "tabBackups" $d.Backups}}
     {{else}}{{template "tabV2" $d}}{{end}}
   </div>
 </section>
@@ -106,6 +107,58 @@
   </div></div>
 {{end}}
 
+{{define "tabBackups"}}
+{{$p := .Plan}}
+<div class="stack">
+  <form class="panel" hx-post="/servers/{{.ID}}/backups/plan" hx-target="#backup-list">
+    <div class="panel-head"><h2>Zeitplan</h2><button class="btn primary" type="button" hx-post="/servers/{{.ID}}/backups" hx-target="#backup-list">Jetzt sichern</button></div>
+    <div class="panel-pad stack">
+      <div class="grid-3">
+        <label class="field"><span>Intervall</span><select class="input" name="interval">{{range list "off" "6h" "daily" "weekly"}}<option value="{{.}}" {{if eq . $p.Interval}}selected{{end}}>{{intervalName .}}</option>{{end}}</select></label>
+        <label class="field"><span>Uhrzeit</span><input class="input mono" name="time" value="{{$p.Time}}" pattern="([01][0-9]|2[0-3]):[0-5][0-9]" placeholder="04:00"><small>Bei „Alle 6 Stunden“ der erste Lauf des Tages, bei „Wöchentlich“ montags.</small></label>
+        <label class="field"><span>Aufbewahren</span><select class="input" name="keep">{{range $k := keepOptions}}<option value="{{$k}}" {{if eq $k $p.Keep}}selected{{end}}>{{$k}} automatische Backups</option>{{end}}</select><small>Manuelle Backups werden nie automatisch gelöscht.</small></label>
+      </div>
+      <div class="grid-2">
+        <label class="switch"><input type="checkbox" name="beforeUpdate" {{if $p.BeforeUpdate}}checked{{end}}><span class="txt">Vor jedem Update sichern<small>Ermöglicht den Rückweg, falls ein Update die Welt beschädigt.</small></span></label>
+        <label class="switch"><input type="checkbox" name="onlyIfActive" {{if $p.OnlyIfActive}}checked{{end}}><span class="txt">Nur sichern, wenn der Server läuft<small>Gestoppte oder pausierte Server ändern sich nicht.</small></span></label>
+      </div>
+      <div class="actions" style="justify-content:space-between">
+        <p class="muted" style="font-size:12px">Ablauf: <span class="mono">save-off</span> → Archiv (zstd, niedrige Priorität) → <span class="mono">save-on</span>. Spieler bleiben verbunden.{{if .List}}{{else}} Welt, Konfiguration und Plugins werden gesichert{{end}}</p>
+        <button class="btn">Zeitplan speichern</button>
+      </div>
+    </div>
+  </form>
+  <div id="backup-list">{{template "backupList" .}}</div>
+</div>
+{{end}}
+
+{{define "backupList"}}
+<div class="panel" {{if .Busy}}hx-get="/servers/{{.ID}}/backups/list" hx-trigger="every 3s" hx-target="#backup-list"{{end}}>
+  <div class="panel-head"><h2>Vorhandene Backups <span class="muted num" style="font-weight:400">{{len .List}}</span></h2>
+    <span class="muted" style="font-size:12px">{{if .List}}{{mb .Total}} belegt · {{end}}{{if .Next.IsZero}}Kein Zeitplan{{else}}Nächstes geplant: {{dt .Next}}{{end}}{{if .Busy}} · <span class="spin-on-req" style="display:inline-block;vertical-align:-2px"></span> Aktion läuft{{end}}</span></div>
+  <div class="tbl-wrap"><table class="tbl"><thead><tr><th>Zeitpunkt</th><th>Anlass</th><th class="hide-sm">Größe</th><th class="right"></th></tr></thead><tbody>
+  {{range .List}}<tr><td class="num">{{dt .Time}}</td><td>{{.Label}}</td><td class="hide-sm num">{{mb .Size}}</td>
+    <td class="right"><div class="actions" style="justify-content:flex-end">
+      <button class="btn sm" hx-get="/servers/{{$.ID}}/backups/{{.Name}}/restore" hx-target="#modal-card" {{if $.Busy}}disabled{{end}}>Wiederherstellen</button>
+      <a class="btn sm ghost" href="/servers/{{$.ID}}/backups/{{.Name}}" download style="text-decoration:none">Herunterladen</a>
+      <button class="btn sm ghost" hx-post="/servers/{{$.ID}}/backups/{{.Name}}/delete" hx-target="#backup-list" {{if $.Busy}}disabled{{end}}>Löschen</button>
+    </div></td></tr>
+  {{else}}<tr><td colspan="4" class="muted">Noch keine Backups. „Jetzt sichern“ erstellt das erste.</td></tr>{{end}}
+  </tbody></table></div>
+</div>
+{{end}}
+
+{{define "restoreModal"}}
+<div class="modal-head"><h2>Backup wiederherstellen</h2><button class="btn sm ghost" data-close aria-label="Schließen">✕</button></div>
+<form hx-post="/servers/{{.S.ID}}/backups/{{.B.Name}}/restore">
+<div class="modal-body">
+  <p>{{.S.Name}} wird gestoppt, und Welt sowie Konfiguration werden durch den Stand vom <b>{{dt .B.Time}}</b> ({{.B.Label}}) ersetzt.</p>
+  <div class="callout info"><div><b>Vorher wird gesichert</b><span class="muted">Vom aktuellen Stand entsteht automatisch ein Backup „Vor Wiederherstellung“.{{if .Pack}} Die Mods des Modpacks bleiben unverändert.{{end}}</span></div></div>
+</div>
+<div class="modal-foot"><button class="btn ghost" type="button" data-close>Abbrechen</button><button class="btn primary">Wiederherstellen <span class="spin-on-req"></span></button></div>
+</form>
+{{end}}
+
 {{define "tabV2"}}
 <div class="panel v2-panel">
   <span class="v2">v2</span>
@@ -145,7 +198,7 @@
   {{else}}
     <div class="field"><span>Image</span><div class="ver-flow"><span class="cur">{{$s.ImageRef}}</span></div><small>Holt die neueste Fassung des itzg-Images (Fehlerbehebungen, Hilfsprogramme). Die Minecraft-Version bleibt gleich.</small></div>
   {{end}}
-  <label class="switch"><input type="checkbox" disabled><span class="txt"><span>Vorher Backup erstellen <span class="v2">v2</span></span><small>Kommt mit den Backups.</small></span></label>
+  <label class="switch"><input type="checkbox" name="backupFirst" {{if .S.Plan.BeforeUpdate}}checked{{end}}><span class="txt">Vorher Backup erstellen<small>Welt und Konfiguration im aktuellen Stand, für den Rückweg.</small></span></label>
 </div>
 <div class="modal-foot"><button class="btn ghost" type="button" data-close>Abbrechen</button><button class="btn primary">Update ausführen <span class="spin-on-req"></span></button></div>
 </form>
@@ -157,7 +210,7 @@
 <form hx-post="/servers/{{$s.ID}}/uninstall">
 <div class="modal-body">
   <label class="radio-card"><input type="radio" name="mode" value="keep" checked><span>Container entfernen, Daten behalten<small>Welt und Konfiguration bleiben in <span class="mono">{{.Dir}}.removed</span>{{if $s.DataVol}} bzw. im Volume <span class="mono">{{$s.DataVol}}</span>{{end}}.</small></span></label>
-  <label class="radio-card"><input type="radio" name="mode" value="backup" disabled><span>Backup erstellen, dann alles löschen <span class="v2">v2</span><small>Kommt mit den Backups.</small></span></label>
+  <label class="radio-card"><input type="radio" name="mode" value="backup"><span>Backup erstellen, dann alles löschen<small>Ein letztes Archiv bleibt in <span class="mono">{{.Archive}}</span>, der Rest wird gelöscht.</small></span></label>
   <label class="radio-card"><input type="radio" name="mode" value="all"><span>Alles löschen<small>Container und Ordner {{if $s.DataDir}}(die Daten unter <span class="mono">{{$s.DataDir}}</span> bleiben, sie liegen außerhalb von Forgecraft){{else if $s.DataVol}}(das Volume <span class="mono">{{$s.DataVol}}</span> bleibt erhalten){{else}}inklusive Welt{{end}}. Nicht umkehrbar.</small></span></label>
   <label class="field"><span>Zum Bestätigen <span class="mono">{{$s.ID}}</span> eingeben</span><input class="input mono" name="confirm" autocomplete="off" data-confirm="{{$s.ID}}" data-confirm-btn="un-go" autofocus></label>
 </div>

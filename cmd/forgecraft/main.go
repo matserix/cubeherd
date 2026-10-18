@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"syscall"
 	"time"
+	_ "time/tzdata" // TZ works in minimal images without zoneinfo
 
 	"forgecraft/internal/config"
 	"forgecraft/internal/docker"
@@ -62,6 +63,9 @@ func main() {
 
 	src := sources.New(func() string { return cfg.Get().CFAPIKey })
 	m := manager.New(dc, store, cfg, src)
+	schedCtx, stopSched := context.WithCancel(context.Background())
+	defer stopSched()
+	go m.RunScheduler(schedCtx)
 	app, err := web.New(m, cfg, &host.Reader{Docker: dc, DataDir: dataDir}, dataDir, listen)
 	if err != nil {
 		log.Fatalf("Templates: %v", err)
