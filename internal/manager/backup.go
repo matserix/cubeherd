@@ -64,13 +64,13 @@ func (m *Manager) Backups(s *server.Server) ([]Backup, error) {
 		if mm == nil {
 			continue
 		}
-		t, err := time.ParseInLocation("20060102-150405", mm[1], time.Local)
-		if err != nil {
-			continue
-		}
-		b := Backup{Name: e.Name(), Time: t, Reason: mm[2]}
+		// The name is only a label; the file time is authoritative, so changing the time zone
+		// never shifts existing backups.
+		b := Backup{Name: e.Name(), Reason: mm[2]}
 		if info, err := e.Info(); err == nil {
-			b.Size = info.Size()
+			b.Size, b.Time = info.Size(), info.ModTime()
+		} else if t, err := time.ParseInLocation("20060102-150405", mm[1], m.Loc()); err == nil {
+			b.Time = t
 		}
 		out = append(out, b)
 	}
@@ -149,7 +149,7 @@ func (m *Manager) backup(ctx context.Context, s *server.Server, o *Op, reason, d
 		return Backup{}, err
 	}
 	now := time.Now()
-	name := prefix + now.Format("20060102-150405") + "_" + reason + ".tar.zst"
+	name := prefix + now.In(m.Loc()).Format("20060102-150405") + "_" + reason + ".tar.zst"
 	tmp := filepath.Join(destDir, "."+name+".part")
 	final := filepath.Join(destDir, name)
 
@@ -290,7 +290,7 @@ func (m *Manager) Restore(id, name string) error {
 		}
 		o.add("[forgecraft] Wiederherstellung abgeschlossen")
 		if wasUp {
-			if err := m.Store.Save(s, m.cfKey()); err != nil {
+			if err := m.Store.Save(s, m.globals()); err != nil {
 				return err
 			}
 			return m.compose(ctx, s, o, "up", "-d")

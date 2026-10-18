@@ -143,7 +143,7 @@ func (m *Manager) UploadAddon(ctx context.Context, s *server.Server, name string
 	}
 	s.Uploads = append(s.Uploads, name)
 	sort.Strings(s.Uploads)
-	return m.Store.Save(s, m.cfKey())
+	return m.Store.Save(s, m.globals())
 }
 
 // DeleteUpload removes a previously uploaded JAR.
@@ -164,7 +164,7 @@ func (m *Manager) DeleteUpload(ctx context.Context, s *server.Server, name strin
 		return err
 	}
 	s.Uploads = rest
-	return m.Store.Save(s, m.cfKey())
+	return m.Store.Save(s, m.globals())
 }
 
 // AddonsPending reports whether the running container has older mod/plugin declarations than the definition.

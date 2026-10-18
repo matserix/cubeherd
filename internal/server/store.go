@@ -97,7 +97,7 @@ func (st *Store) Exists(id string) bool {
 }
 
 // Save writes the definition and regenerates compose.yml.
-func (st *Store) Save(s *Server, cfKey string) error {
+func (st *Store) Save(s *Server, g Globals) error {
 	st.mu.Lock()
 	defer st.mu.Unlock()
 	dir := st.Dir(s.ID)
@@ -116,7 +116,7 @@ func (st *Store) Save(s *Server, cfKey string) error {
 	if err := writeAtomic(st.defPath(s.ID), b, 0o600); err != nil {
 		return err
 	}
-	return writeAtomic(filepath.Join(dir, "compose.yml"), []byte(Compose(s, cfKey)), 0o600)
+	return writeAtomic(filepath.Join(dir, "compose.yml"), []byte(Compose(s, g)), 0o600)
 }
 
 // RemoveDir deletes the server folder. It fails with a permission error when the

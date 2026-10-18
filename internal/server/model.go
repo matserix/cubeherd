@@ -280,8 +280,15 @@ func (s *Server) ImageRef() string {
 	return Image + ":" + tag
 }
 
+// Globals are dashboard-wide settings that end up in every server's environment.
+type Globals struct {
+	CFKey string // CurseForge API key
+	TZ    string // IANA time zone for log timestamps; "" keeps the image default
+}
+
 // Env builds the container environment in a stable order.
-func (s *Server) Env(cfKey string) []KV {
+func (s *Server) Env(g Globals) []KV {
+	cfKey := g.CFKey
 	e := []KV{{"EULA", "TRUE"}}
 	switch s.Kind {
 	case KindModrinth:
@@ -301,6 +308,9 @@ func (s *Server) Env(cfKey string) []KV {
 		e = append(e, KV{"TYPE", s.Type}, KV{"VERSION", s.Version})
 	}
 	e = append(e, KV{"MEMORY", fmt.Sprintf("%dM", s.HeapMB())})
+	if g.TZ != "" {
+		e = append(e, KV{"TZ", g.TZ})
+	}
 	if s.Aikar {
 		e = append(e, KV{"USE_AIKAR_FLAGS", "TRUE"})
 	}

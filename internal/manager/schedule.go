@@ -76,18 +76,20 @@ func (m *Manager) lastScheduled(s *server.Server) time.Time {
 
 // NextBackupFor is shown in the UI.
 func (m *Manager) NextBackupFor(s *server.Server) time.Time {
-	return NextBackup(s.Plan(), m.lastScheduled(s), time.Now())
+	loc := m.Loc()
+	return NextBackup(s.Plan(), m.lastScheduled(s).In(loc), time.Now().In(loc))
 }
 
 // RunScheduler sleeps until the next due backup; it does no periodic polling.
 func (m *Manager) RunScheduler(ctx context.Context) {
 	for {
 		list, _ := m.Store.List()
-		now := time.Now()
+		loc := m.Loc()
+		now := time.Now().In(loc)
 		var next time.Time
 		var due []*server.Server
 		for _, s := range list {
-			t := NextBackup(s.Plan(), m.lastScheduled(s), now)
+			t := NextBackup(s.Plan(), m.lastScheduled(s).In(loc), now)
 			switch {
 			case t.IsZero():
 			case !t.After(now):

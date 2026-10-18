@@ -27,6 +27,16 @@
       </div>
     </div>
     <div class="form-sec">
+      <div class="intro"><h2>Region</h2><p>Zeitzone für Backup-Zeitpläne, Datumsangaben und die Zeitstempel in den Server-Logs.</p></div>
+      <div class="body">
+        <label class="field"><span>Zeitzone</span>
+          <input class="input mono" name="timezone" list="tz-list" value="{{$c.Timezone}}" placeholder="{{$d.SystemZone}} (System)" autocomplete="off" spellcheck="false">
+          <datalist id="tz-list">{{range $d.Zones}}<option value="{{.}}">{{end}}</datalist>
+          <small>Aktuelle Zeit dort: <span class="mono">{{$d.ZoneNow}}</span>. Leer lassen für die Systemzeitzone. Gilt für Container ab ihrem nächsten Start.</small>
+        </label>
+      </div>
+    </div>
+    <div class="form-sec">
       <div class="intro"><h2>System</h2><p>Wird über Umgebungsvariablen beim Start festgelegt.</p></div>
       <div class="body">
         <dl class="kv">

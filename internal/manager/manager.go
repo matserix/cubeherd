@@ -433,14 +433,27 @@ func (m *Manager) RCON(ctx context.Context, s *server.Server, cmd string) (strin
 
 // ---------------- Lifecycle ----------------
 
-func (m *Manager) cfKey() string { return m.Config.Get().CFAPIKey }
+func (m *Manager) globals() server.Globals {
+	c := m.Config.Get()
+	return server.Globals{CFKey: c.CFAPIKey, TZ: c.Timezone}
+}
+
+// Loc is the dashboard's time zone (setting, else TZ/system).
+func (m *Manager) Loc() *time.Location {
+	if tz := m.Config.Get().Timezone; tz != "" {
+		if loc, err := time.LoadLocation(tz); err == nil {
+			return loc
+		}
+	}
+	return time.Local
+}
 
 // Create saves a new server and brings it up in the background.
 func (m *Manager) Create(s *server.Server) error {
 	if m.Store.Exists(s.ID) {
 		return fmt.Errorf("Die ID „%s“ ist schon vergeben", s.ID)
 	}
-	if err := m.Store.Save(s, m.cfKey()); err != nil {
+	if err := m.Store.Save(s, m.globals()); err != nil {
 		return err
 	}
 	return m.run(s.ID, server.StatusInstalling, func(o *Op) error {
@@ -460,7 +473,7 @@ func (m *Manager) Start(id string) error {
 		return err
 	}
 	// Regenerate compose.yml so saved settings (and Forgecraft updates) apply on every start.
-	if err := m.Store.Save(s, m.cfKey()); err != nil {
+	if err := m.Store.Save(s, m.globals()); err != nil {
 		return err
 	}
 	return m.run(id, server.StatusStarting, func(o *Op) error {
@@ -487,7 +500,7 @@ func (m *Manager) Restart(id string) error {
 	if err != nil {
 		return err
 	}
-	if err := m.Store.Save(s, m.cfKey()); err != nil {
+	if err := m.Store.Save(s, m.globals()); err != nil {
 		return err
 	}
 	return m.run(id, server.StatusStopping, func(o *Op) error {
@@ -512,7 +525,7 @@ func (m *Manager) Apply(s *server.Server, pull, restart bool) error {
 // ApplyUpdate is Apply with an optional backup before anything changes.
 func (m *Manager) ApplyUpdate(s *server.Server, pull, restart, backupFirst bool) error {
 	if !restart && !pull {
-		return m.Store.Save(s, m.cfKey())
+		return m.Store.Save(s, m.globals())
 	}
 	return m.run(s.ID, server.StatusUpdating, func(o *Op) error {
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Hour)
@@ -526,7 +539,7 @@ func (m *Manager) ApplyUpdate(s *server.Server, pull, restart, backupFirst bool)
 				}
 			}
 		}
-		if err := m.Store.Save(s, m.cfKey()); err != nil {
+		if err := m.Store.Save(s, m.globals()); err != nil {
 			return err
 		}
 		if pull {

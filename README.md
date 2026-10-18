@@ -34,7 +34,7 @@ sudo FORGECRAFT_DATA=/srv/forgecraft ./forgecraft
 | `FORGECRAFT_DATA` | `/srv/forgecraft` als root, sonst `./forgecraft-data` | Datenverzeichnis |
 | `FORGECRAFT_LISTEN` | `:8420` | Adresse des Web-Servers |
 | `DOCKER_HOST` | `/var/run/docker.sock`, Fallback `~/.docker/run/docker.sock` | Docker-Socket |
-| `TZ` | `UTC` | Zeitzone für Backup-Zeitpläne, z. B. `Europe/Berlin` |
+| `TZ` | `UTC` | Standard-Zeitzone, solange in den Einstellungen keine gewählt ist |
 
 ## Sicherheit
 

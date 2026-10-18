@@ -109,7 +109,9 @@ internal/web          Handler, Templates, SSE, statische Assets
 - Ausgeschlossen ist, was itzg neu lädt: Logs, Caches, Bibliotheken, Server-JARs; bei Modpacks auch `mods/`.
 - Wiederherstellen stoppt den Server, sichert den aktuellen Stand, löscht nur die im Archiv enthaltenen Einträge und entpackt.
 - Der Zeitplan ist ein einzelner Timer im Dashboard, der bis zum nächsten fälligen Backup schläft. Verpasste Läufe werden 2 Minuten nach dem Start nachgeholt.
-  Zeitzone über `TZ` (Zonendaten sind ins Binary eingebettet).
+  Zeitzone aus den Einstellungen (sonst `TZ`/System; Zonendaten sind ins Binary eingebettet). Sie geht auch als `TZ` in die
+  Container, damit die Log-Zeitstempel passen. Die Backup-Zeit kommt aus dem Dateidatum, der Name ist nur Beschriftung –
+  ein Wechsel der Zeitzone verschiebt deshalb keine bestehenden Backups.
 - Automatische Backups werden nach der Aufbewahrungsregel gelöscht, manuelle nie.
 
 ## Erkenntnisse aus den Live-Tests

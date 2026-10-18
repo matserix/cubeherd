@@ -214,7 +214,7 @@ func (m *Manager) ImportWorld(s *server.Server, zipPath string) error {
 		}
 		o.add("[forgecraft] Welt eingespielt")
 		if wasUp {
-			if err := m.Store.Save(s, m.cfKey()); err != nil {
+			if err := m.Store.Save(s, m.globals()); err != nil {
 				return err
 			}
 			return m.compose(ctx, s, o, "up", "-d")

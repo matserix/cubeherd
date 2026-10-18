@@ -9,7 +9,7 @@ import (
 
 // Compose renders the compose file for a server. Values are JSON-quoted (valid YAML)
 // and "$" is doubled so Compose does not interpolate it.
-func Compose(s *Server, cfKey string) string {
+func Compose(s *Server, g Globals) string {
 	q := func(v string) string {
 		b, _ := json.Marshal(strings.ReplaceAll(v, "$", "$$"))
 		return string(b)
@@ -21,7 +21,7 @@ func Compose(s *Server, cfKey string) string {
 	fmt.Fprintf(&b, "    image: %s\n", s.ImageRef())
 	fmt.Fprintf(&b, "    container_name: %s\n", s.Container())
 	b.WriteString("    environment:\n")
-	for _, kv := range s.Env(cfKey) {
+	for _, kv := range s.Env(g) {
 		fmt.Fprintf(&b, "      %s: %s\n", kv.Key, q(kv.Value))
 	}
 	fmt.Fprintf(&b, "    ports:\n      - %s\n", q(fmt.Sprintf("%d:25565", s.Port)))

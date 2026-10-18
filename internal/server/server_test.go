@@ -27,7 +27,7 @@ func TestEnvAndCompose(t *testing.T) {
 		Autopause: true, Props: Props{MOTD: `Preis: 5$ "neu"`, MaxPlayers: 10, OnlineMode: true}, Whitelist: []string{"Steve"},
 		ExtraEnv: []KV{{"MAX_PLAYERS", "12"}, {"SPAWN_PROTECTION", "0"}}}
 	env := map[string]string{}
-	for _, kv := range s.Env("") {
+	for _, kv := range s.Env(Globals{}) {
 		env[kv.Key] = kv.Value
 	}
 	if env["TYPE"] != "PAPER" || env["MEMORY"] != "4864M" || env["ENABLE_AUTOPAUSE"] != "TRUE" {
@@ -39,21 +39,27 @@ func TestEnvAndCompose(t *testing.T) {
 	if env["EXISTING_WHITELIST_FILE"] != "SYNCHRONIZE" {
 		t.Errorf("whitelist sync missing")
 	}
-	c := Compose(s, "")
+	if c := Compose(s, Globals{TZ: "Europe/Berlin"}); !strings.Contains(c, `TZ: "Europe/Berlin"`) {
+		t.Errorf("TZ missing:\n%s", c)
+	}
+	c := Compose(s, Globals{})
+	if strings.Contains(c, "TZ:") {
+		t.Errorf("TZ must be omitted when unset")
+	}
 	for _, want := range []string{"name: mc-test", `mem_limit: "6g"`, "image: itzg/minecraft-server:java21", `MOTD: "Preis: 5$$ \"neu\""`, `- "25570:25565"`, `forgecraft.id: "test"`} {
 		if !strings.Contains(c, want) {
 			t.Errorf("compose missing %q:\n%s", want, c)
 		}
 	}
 	s.DataVol = "abc123"
-	if c := Compose(s, ""); !strings.Contains(c, "external: true") || !strings.Contains(c, `"abc123:/data"`) {
+	if c := Compose(s, Globals{}); !strings.Contains(c, "external: true") || !strings.Contains(c, `"abc123:/data"`) {
 		t.Errorf("volume compose:\n%s", c)
 	}
 }
 
 func TestModpackEnv(t *testing.T) {
 	s := &Server{Kind: KindCurseForge, Pack: &Pack{Slug: "all-the-mods-10", Version: "123"}, MemoryGB: 8}
-	env := FormatEnv(s.Env("key$1"))
+	env := FormatEnv(s.Env(Globals{CFKey: "key$1"}))
 	for _, want := range []string{"TYPE=AUTO_CURSEFORGE", "CF_SLUG=all-the-mods-10", "CF_FILE_ID=123", "CF_API_KEY=key$1"} {
 		if !strings.Contains(env, want) {
 			t.Errorf("missing %s in\n%s", want, env)
@@ -166,14 +172,14 @@ func TestAddonEnv(t *testing.T) {
 		{Source: AddonModrinth, Ref: "luckperms"}, {Source: AddonModrinth, Ref: "bluemap", Version: "5.11"},
 		{Source: AddonCurseForge, Ref: "worldedit"}, {Source: AddonSpiget, Ref: "28140"},
 	}}
-	env := FormatEnv(s.Env(""))
+	env := FormatEnv(s.Env(Globals{}))
 	for _, want := range []string{"MODRINTH_PROJECTS=luckperms,bluemap:5.11", "MODRINTH_DOWNLOAD_DEPENDENCIES=required", "CURSEFORGE_FILES=worldedit", "SPIGET_RESOURCES=28140"} {
 		if !strings.Contains(env, want) {
 			t.Errorf("missing %s in\n%s", want, env)
 		}
 	}
 	s.Addons, s.AddonSources = nil, []string{AddonModrinth}
-	if env := FormatEnv(s.Env("")); !strings.Contains(env, "MODRINTH_PROJECTS=\n") || strings.Contains(env, "CURSEFORGE_FILES") {
+	if env := FormatEnv(s.Env(Globals{})); !strings.Contains(env, "MODRINTH_PROJECTS=\n") || strings.Contains(env, "CURSEFORGE_FILES") {
 		t.Errorf("used source must be emptied explicitly, unused ones left out:\n%s", env)
 	}
 	if s.AddonDir() != "plugins" || (&Server{Type: "FABRIC"}).AddonDir() != "mods" {
@@ -188,16 +194,16 @@ func TestAddonEnv(t *testing.T) {
 
 func TestAutostopAndCPU(t *testing.T) {
 	s := &Server{ID: "x", Kind: KindSoftware, Type: "PAPER", Version: "1.21.10", MemoryGB: 4, Autopause: true, Autostart: true, Autostop: true, AutostopMinutes: 15, CPUs: 2}
-	env := FormatEnv(s.Env(""))
+	env := FormatEnv(s.Env(Globals{}))
 	if !strings.Contains(env, "ENABLE_AUTOSTOP=TRUE") || !strings.Contains(env, "AUTOSTOP_TIMEOUT_EST=900") || strings.Contains(env, "ENABLE_AUTOPAUSE") {
 		t.Errorf("autostop must replace autopause:\n%s", env)
 	}
-	c := Compose(s, "")
+	c := Compose(s, Globals{})
 	if !strings.Contains(c, `restart: "no"`) || !strings.Contains(c, `cpus: "2"`) {
 		t.Errorf("compose:\n%s", c)
 	}
 	s.Autostop, s.CPUs = false, 0
-	if c := Compose(s, ""); !strings.Contains(c, `restart: "unless-stopped"`) || strings.Contains(c, "cpus:") {
+	if c := Compose(s, Globals{}); !strings.Contains(c, `restart: "unless-stopped"`) || strings.Contains(c, "cpus:") {
 		t.Errorf("compose without limits:\n%s", c)
 	}
 }

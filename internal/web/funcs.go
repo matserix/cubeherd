@@ -13,6 +13,9 @@ import (
 	"forgecraft/internal/server"
 )
 
+// displayLoc is the time zone used for dates in the UI (set by New).
+var displayLoc = func() *time.Location { return time.Local }
+
 var funcs = template.FuncMap{
 	"static":   staticURL,
 	"typeName": server.TypeName,
@@ -68,7 +71,9 @@ var funcs = template.FuncMap{
 		if t.IsZero() {
 			return ""
 		}
-		now := time.Now()
+		loc := displayLoc()
+		t = t.In(loc)
+		now := time.Now().In(loc)
 		switch {
 		case t.YearDay() == now.YearDay() && t.Year() == now.Year():
 			return "Heute, " + t.Format("15:04")

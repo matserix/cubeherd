@@ -172,7 +172,7 @@ func (m *Manager) Import(ctx context.Context, containerID, name string) (*server
 	if s.DataDir == "" && s.DataVol == "" {
 		return nil, errors.New("Container hat kein /data-Volume; Daten würden verloren gehen")
 	}
-	if err := m.Store.Save(s, m.cfKey()); err != nil {
+	if err := m.Store.Save(s, m.globals()); err != nil {
 		return nil, err
 	}
 

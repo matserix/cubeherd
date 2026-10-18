@@ -58,6 +58,7 @@ func New(m *manager.Manager, cfg *config.Store, h *host.Reader, dataDir, listen 
 		},
 		Days: func() int { return cfg.Get().SessionDays },
 	}
+	displayLoc = m.Loc
 	if err := a.loadTemplates(); err != nil {
 		return nil, err
 	}

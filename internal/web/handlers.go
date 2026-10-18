@@ -328,10 +328,11 @@ func (a *App) wizardPreview(w http.ResponseWriter, r *http.Request) {
 		a.partial(w, "wizard", "preview", map[string]any{"Error": err.Error()})
 		return
 	}
-	compose := server.Compose(s, "")
+	g := server.Globals{TZ: a.Cfg.Get().Timezone}
 	if a.Cfg.Get().CFAPIKey != "" && s.Kind == server.KindCurseForge {
-		compose = server.Compose(s, "•••••• (aus den Einstellungen)")
+		g.CFKey = "••••••"
 	}
+	compose := server.Compose(s, g)
 	a.partial(w, "wizard", "preview", map[string]any{"S": s, "Compose": compose, "Dir": a.M.Store.Dir(s.ID)})
 }
 
@@ -437,7 +438,7 @@ func (a *App) serverPageData(ctx context.Context, s *server.Server, tabKey strin
 	case "settings":
 		d.CPUOptions, d.CPUValue = a.cpuOptions(ctx, s)
 		d.ExtraEnv = server.FormatEnv(s.ExtraEnv)
-		env := s.Env(a.Cfg.Get().CFAPIKey)
+		env := s.Env(server.Globals{CFKey: a.Cfg.Get().CFAPIKey, TZ: a.Cfg.Get().Timezone})
 		for i := range env {
 			if env[i].Key == "CF_API_KEY" {
 				env[i].Value = "••••••"
@@ -860,11 +861,15 @@ type settingsData struct {
 	Version    string
 	SelfMB     uint64
 	Started    time.Time
+	Zones      []string
+	SystemZone string
+	ZoneNow    string
 }
 
 func (a *App) settingsPage(w http.ResponseWriter, r *http.Request) {
 	d := settingsData{Cfg: a.Cfg.Get(), RAMOptions: []int{2, 3, 4, 6, 8, 10, 12, 16}, DataDir: a.DataDir, Listen: a.Listen,
-		DockerHost: a.M.Docker.Host, Version: Version, SelfMB: selfMB(), Started: a.start}
+		DockerHost: a.M.Docker.Host, Version: Version, SelfMB: selfMB(), Started: a.start,
+		Zones: commonZones, SystemZone: time.Local.String(), ZoneNow: time.Now().In(a.M.Loc()).Format("02.01.2006 15:04 MST")}
 	info, err := a.M.Docker.Info(r.Context())
 	if err != nil {
 		d.DockerErr = err.Error()
@@ -879,7 +884,16 @@ func (a *App) settingsPost(w http.ResponseWriter, r *http.Request) {
 		fail(w, "Der Port-Bereich ist ungültig.")
 		return
 	}
+	tz := strings.TrimSpace(r.FormValue("timezone"))
+	if tz != "" {
+		if _, err := time.LoadLocation(tz); err != nil || tz == "Local" {
+			fail(w, fmt.Sprintf("Unbekannte Zeitzone „%s“. Erwartet wird ein Name wie Europe/Berlin oder UTC.", tz))
+			return
+		}
+	}
+	tzChanged := tz != a.Cfg.Get().Timezone
 	err := a.Cfg.Update(func(s *config.Settings) {
+		s.Timezone = tz
 		s.CFAPIKey = strings.TrimSpace(r.FormValue("cfApiKey"))
 		s.PortMin, s.PortMax = pmin, pmax
 		s.DefaultMemoryGB = formInt(r, "defaultMemoryGb", 4, 1, 64)
@@ -888,6 +902,11 @@ func (a *App) settingsPost(w http.ResponseWriter, r *http.Request) {
 	})
 	if err != nil {
 		fail(w, err.Error())
+		return
+	}
+	if tzChanged {
+		a.M.WakeScheduler()
+		redirect(w, r, "/settings") // reload so the shown time and dates use the new zone
 		return
 	}
 	toast(w, "Einstellungen gespeichert.", "ok")

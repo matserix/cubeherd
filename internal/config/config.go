@@ -20,6 +20,8 @@ type Settings struct {
 	PortMin          int    `json:"portMin"`
 	PortMax          int    `json:"portMax"`
 	DefaultAutopause bool   `json:"defaultAutopause"`
+	Timezone         string `json:"timezone,omitempty"` // IANA name; "" = TZ env / system
+	Language         string `json:"language,omitempty"` // de | en; "" = German (installs before i18n)
 }
 
 type Store struct {
