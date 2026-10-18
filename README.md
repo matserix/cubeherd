@@ -1,10 +1,35 @@
-# Cubeherd
+<p align="center">
+  <img src="docs/images/header.png" alt="Cubeherd" width="100%">
+</p>
+
+<p align="center">
+  <a href="https://github.com/matserix/cubeherd/releases"><img alt="Release" src="https://img.shields.io/github/v/release/matserix/cubeherd?color=d98a4e&labelColor=13161b"></a>
+  <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-d98a4e?labelColor=13161b"></a>
+  <a href="https://github.com/matserix/cubeherd/pkgs/container/cubeherd"><img alt="Container image" src="https://img.shields.io/badge/ghcr.io-matserix%2Fcubeherd-d98a4e?labelColor=13161b"></a>
+</p>
 
 A lean web dashboard for [itzg/docker-minecraft-server](https://github.com/itzg/docker-minecraft-server):
 create, start, update, manage and uninstall Minecraft servers (including modpacks from Modrinth and CurseForge).
 
 Cubeherd runs on the same host as the Minecraft servers and takes next to nothing from them:
 a single Go binary, around 10 MB of RAM and 0 % CPU when idle, no database. Live data only flows while a page is open.
+
+## Screenshots
+
+<p align="center">
+  <img src="docs/images/overview.png" alt="Overview with two running servers" width="100%">
+</p>
+
+<table>
+  <tr>
+    <td width="50%"><img src="docs/images/console.png" alt="Live console with RCON"><br><sub>Live console with RCON, CPU, RAM and online players</sub></td>
+    <td width="50%"><img src="docs/images/mods.png" alt="Mods and plugins search"><br><sub>Search Modrinth, CurseForge and Spigot</sub></td>
+  </tr>
+  <tr>
+    <td width="50%"><img src="docs/images/backups.png" alt="Backups"><br><sub>Scheduled and manual backups with restore</sub></td>
+    <td width="50%"><img src="docs/images/files.png" alt="File browser"><br><sub>File browser, editor and world import/export</sub></td>
+  </tr>
+</table>
 
 ## Getting started
 

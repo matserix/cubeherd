@@ -5,3 +5,4 @@ cubeherd-data
 prototype
 *.md
 !THIRD_PARTY_NOTICES.md
+docs
