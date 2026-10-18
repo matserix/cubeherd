@@ -1,146 +1,146 @@
-# Cubeherd – Architektur
+# Cubeherd – Architecture
 
-Schlankes Web-Dashboard für [itzg/docker-minecraft-server](https://github.com/itzg/docker-minecraft-server).
-Leitlinie: Das Dashboard läuft neben den Minecraft-Servern und darf ihnen keine Ressourcen wegnehmen.
+A lean web dashboard for [itzg/docker-minecraft-server](https://github.com/itzg/docker-minecraft-server).
+Guiding principle: the dashboard runs alongside the Minecraft servers and must not take resources away from them.
 
-## Grundentscheidungen
+## Core decisions
 
-| Thema | Entscheidung | Warum |
+| Topic | Decision | Why |
 |---|---|---|
-| Sprache / Auslieferung | Ein Go-Binary, Templates und Assets per `embed` | ~10–25 MB RAM, keine Laufzeit-Abhängigkeiten |
-| Frontend | Serverseitiges HTML (`html/template`) + htmx + SSE-Extension, vendored | Kein Build-Schritt, wenige KB JS |
-| Abhängigkeiten | Standardbibliothek + `golang.org/x/crypto/bcrypt` | Docker-Engine-API wird direkt über den Socket angesprochen |
-| Zustand | Pro Server ein Ordner, keine Datenbank | Server bleiben ohne Dashboard mit `docker compose` lauffähig |
-| Schreiben (anlegen, ändern, updaten) | Erzeugte `compose.yml` + `docker compose up -d` | Compose bleibt die Wahrheit für den Container |
-| Lesen (Status, Logs, Stats) | Docker Engine API (`/containers/...`) | Kein CLI-Prozess pro Abfrage |
-| RCON | `docker exec <ctr> rcon-cli <cmd>` | Kein RCON-Port nach außen, Passwort verwaltet das Image |
-| Live-Daten | SSE, nur solange eine Server-Seite offen ist | Kein Hintergrund-Polling |
-| Auth | Ein Admin, bcrypt-Hash, HMAC-signiertes Session-Cookie (`SameSite=Strict`) | Kein Session-Store nötig |
-| CSRF | Mutierende Requests brauchen `HX-Request` oder gleiche Origin | Ausreichend für LAN/VPN |
+| Language / delivery | A single Go binary, templates and assets via `embed` | ~10–25 MB RAM, no runtime dependencies |
+| Frontend | Server-side HTML (`html/template`) + htmx + SSE extension, vendored | No build step, a few KB of JS |
+| Dependencies | Standard library + `golang.org/x/crypto/bcrypt` | The Docker Engine API is called directly over the socket |
+| State | One folder per server, no database | Servers keep working with `docker compose` without the dashboard |
+| Writing (create, change, update) | Generated `compose.yml` + `docker compose up -d` | Compose remains the source of truth for the container |
+| Reading (status, logs, stats) | Docker Engine API (`/containers/...`) | No CLI process per query |
+| RCON | `docker exec <ctr> rcon-cli <cmd>` | No RCON port exposed, the image manages the password |
+| Live data | SSE, only while a server page is open | No background polling |
+| Auth | One admin, bcrypt hash, HMAC-signed session cookie (`SameSite=Strict`) | No session store needed |
+| CSRF | Mutating requests need `HX-Request` or the same origin | Sufficient for LAN/VPN |
 
-## Verzeichnisstruktur auf dem Host
+## Directory layout on the host
 
 ```
-$CUBEHERD_DATA/               # Standard: /srv/cubeherd (root) bzw. ./cubeherd-data
-├── cubeherd.json             # globale Einstellungen inkl. Passwort-Hash
+$CUBEHERD_DATA/               # default: /srv/cubeherd (root) or ./cubeherd-data
+├── cubeherd.json             # global settings including the password hash
 └── servers/
     └── <id>/
-        ├── cubeherd.json     # Server-Definition (Quelle der Wahrheit)
-        ├── compose.yml         # daraus erzeugt
-        └── data/               # /data im Container (Welt, Configs, Mods)
+        ├── cubeherd.json     # server definition (source of truth)
+        ├── compose.yml         # generated from it
+        └── data/               # /data in the container (world, configs, mods)
 ```
 
-Läuft Cubeherd selbst im Container, muss `$CUBEHERD_DATA` unter **demselben Pfad** gemountet sein,
-weil Compose relative Pfade clientseitig auflöst und der Docker-Daemon sie auf dem Host interpretiert.
+If Cubeherd itself runs in a container, `$CUBEHERD_DATA` must be mounted at **the same path**,
+because Compose resolves relative paths on the client side and the Docker daemon interprets them on the host.
 
-## Status-Modell
+## Status model
 
-| Anzeige | Quelle |
+| Display | Source |
 |---|---|
-| Startet | laufende Aktion oder `State.Health.Status == starting` |
-| Läuft | `State.Running` und healthy |
-| Pausiert | `State.Running` und Datei `data/.paused` existiert (itzg-Autopause per SIGSTOP, Docker sieht das nicht) |
-| Gestoppt | beendet mit Exit-Code 0 / 143 |
-| Abgestürzt | beendet mit anderem Exit-Code oder `restarting`; Grund aus den letzten Log-Zeilen |
-| Nicht erstellt | Definition vorhanden, Container fehlt |
+| Starting | running action or `State.Health.Status == starting` |
+| Running | `State.Running` and healthy |
+| Paused | `State.Running` and the file `data/.paused` exists (itzg autopause via SIGSTOP, which Docker does not see) |
+| Stopped | exited with exit code 0 / 143 |
+| Crashed | exited with any other exit code, or `restarting`; cause taken from the last log lines |
+| Not created | definition exists, container missing |
 
-## Pakete
+## Packages
 
 ```
-cmd/cubeherd        main: Konfiguration aus Env, HTTP-Server starten
-internal/config       globale Einstellungen (JSON, atomar geschrieben)
-internal/auth         Passwort, Session-Cookie, Login-Drosselung
-internal/docker       minimaler Engine-API-Client (list, inspect, start/stop, logs, stats, exec, info)
-internal/server       Server-Definition, Store auf Platte, Compose-Erzeugung, Status-Ableitung
-internal/sources      Mojang-Versionen, Modrinth- und CurseForge-Suche (nur auf Nutzeraktion, gecacht)
-internal/host         Host-Ressourcen (Linux: /proc + statfs, sonst Docker /info)
-internal/web          Handler, Templates, SSE, statische Assets
+cmd/cubeherd        main: read configuration from env, start the HTTP server
+internal/config       global settings (JSON, written atomically)
+internal/auth         password, session cookie, login throttling
+internal/docker       minimal Engine API client (list, inspect, start/stop, logs, stats, exec, info)
+internal/server       server definition, on-disk store, Compose generation, status derivation
+internal/sources      Mojang versions, Modrinth and CurseForge search (only on user action, cached)
+internal/host         host resources (Linux: /proc + statfs, otherwise Docker /info)
+internal/web          handlers, templates, SSE, static assets
 ```
 
-## Umgebungsvariablen
+## Environment variables
 
-| Variable | Standard | Bedeutung |
+| Variable | Default | Meaning |
 |---|---|---|
-| `CUBEHERD_DATA` | `/srv/cubeherd` als root, sonst `./cubeherd-data` | Datenverzeichnis |
-| `CUBEHERD_LISTEN` | `:8420` | Adresse des Web-Servers |
-| `DOCKER_HOST` | `unix:///var/run/docker.sock`, Fallback `~/.docker/run/docker.sock` | Docker-Socket |
+| `CUBEHERD_DATA` | `/srv/cubeherd` as root, otherwise `./cubeherd-data` | Data directory |
+| `CUBEHERD_LISTEN` | `:8420` | Web server address |
+| `DOCKER_HOST` | `unix:///var/run/docker.sock`, falling back to `~/.docker/run/docker.sock` | Docker socket |
 
-## Umfang
+## Scope
 
-- **MVP (v0.1):** Anlegen (Software, Modrinth, CurseForge), Start/Stop/Neustart, Konsole mit RCON, Live-Stats,
-  Einstellungen, Spieler (Whitelist/OPs/Bans), Updates (MC-Version, Modpack-Version, Image), Deinstallieren,
-  Übernahme bestehender itzg-Container, globale Einstellungen.
-- **v2:** Backups, Mods/Plugins, Datei-Browser, CPU-Limit und Autostop – alles fertig.
+- **MVP (v0.1):** create (software, Modrinth, CurseForge), start/stop/restart, console with RCON, live stats,
+  settings, players (whitelist/ops/bans), updates (MC version, modpack version, image), uninstall,
+  adopting existing itzg containers, global settings.
+- **v2:** backups, mods/plugins, file browser, CPU limit and autostop – all done.
 
-## Leerlauf & Limits
+## Idle & limits
 
-- „Bei Leerlauf“ ist eine Wahl: pausieren (`ENABLE_AUTOPAUSE`, wacht beim Verbinden auf), stoppen (`ENABLE_AUTOSTOP` mit
-  `AUTOSTOP_TIMEOUT_EST/INIT`, gibt auch den RAM frei) oder weiterlaufen. Beides schließt sich laut itzg aus.
-- Autostop erzwingt `restart: "no"`, sonst würde Docker den gestoppten Server sofort neu starten. Erkennung im Dashboard über
-  `[Autostop] Stopping Java process` in den letzten Log-Zeilen (gecacht pro Container-Ende).
-- CPU-Limit über `cpus:` in der Compose-Datei (Docker `NanoCpus`).
+- "When idle" is a choice: pause (`ENABLE_AUTOPAUSE`, wakes up on connect), stop (`ENABLE_AUTOSTOP` with
+  `AUTOSTOP_TIMEOUT_EST/INIT`, also frees the RAM) or keep running. According to itzg the first two are mutually exclusive.
+- Autostop forces `restart: "no"`, otherwise Docker would immediately restart the stopped server. The dashboard detects it via
+  `[Autostop] Stopping Java process` in the last log lines (cached per container exit).
+- CPU limit via `cpus:` in the Compose file (Docker `NanoCpus`).
 
-## Dateien & Welten
+## Files & worlds
 
-- Datei-Browser auf `/data`: Server mit Host-Ordner direkt über das Dateisystem (Symlinks, die herausführen, werden abgewiesen),
-  Server mit Docker-Volume über `docker exec` bzw. `docker run --rm` mit dem Server-Image. Pfade gehen als Umgebungsvariable in die Shell.
-- Editor für UTF-8-Textdateien bis 1 MB; größere oder binäre Dateien nur zum Herunterladen. Windows-Zeilenenden werden beim Speichern normalisiert.
-- Welt-Download: `tar` der Welt-Ordner (`level-name`, `_nether`, `_the_end`) aus dem Container, im Dashboard on-the-fly zu ZIP
-  (Region-Dateien unkomprimiert gespeichert, sie sind schon komprimiert). Läuft der Server, wird vorher `save-all flush` ausgeführt.
-- Welt-Upload: ZIP wird neben den Server gestreamt, der Ordner mit `level.dat` gesucht (z. B. „Meine Welt/“), Server gestoppt, gesichert,
-  alte Welt entfernt und der Inhalt als tar in den Container entpackt (Besitzer 1000). ZIP-Slip, `__MACOSX` und Symlinks werden verworfen.
+- File browser on `/data`: servers with a host folder are accessed directly through the file system (symlinks that lead outside are rejected),
+  servers with a Docker volume via `docker exec` or `docker run --rm` with the server image. Paths are passed to the shell as environment variables.
+- Editor for UTF-8 text files up to 1 MB; larger or binary files can only be downloaded. Windows line endings are normalized on save.
+- World download: `tar` of the world folders (`level-name`, `_nether`, `_the_end`) from the container, converted on the fly to a ZIP in the dashboard
+  (region files are stored uncompressed, since they are already compressed). If the server is running, `save-all flush` is run first.
+- World upload: the ZIP is streamed next to the server, the folder containing `level.dat` is located (e.g. "My World/"), the server is stopped, backed up,
+  the old world is removed and the contents are unpacked into the container as a tar (owner 1000). ZIP slip, `__MACOSX` and symlinks are discarded.
 
-## Mods & Plugins
+## Mods & plugins
 
-- Deklarativ: Cubeherd pflegt `MODRINTH_PROJECTS` (mit `MODRINTH_DOWNLOAD_DEPENDENCIES=required`), `CURSEFORGE_FILES` und `SPIGET_RESOURCES`.
-  itzg lädt beim Start passend zu Loader und Version herunter und hält nicht gepinnte Einträge aktuell.
-- Entfernen: Für eine Quelle, die schon einmal benutzt wurde, setzt Cubeherd die Variable explizit leer. Nur dann räumt itzg die von
-  ihm installierten Dateien auf; eine fehlende Variable lässt sie liegen. Getestet: Paper + Modrinth-Plugin, ATM10 (CurseForge-Pack) + Modrinth-Mod,
-  die Modpack-Mods bleiben dabei unberührt. Spigot-Plugins räumt itzg nicht auf.
-- Hochgeladene JARs landen direkt in `mods/` bzw. `plugins/` und werden in der Definition gemerkt; nur sie lassen sich im Dashboard löschen.
-- Suche: Modrinth (`project_type:mod` mit Loader, Version und Server-Seite bzw. `project_type:plugin`), CurseForge (eigener API-Key),
-  Spiget (nur kostenlose, direkt herunterladbare Ressourcen; die API ist langsam, Abbruch nach 8 s).
+- Declarative: Cubeherd maintains `MODRINTH_PROJECTS` (with `MODRINTH_DOWNLOAD_DEPENDENCIES=required`), `CURSEFORGE_FILES` and `SPIGET_RESOURCES`.
+  itzg downloads matching the loader and version on startup and keeps unpinned entries up to date.
+- Removal: for a source that has been used before, Cubeherd explicitly sets the variable to empty. Only then does itzg clean up the files it
+  installed; a missing variable leaves them in place. Tested: Paper + Modrinth plugin, ATM10 (CurseForge pack) + Modrinth mod,
+  with the modpack's mods left untouched. itzg does not clean up Spigot plugins.
+- Uploaded JARs go straight into `mods/` or `plugins/` and are recorded in the definition; only these can be deleted from the dashboard.
+- Search: Modrinth (`project_type:mod` with loader, version and server side, or `project_type:plugin`), CurseForge (own API key),
+  Spiget (only free, directly downloadable resources; the API is slow, aborted after 8 s).
 
 ## Backups
 
-- Archive liegen unter `servers/<id>/backups/<YYYYMMDD-HHMMSS>_<anlass>.tar.zst` (Anlass: manual, schedule, update, restore).
-- Läuft der Server: `save-off` → `save-all flush` → `docker exec … nice ionice tar | zstd -3 -T1` → `save-on`.
-  Gestoppt oder pausiert: dasselbe per `docker run --rm` mit dem Server-Image und `/data` schreibgeschützt.
-- Ausgeschlossen ist, was itzg neu lädt: Logs, Caches, Bibliotheken, Server-JARs; bei Modpacks auch `mods/`.
-- Wiederherstellen stoppt den Server, sichert den aktuellen Stand, löscht nur die im Archiv enthaltenen Einträge und entpackt.
-- Der Zeitplan ist ein einzelner Timer im Dashboard, der bis zum nächsten fälligen Backup schläft. Verpasste Läufe werden 2 Minuten nach dem Start nachgeholt.
-  Zeitzone aus den Einstellungen (sonst `TZ`/System; Zonendaten sind ins Binary eingebettet). Sie geht auch als `TZ` in die
-  Container, damit die Log-Zeitstempel passen. Die Backup-Zeit kommt aus dem Dateidatum, der Name ist nur Beschriftung –
-  ein Wechsel der Zeitzone verschiebt deshalb keine bestehenden Backups.
-- Automatische Backups werden nach der Aufbewahrungsregel gelöscht, manuelle nie.
+- Archives are stored at `servers/<id>/backups/<YYYYMMDD-HHMMSS>_<reason>.tar.zst` (reason: manual, schedule, update, restore).
+- If the server is running: `save-off` → `save-all flush` → `docker exec … nice ionice tar | zstd -3 -T1` → `save-on`.
+  If stopped or paused: the same via `docker run --rm` with the server image and `/data` mounted read-only.
+- Excluded is whatever itzg downloads again: logs, caches, libraries, server JARs; for modpacks also `mods/`.
+- Restoring stops the server, backs up the current state, deletes only the entries contained in the archive and unpacks it.
+- The schedule is a single timer in the dashboard that sleeps until the next backup is due. Missed runs are caught up 2 minutes after startup.
+  Time zone from the settings (otherwise `TZ`/system; zone data is embedded in the binary). It is also passed to the
+  containers as `TZ` so that log timestamps match. A backup's time comes from the file date, the name is only a label –
+  so changing the time zone does not shift existing backups.
+- Automatic backups are deleted according to the retention rule, manual ones never.
 
-## Erkenntnisse aus den Live-Tests
+## Findings from live tests
 
-- **Java-Version:** Minecraft 26.x braucht Java 25. Cubeherd liest die Java-Version aus Mojangs Versionsdaten und wählt das passende itzg-Tag (`java8`/`java17`/`java21`/`java25`).
-- **Autopause + Watchdog:** Nach dem Aufwachen sieht der Server eine riesige Tick-Lücke; der Paper-Watchdog beendet ihn dann.
-  Cubeherd setzt bei Autopause daher `MAX_TICK_TIME=-1` und bei Paper/Purpur/Folia zusätzlich `JVM_DD_OPTS=disable.watchdog:true`.
-- **Pausierte Server:** RCON-Befehle wecken sie nicht (rcon-cli läuft über `lo`, knockd lauscht auf `eth0`), deshalb lehnt die Konsole sie ab.
-  `docker stop` funktioniert dagegen: das Image setzt den Prozess fort und speichert die Welt.
-- **RCON-Kosten:** Jede Abfrage startet `rcon-cli` im Container und schreibt zwei Zeilen ins Server-Log. Spielerlisten werden 15 s gecacht,
-  diese Log-Zeilen blendet die Konsole aus.
-- **Start/Neustart** laufen über `docker compose up -d`, damit gespeicherte Einstellungen beim nächsten Start greifen (Compose erstellt bei Abweichung neu).
-- **Arbeitsspeicher:** Der eingestellte RAM ist das Container-Limit (`mem_limit`). Der Java-Heap (`MEMORY`) bekommt davon weniger:
-  Vanilla/Paper `max(1 GB, 20 %)` Puffer, Modpacks/Mod-Loader `max(2 GB, 30 %)`. Gemessen mit ATM10: rund 1,7 GB außerhalb des Heaps.
-  Vorher war `MEMORY` der volle Wert ohne Limit; Heap plus Nicht-Heap sprengte die Docker-VM und führte zu Neustart-Schleifen.
-- **Startphase:** Solange itzg noch Dateien lädt (`[init]`, `[mc-image-helper]`), schlägt der Healthcheck fehl. Cubeherd liest die neuen
-  Log-Zeilen des laufenden Containers inkrementell und zeigt dann „Wird eingerichtet“ bzw. „Startet“ statt „Reagiert nicht“.
-- **`MALLOC_ARENA_MAX=2`** wird bei Modpack- und Mod-Servern gesetzt. ATM10, gemessen jeweils 234 s nach dem Start:
-  Speicher außerhalb des Heaps 1,63 GiB → 1,46 GiB (−0,17 GiB, ~10 %).
+- **Java version:** Minecraft 26.x needs Java 25. Cubeherd reads the Java version from Mojang's version data and picks the matching itzg tag (`java8`/`java17`/`java21`/`java25`).
+- **Autopause + watchdog:** after waking up, the server sees a huge tick gap, and the Paper watchdog then kills it.
+  With autopause, Cubeherd therefore sets `MAX_TICK_TIME=-1` and, for Paper/Purpur/Folia, additionally `JVM_DD_OPTS=disable.watchdog:true`.
+- **Paused servers:** RCON commands do not wake them (rcon-cli runs over `lo`, knockd listens on `eth0`), so the console rejects them.
+  `docker stop`, on the other hand, works: the image resumes the process and saves the world.
+- **RCON cost:** every query starts `rcon-cli` in the container and writes two lines to the server log. Player lists are cached for 15 s,
+  and the console hides these log lines.
+- **Start/restart** go through `docker compose up -d` so that saved settings take effect on the next start (Compose recreates the container on a mismatch).
+- **Memory:** the configured RAM is the container limit (`mem_limit`). The Java heap (`MEMORY`) gets less of it:
+  Vanilla/Paper `max(1 GB, 20 %)` headroom, modpacks/mod loaders `max(2 GB, 30 %)`. Measured with ATM10: about 1.7 GB outside the heap.
+  Previously `MEMORY` was the full value with no limit; heap plus non-heap exceeded the Docker VM and caused restart loops.
+- **Startup phase:** while itzg is still downloading files (`[init]`, `[mc-image-helper]`), the health check fails. Cubeherd reads the new
+  log lines of the running container incrementally and then shows "Setting up" or "Starting" instead of "Not responding".
+- **`MALLOC_ARENA_MAX=2`** is set for modpack and mod servers. ATM10, each measured 234 s after startup:
+  memory outside the heap 1.63 GiB → 1.46 GiB (−0.17 GiB, ~10 %).
 
-## Sprache
+## Language
 
-- Deutsch und Englisch. Deutsch ist die Quellsprache und der deutsche Text der Schlüssel; jede weitere Sprache ist eine
-  JSON-Datei in `internal/i18n/` (`<code>.json`) plus ein Eintrag in `i18n.Languages`.
-- Die Sprache ist eine globale Einstellung (ein Admin). Bestehende Installationen ohne Einstellung bleiben deutsch;
-  bei einer frischen Einrichtung schlägt Cubeherd die Sprache aus `Accept-Language` vor.
-- Pro Sprache gibt es einen eigenen Template-Satz mit eigenen Formatfunktionen (Dezimaltrennzeichen, Datumsformat, „Heute/Today“);
-  auch die SSE-Teilansichten nutzen ihn. Ein Sprachwechsel lädt die Seite neu.
-- Meldungen mit Werten übersetzt der Manager beim Erzeugen (`m.t("Port %d …", port)`), feste Fehlertexte übersetzt die
-  Weboberfläche beim Anzeigen. Minecraft- und itzg-Logzeilen werden nie übersetzt.
-- `TestCatalogsComplete` prüft beide Richtungen: Jeder verwendete Text hat eine Übersetzung, und jede Übersetzung wird noch
-  verwendet. Außerdem müssen die Formatplatzhalter übereinstimmen.
+- German and English. German is the source language and the German text is the key; every further language is a
+  JSON file in `internal/i18n/` (`<code>.json`) plus an entry in `i18n.Languages`.
+- The language is a global setting (one admin). Existing installations without the setting stay German;
+  on a fresh setup Cubeherd suggests the language based on `Accept-Language`.
+- Each language has its own template set with its own formatting functions (decimal separator, date format, "Heute/Today");
+  the SSE partial views use it too. Switching the language reloads the page.
+- Messages with values are translated by the manager when they are created (`m.t("Port %d …", port)`), fixed error texts are translated
+  by the web UI when they are displayed. Minecraft and itzg log lines are never translated.
+- `TestCatalogsComplete` checks both directions: every text in use has a translation, and every translation is still
+  in use. In addition, the format placeholders must match.
