@@ -227,15 +227,31 @@ func (m *Manager) backup(ctx context.Context, s *server.Server, o *Op, reason, d
 			o.add("[cubeherd] " + m.t("%d alte automatische Backups gelöscht", n))
 		}
 	}
-	if prefix == "" && s.Plan().Remote && m.remote() != nil {
-		if err := m.upload(ctx, s, o, name); err != nil {
-			b.UploadErr = fmt.Errorf(m.t("Upload in den externen Speicher fehlgeschlagen: %w"), err)
-			o.add("[cubeherd] " + m.t("Warnung: %s", b.UploadErr.Error()))
-		} else {
-			b.Remote = true
-		}
+	if prefix == "" {
+		m.ship(ctx, s, o, &b)
 	}
 	return b, nil
+}
+
+// ship uploads a fresh archive when the plan asks for it. With RemoteOnly the local copy is removed
+// after a successful upload; a failed upload always keeps it. The safety copy made before a restore
+// stays local, so a restore never depends on the external storage being reachable.
+func (m *Manager) ship(ctx context.Context, s *server.Server, o *Op, b *Backup) {
+	plan := s.Plan()
+	if !plan.Remote || m.remote() == nil {
+		return
+	}
+	if err := m.upload(ctx, s, o, b.Name); err != nil {
+		b.UploadErr = fmt.Errorf(m.t("Upload in den externen Speicher fehlgeschlagen: %w"), err)
+		o.add("[cubeherd] " + m.t("Warnung: %s", b.UploadErr.Error()))
+		return
+	}
+	b.Remote = true
+	if plan.RemoteOnly && b.Reason != ReasonRestore {
+		if os.Remove(filepath.Join(m.BackupDir(s), b.Name)) == nil {
+			o.add("[cubeherd] " + m.t("Lokale Kopie von %s gelöscht, das Backup liegt nur im externen Speicher", b.Name))
+		}
+	}
 }
 
 func firstLine(s string, err error) string {
@@ -313,7 +329,13 @@ func (m *Manager) Restore(id, name string) error {
 		var stderr bytes.Buffer
 		cmd.Stdout, cmd.Stderr = io.Discard, &stderr
 		if err := cmd.Run(); err != nil {
+			if localErr != nil && s.Plan().RemoteOnly {
+				os.Remove(filepath.Join(m.BackupDir(s), name))
+			}
 			return fmt.Errorf(m.t("Wiederherstellung fehlgeschlagen: %s"), firstLine(stderr.String(), err))
+		}
+		if localErr != nil && s.Plan().RemoteOnly {
+			os.Remove(filepath.Join(m.BackupDir(s), name)) // fetched only for this restore
 		}
 		o.add("[cubeherd] " + m.t("Wiederherstellung abgeschlossen"))
 		if wasUp {

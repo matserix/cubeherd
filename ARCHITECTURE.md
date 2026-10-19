@@ -119,6 +119,8 @@ internal/web          handlers, templates, SSE, static assets
   multipart upload streamed from disk in 8 MiB parts (unsigned payload, so nothing is buffered in memory). An upload failure never
   deletes the local archive; it is logged and makes the operation fail visibly, but does not abort updates or restores that
   made the backup.
+- "Do not keep locally" (`RemoteOnly`, needs the upload switch): after a successful upload the local archive is removed, so the archive only
+  exists in the bucket. The safety copy made before a restore always stays local, and an archive fetched for a restore is removed again afterwards.
 - The retention rule applies to the bucket as well: after each upload, automatic archives beyond `Keep` are deleted there, manual ones never.
 - The backup tab merges local and remote listings (remote listings are cached for a minute and refreshed after uploads and deletes).
   Remote-only archives can be downloaded, restored (they are fetched into the local folder first) and deleted; deleting removes every copy.

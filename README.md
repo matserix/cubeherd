@@ -77,7 +77,7 @@ It has a single admin account (bcrypt), signed session cookies (`SameSite=Strict
 - **Updates:** Minecraft version, modpack version, itzg image.
 - **Uninstall:** keep the data or delete everything.
 - **Adopt** existing itzg containers.
-- **Backups:** manual, scheduled, automatic before updates, restore, download. Optionally uploaded to S3-compatible storage (AWS S3, Backblaze B2, Hetzner, Wasabi, Cloudflare R2, MinIO).
+- **Backups:** manual, scheduled, automatic before updates, restore, download. Optionally uploaded to S3-compatible storage (AWS S3, Backblaze B2, Hetzner, Wasabi, Cloudflare R2, MinIO), and optionally kept only there.
 - **Mods & plugins:** search Modrinth, CurseForge and Spigot, add and remove entries (itzg installs them on startup), upload your own JARs.
   Also works on top of modpacks.
 - **Files & worlds:** file browser with editor, upload, download and delete; export a world as a ZIP and import one.

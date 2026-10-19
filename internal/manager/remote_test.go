@@ -188,3 +188,43 @@ func TestNoRemoteConfigured(t *testing.T) {
 		t.Fatalf("%v %v", list, err)
 	}
 }
+
+func TestShipRemoteOnly(t *testing.T) {
+	cases := []struct {
+		name      string
+		remoteOnl bool
+		reason    string
+		failPut   bool
+		wantLocal bool
+		wantRem   bool
+	}{
+		{"mirror keeps local copy", false, ReasonManual, false, true, true},
+		{"remote only drops local copy", true, ReasonManual, false, false, true},
+		{"restore safety copy stays local", true, ReasonRestore, false, true, true},
+		{"failed upload keeps local copy", true, ReasonManual, true, true, false},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			m, s, fb := remoteFixture(t)
+			s.Backup.RemoteOnly = c.remoteOnl
+			s.Backup.Keep = 10
+			if c.failPut {
+				m.Config.Update(func(st *config.Settings) { st.Remote.Endpoint = "http://127.0.0.1:1" })
+			}
+			os.MkdirAll(m.BackupDir(s), 0o755)
+			name := "20260105-040000_" + c.reason + ".tar.zst"
+			os.WriteFile(filepath.Join(m.BackupDir(s), name), []byte("data"), 0o644)
+			b := Backup{Name: name, Reason: c.reason}
+
+			m.ship(context.Background(), s, testOp(), &b)
+
+			_, localErr := os.Stat(filepath.Join(m.BackupDir(s), name))
+			fb.mu.Lock()
+			_, remote := fb.objs["cubeherd/srv/"+name]
+			fb.mu.Unlock()
+			if (localErr == nil) != c.wantLocal || remote != c.wantRem || b.Remote != c.wantRem || (b.UploadErr != nil) != c.failPut {
+				t.Fatalf("local=%v remote=%v b=%+v", localErr == nil, remote, b)
+			}
+		})
+	}
+}

@@ -79,10 +79,11 @@ func (a *App) backupPlan(w http.ResponseWriter, r *http.Request) {
 	p := server.BackupPlan{
 		Interval: r.FormValue("interval"), Time: strings.TrimSpace(r.FormValue("time")),
 		Keep: formInt(r, "keep", 7, 1, 100), BeforeUpdate: checked(r, "beforeUpdate"), OnlyIfActive: checked(r, "onlyIfActive"),
-		Remote: s.Plan().Remote,
+		Remote: s.Plan().Remote, RemoteOnly: s.Plan().RemoteOnly,
 	}
 	if a.M.HasRemote() {
 		p.Remote = checked(r, "remote")
+		p.RemoteOnly = p.Remote && checked(r, "remoteOnly")
 	}
 	switch p.Interval {
 	case "off", "6h", "daily", "weekly":

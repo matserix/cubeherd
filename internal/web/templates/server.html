@@ -126,7 +126,10 @@
         <label class="switch"><input type="checkbox" name="beforeUpdate" {{if $p.BeforeUpdate}}checked{{end}}><span class="txt">{{t "Vor jedem Update sichern"}}<small>{{t "Ermöglicht den Rückweg, falls ein Update die Welt beschädigt."}}</small></span></label>
         <label class="switch"><input type="checkbox" name="onlyIfActive" {{if $p.OnlyIfActive}}checked{{end}}><span class="txt">{{t "Nur sichern, wenn der Server läuft"}}<small>{{t "Gestoppte oder pausierte Server ändern sich nicht."}}</small></span></label>
       </div>
-      {{if .Remote}}<label class="switch"><input type="checkbox" name="remote" {{if $p.Remote}}checked{{end}}><span class="txt">{{t "Auch im externen Speicher sichern"}}<small>{{t "Jedes Backup dieses Servers wird nach dem Erstellen automatisch hochgeladen. Die Aufbewahrung gilt auch dort."}}</small></span></label>
+      {{if .Remote}}<div class="grid-2">
+        <label class="switch"><input type="checkbox" name="remote" {{if $p.Remote}}checked{{end}}><span class="txt">{{t "Auch im externen Speicher sichern"}}<small>{{t "Jedes Backup dieses Servers wird nach dem Erstellen automatisch hochgeladen. Die Aufbewahrung gilt auch dort."}}</small></span></label>
+        <label class="switch"><input type="checkbox" name="remoteOnly" {{if $p.RemoteOnly}}checked{{end}}><span class="txt">{{t "Lokal nicht behalten"}}<small>{{t "Nach erfolgreichem Upload wird die lokale Kopie gelöscht. Schlägt der Upload fehl, bleibt sie erhalten. Gilt nur zusammen mit dem externen Speicher."}}</small></span></label>
+      </div>
       {{else}}<p class="muted" style="font-size:12px">{{t "Kein externer Speicher eingerichtet."}} <a href="/settings">{{t "Einstellungen"}}</a></p>{{end}}
       <div class="actions" style="justify-content:space-between">
         <p class="muted" style="font-size:12px">{{t "Ablauf:"}} <span class="mono">save-off</span> → {{t "Archiv (zstd, niedrige Priorität)"}} → <span class="mono">save-on</span>. {{t "Spieler bleiben verbunden."}}</p>
