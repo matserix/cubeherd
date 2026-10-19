@@ -345,6 +345,7 @@
   "RAM anpassen": "Adjust RAM",
   "RCON nicht erreichbar, sichere den aktuellen Stand auf der Platte": "RCON not reachable, backing up the state on disk",
   "RCON: %s": "RCON: %s",
+  "spark antwortet nicht über RCON. Führe den Befehl im Spiel aus; für TPS gibt es neoforge tps bzw. forge tps.": "spark does not reply over RCON. Run the command in game; for TPS use neoforge tps or forge tps.",
   "Reagiert nicht": "Not responding",
   "Region": "Region",
   "Ressourcen": "Resources",

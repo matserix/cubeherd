@@ -595,6 +595,9 @@ func (a *App) serverCommand(w http.ResponseWriter, r *http.Request) {
 		line("error", "RCON: "+err.Error())
 	case out == "":
 		line("info", "(keine Ausgabe)")
+		if strings.EqualFold(strings.Fields(cmd)[0], "spark") {
+			line("info", a.t("spark antwortet nicht über RCON. Führe den Befehl im Spiel aus; für TPS gibt es neoforge tps bzw. forge tps."))
+		}
 	default:
 		for _, l := range strings.Split(out, "\n") {
 			line(server.Level(l), l)
