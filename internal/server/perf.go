@@ -2,6 +2,7 @@ package server
 
 import (
 	"errors"
+	"fmt"
 	"regexp"
 	"strconv"
 	"strings"
@@ -26,6 +27,9 @@ type PerfDim struct {
 
 // ErrPerfUnsupported means the server did not understand the tick command (e.g. Vanilla before 1.20.3).
 var ErrPerfUnsupported = errors.New("tick command not supported")
+
+// ErrPerfUnreadable means the server answered, but not in a format we know.
+var ErrPerfUnreadable = errors.New("no tick data in the reply")
 
 // PerfCommands lists the RCON commands that report tick performance for a software type.
 // spark would be the richer source, but it does not answer over RCON.
@@ -57,7 +61,49 @@ var (
 	tickAvg  = regexp.MustCompile(`(?i)Average time per tick:\s*([\d.]+)\s*ms`)
 	tickRate = regexp.MustCompile(`(?i)Target tick rate:\s*([\d.]+)`)
 	tickP95  = regexp.MustCompile(`(?i)P95:\s*([\d.]+)\s*ms`)
+
+	colorCodes  = regexp.MustCompile(`§.`)
+	foliaLow    = regexp.MustCompile(`Lowest Region TPS:\s*([\d.]+)`)
+	foliaRegion = regexp.MustCompile(`Region around block \[w:'([^']+)',(-?\d+),-?\d+,(-?\d+)\]:\s*([\d.]+)% util at ([\d.]+) MSPT at ([\d.]+) TPS`)
 )
+
+// parseFolia reads Folia's "tps" health report: one overall figure plus the busiest regions.
+// The worst region decides the rating, since every region ticks on its own.
+func parseFolia(out string) (PerfSample, error) {
+	out = colorCodes.ReplaceAllString(out, "")
+	var p PerfSample
+	m := foliaLow.FindStringSubmatch(out)
+	if m == nil {
+		return PerfSample{}, ErrPerfUnreadable
+	}
+	p.TPS = capTPS(atof(m[1]))
+	for _, r := range foliaRegion.FindAllStringSubmatch(out, -1) {
+		ms := atof(r[5])
+		p.MSPT = max(p.MSPT, ms)
+		p.Dims = append(p.Dims, PerfDim{Name: fmt.Sprintf("%s (%s, %s)", r[1], r[2], r[3]), TPS: capTPS(atof(r[6])), MSPT: ms})
+	}
+	return p, nil
+}
+
+// prettyDim turns Forge's "Dim minecraft:the_nether (minecraft:the_nether)" into "The Nether".
+func prettyDim(raw string) string {
+	id := raw
+	if i := strings.LastIndex(raw, "("); i >= 0 && strings.HasSuffix(raw, ")") {
+		id = raw[i+1 : len(raw)-1]
+	}
+	id = strings.TrimPrefix(strings.TrimPrefix(id, "Dim "), "minecraft:")
+	if _, path, ok := strings.Cut(id, ":"); ok {
+		id = path // other namespaces: the path is what players recognise (twilight_forest)
+	}
+	words := strings.Fields(strings.ReplaceAll(id, "_", " "))
+	for i, w := range words {
+		words[i] = strings.ToUpper(w[:1]) + w[1:]
+	}
+	if len(words) == 0 {
+		return raw
+	}
+	return strings.Join(words, " ")
+}
 
 func atof(s string) float64 {
 	f, _ := strconv.ParseFloat(s, 64)
@@ -90,6 +136,9 @@ func ParsePerf(typ string, outs []string) (PerfSample, error) {
 			return PerfSample{}, ErrPerfUnsupported
 		}
 	}
+	for i := range outs {
+		outs[i] = colorCodes.ReplaceAllString(outs[i], "")
+	}
 	join := func() string { return strings.Join(outs, "\n") }
 	var p PerfSample
 	switch typ {
@@ -99,7 +148,7 @@ func ParsePerf(typ string, outs []string) (PerfSample, error) {
 			if m := forgeNew.FindStringSubmatch(line); m != nil {
 				name, tps, ms = m[1], atof(m[2]), atof(m[3])
 			} else if m := forgeOld.FindStringSubmatch(line); m != nil {
-				name, ms, tps = m[1], atof(m[2]), atof(m[3])
+				name, ms, tps = prettyDim(m[1]), atof(m[2]), atof(m[3])
 			} else {
 				continue
 			}
@@ -110,12 +159,14 @@ func ParsePerf(typ string, outs []string) (PerfSample, error) {
 			p.Dims = append(p.Dims, PerfDim{Name: name, TPS: capTPS(tps), MSPT: ms})
 		}
 		if p.MSPT == 0 && p.TPS == 0 {
-			return PerfSample{}, errors.New("no tick data in the reply")
+			return PerfSample{}, ErrPerfUnreadable
 		}
-	case "PAPER", "PURPUR", "FOLIA":
+	case "FOLIA":
+		return parseFolia(join())
+	case "PAPER", "PURPUR":
 		m := paperTPS.FindStringSubmatch(join())
 		if m == nil {
-			return PerfSample{}, errors.New("no tick data in the reply")
+			return PerfSample{}, ErrPerfUnreadable
 		}
 		p.TPS = capTPS(atof(m[1]))
 		if len(outs) > 1 {
@@ -127,7 +178,7 @@ func ParsePerf(typ string, outs []string) (PerfSample, error) {
 		o := join()
 		m := tickAvg.FindStringSubmatch(o)
 		if m == nil {
-			return PerfSample{}, errors.New("no tick data in the reply")
+			return PerfSample{}, ErrPerfUnreadable
 		}
 		p.MSPT = atof(m[1])
 		target := 20.0

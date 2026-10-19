@@ -556,7 +556,6 @@
   "Die Ticks dauern länger als 50 ms, der Server fällt hinter die Echtzeit zurück. Das Spiel läuft für alle in Zeitlupe.": "Ticks take longer than 50 ms, so the server falls behind real time. The game runs in slow motion for everyone.",
   "Die Werte erscheinen, sobald der Server bereit ist.": "Values appear as soon as the server is ready.",
   "Diese Version liefert keine Tick-Werte": "This version does not report tick values",
-  "Dimension": "Dimension",
   "Dimensionen": "Dimensions",
   "Ein Tick braucht im Mittel fast das ganze Budget von 50 ms. Spieler merken das bald als Rubberbanding. Prüfe vorgeladene Chunks, Entities und große Maschinen-Netzwerke.": "A tick takes almost the whole 50 ms budget on average. Players will soon notice rubberbanding. Check preloaded chunks, entities and large machine networks.",
   "Heap %s GB": "Heap %s GB",
@@ -564,7 +563,6 @@
   "MSPT (Mittel)": "MSPT (mean)",
   "Messe …": "Measuring …",
   "Mittel": "Mean",
-  "Nur Forge und NeoForge liefern Werte pro Welt": "Only Forge and NeoForge report values per world",
   "Pausierte Server werden nicht abgefragt, denn RCON würde sie nicht aufwecken. Die Werte erscheinen, sobald sich ein Spieler verbindet.": "Paused servers are not queried because RCON would not wake them. Values appear once a player connects.",
   "Performance": "Performance",
   "Quelle: %s über RCON. Cubeherd fragt nur, solange diese Seite offen ist, und speichert nichts. Der Verlauf verschwindet beim Schließen.": "Source: %s over RCON. Cubeherd only queries while this page is open and stores nothing. The history disappears when you close it.",
@@ -612,5 +610,14 @@
   "Ungeprüft": "Unverified",
   "Warnen nach": "Warn after",
   "Warnen, wenn zu lange kein Backup gelingt": "Warn when no backup succeeds for too long",
-  "Zeigt oben im Backup-Tab eine Meldung, wenn Läufe ausfallen oder ein Archiv defekt ist.": "Shows a message at the top of the Backups tab when runs fail or an archive is damaged."
+  "Zeigt oben im Backup-Tab eine Meldung, wenn Läufe ausfallen oder ein Archiv defekt ist.": "Shows a message at the top of the Backups tab when runs fail or an archive is damaged.",
+  "Der Server antwortet nicht": "The server does not respond",
+  "RCON antwortet nicht innerhalb von 6 Sekunden. Das passiert bei starker Überlastung, wenn ein einzelner Tick sehr lange dauert, oder wenn der Server hängt. Gab es schon Messungen, sind unten die letzten bekannten Werte zu sehen.": "RCON does not answer within 6 seconds. This happens under heavy overload, when a single tick takes very long, or when the server hangs. If there were measurements before, the last known values are shown below.",
+  "Unbekanntes Antwortformat": "Unknown reply format",
+  "Der Server hat geantwortet, aber Cubeherd versteht die Ausgabe von „%s“ nicht. Diese Software ist hier noch nicht unterstützt.": "The server replied, but Cubeherd does not understand the output of “%s”. This software is not supported here yet.",
+  "Forge und NeoForge liefern Werte pro Welt, Folia pro Region": "Forge and NeoForge report values per world, Folia per region",
+  "Dimension oder Region": "Dimension or region",
+  "1 Minute": "1 minute",
+  "%d Minuten": "%d minutes",
+  "1 Stunde": "1 hour"
 }

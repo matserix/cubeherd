@@ -460,3 +460,4 @@ details summary::marker { color: var(--faint); }
 .src-note { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; font-size: 12px; color: var(--muted); }
 .tbl td.num, .tbl th.num { text-align: right; font-variant-numeric: tabular-nums; }
 #backup-health:empty { display: none; }
+.perf-top.stale { opacity: .45; }

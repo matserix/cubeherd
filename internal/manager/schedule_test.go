@@ -58,3 +58,24 @@ func TestCatchUp(t *testing.T) {
 		t.Fatal("no plan stays zero")
 	}
 }
+
+// Regression: the first scheduled run of a server without any scheduled backup yet must become due.
+// The timer wakes a moment after the planned time; anchoring at "now" turned that into "tomorrow" forever.
+func TestFirstScheduledRunBecomesDue(t *testing.T) {
+	m, s := healthFixture(t, server.BackupPlan{Interval: "daily", Time: "04:00"}, time.Time{})
+	loc := time.Local
+	at := func(v string) time.Time { tt, _ := time.ParseInLocation("2006-01-02 15:04:05.000", v, loc); return tt }
+	s.CreatedAt = at("2026-10-18 14:55:00.000")
+	m.started = at("2026-10-18 14:50:00.000")
+	woke := at("2026-10-19 04:00:00.020") // the timer fires slightly after the planned time
+
+	got := catchUp(NextBackup(s.Plan(), m.scheduleAnchor(s).In(loc), woke), m.started)
+	if got.After(woke) {
+		t.Fatalf("the first run must be due when the timer wakes, got %s", got)
+	}
+	// After that attempt the anchor moves on and the next run is tomorrow.
+	m.attempts[s.ID] = woke
+	if next := NextBackup(s.Plan(), m.scheduleAnchor(s).In(loc), woke.Add(time.Second)); !next.Equal(at("2026-10-20 04:00:00.000")) {
+		t.Fatalf("after an attempt: %s", next)
+	}
+}

@@ -133,3 +133,15 @@ func TestLegacyArchivesCountAsGoodOnlyWithoutHistory(t *testing.T) {
 		t.Fatalf("broken archive must not count: %+v", h)
 	}
 }
+
+func TestAgoUnits(t *testing.T) {
+	m, _ := healthFixture(t, daily(), time.Now())
+	for d, want := range map[time.Duration]string{
+		10 * time.Second: "1 Minute", 5 * time.Minute: "5 Minuten", 61 * time.Minute: "1 Stunde",
+		5 * time.Hour: "5 Stunden", 47 * time.Hour: "47 Stunden", 49 * time.Hour: "2 Tagen", 80 * time.Hour: "3 Tagen",
+	} {
+		if got := m.ago(d); got != want {
+			t.Errorf("%v: %q want %q", d, got, want)
+		}
+	}
+}

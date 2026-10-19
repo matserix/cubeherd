@@ -81,10 +81,24 @@ func (m *Manager) lastScheduled(s *server.Server) time.Time {
 	return last
 }
 
+// scheduleAnchor is the point after which the next run is looked for. Without any scheduled backup or
+// attempt yet it is the creation of the server. Using "now" instead would skip the first run for good:
+// the timer fires a moment after the planned time, "the next run after now" is then tomorrow, and nothing
+// ever sets the anchor because no scheduled backup was ever made.
+func (m *Manager) scheduleAnchor(s *server.Server) time.Time {
+	if last := m.lastScheduled(s); !last.IsZero() {
+		return last
+	}
+	if !s.CreatedAt.IsZero() {
+		return s.CreatedAt
+	}
+	return m.started
+}
+
 // NextBackupFor is shown in the UI.
 func (m *Manager) NextBackupFor(s *server.Server) time.Time {
 	loc := m.Loc()
-	return catchUp(NextBackup(s.Plan(), m.lastScheduled(s).In(loc), time.Now().In(loc)), m.started)
+	return catchUp(NextBackup(s.Plan(), m.scheduleAnchor(s).In(loc), time.Now().In(loc)), m.started)
 }
 
 // RunScheduler sleeps until the next due backup; it does no periodic polling.
@@ -96,7 +110,7 @@ func (m *Manager) RunScheduler(ctx context.Context) {
 		var next time.Time
 		var due []*server.Server
 		for _, s := range list {
-			t := catchUp(NextBackup(s.Plan(), m.lastScheduled(s).In(loc), now), m.started)
+			t := catchUp(NextBackup(s.Plan(), m.scheduleAnchor(s).In(loc), now), m.started)
 			switch {
 			case t.IsZero():
 			case !t.After(now):

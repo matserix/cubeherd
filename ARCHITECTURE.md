@@ -109,6 +109,8 @@ internal/web          handlers, templates, SSE, static assets
   If stopped or paused: the same via `docker run --rm` with the server image and `/data` mounted read-only.
 - Excluded is whatever itzg downloads again: logs, caches, libraries, server JARs; for modpacks also `mods/`.
 - Restoring stops the server, backs up the current state, deletes only the entries contained in the archive and unpacks it.
+- The next run is searched after the newest scheduled backup or attempt, and for a server that never had one after its creation. (Anchoring at
+  "now" would skip the very first run for good: the timer fires a moment after the planned time and "the next run after now" is tomorrow.)
 - The schedule is a single timer in the dashboard that sleeps until the next backup is due. Missed runs are caught up 2 minutes after startup.
   Time zone from the settings (otherwise `TZ`/system; zone data is embedded in the binary). It is also passed to the
   containers as `TZ` so that log timestamps match. A backup's time comes from the file date, the name is only a label –
@@ -138,7 +140,9 @@ internal/web          handlers, templates, SSE, static assets
 ## Performance tab
 
 - Tick performance comes from RCON, because spark does not answer over RCON: `neoforge tps` / `forge tps` (per dimension), `tps` + `mspt`
-  on Paper and Purpur, `tps` on Folia, `tick query` on Vanilla, Fabric and Quilt (Minecraft 1.20.3 and newer, adds the 95th percentile).
+  on Paper and Purpur, `tps` on Folia (health report; the worst region rates the server, the busiest regions are listed), `tick query` on
+  Vanilla, Fabric and Quilt (Minecraft 1.20.3 and newer, adds the 95th percentile). An unknown or unreadable reply is shown as such;
+  a RCON timeout (a server stuck in one very long tick) keeps the last values on screen, dimmed, with a warning.
   Parsers live in `internal/server/perf.go` and are tested against output captured from real containers.
 - Like everything live, it only runs while the tab is open: one SSE stream samples every 5 s, keeps up to 120 samples (10 minutes) in memory
   for that page and renders the whole panel (cards, chart, dimension table) server side. Nothing is stored.

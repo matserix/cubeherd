@@ -164,7 +164,7 @@
     <td class="hide-sm">{{if eq .Check "ok"}}<span class="pill ok">{{t "Geprüft"}}</span>{{else if eq .Check "bad"}}<span class="pill crit" title="{{.CheckErr}}">{{t "Defekt"}}</span>{{else}}<span class="pill warn" title="{{t "Noch nicht geprüft"}}">{{t "Ungeprüft"}}</span>{{end}}</td>
     <td class="right"><div class="actions" style="justify-content:flex-end">
       <button class="btn sm" hx-get="/servers/{{$.ID}}/backups/{{.Name}}/restore" hx-target="#modal-card" {{if $.Busy}}disabled{{end}}>{{t "Wiederherstellen"}}</button>
-      {{if and $.Remote .Local (not .Remote)}}<button class="btn sm ghost" hx-post="/servers/{{$.ID}}/backups/{{.Name}}/upload" hx-target="#backup-list" {{if $.Busy}}disabled{{end}}>{{t "Hochladen"}}</button>{{end}}
+      {{if and $.Remote .Local (not .Remote) (ne .Check "bad")}}<button class="btn sm ghost" hx-post="/servers/{{$.ID}}/backups/{{.Name}}/upload" hx-target="#backup-list" {{if $.Busy}}disabled{{end}}>{{t "Hochladen"}}</button>{{end}}
       <button class="btn sm ghost" hx-post="/servers/{{$.ID}}/backups/{{.Name}}/verify" hx-target="#backup-list" {{if $.Busy}}disabled{{end}}>{{t "Prüfen"}}</button>
       <a class="btn sm ghost" href="/servers/{{$.ID}}/backups/{{.Name}}" download style="text-decoration:none">{{t "Herunterladen"}}</a>
       <button class="btn sm ghost" hx-post="/servers/{{$.ID}}/backups/{{.Name}}/delete" hx-target="#backup-list" {{if .Remote}}hx-confirm="{{t "Dieses Backup auch aus dem externen Speicher löschen?"}}"{{end}} {{if $.Busy}}disabled{{end}}>{{t "Löschen"}}</button>
@@ -345,15 +345,15 @@
 {{end}}
 
 {{define "perfBody"}}
-{{if eq .State "none"}}
-  <div class="callout info"><div><b>{{if eq .Reason "stopped"}}{{t "Der Server läuft nicht"}}{{else if eq .Reason "paused"}}{{t "Der Server ist pausiert"}}{{else if eq .Reason "starting"}}{{t "Der Server startet"}}{{else if eq .Reason "unsupported"}}{{t "Diese Version liefert keine Tick-Werte"}}{{else if eq .Reason "waiting"}}{{t "Keine Antwort vom Server"}}{{else}}{{t "Messe …"}}{{end}}</b>
-    <span class="muted">{{if eq .Reason "stopped"}}{{t "Sobald er läuft, erscheinen hier die Werte."}}{{else if eq .Reason "paused"}}{{t "Pausierte Server werden nicht abgefragt, denn RCON würde sie nicht aufwecken. Die Werte erscheinen, sobald sich ein Spieler verbindet."}}{{else if eq .Reason "starting"}}{{t "Die Werte erscheinen, sobald der Server bereit ist."}}{{else if eq .Reason "unsupported"}}{{t "Der Befehl „%s“ ist hier nicht bekannt. Vanilla und Fabric kennen ihn erst ab Minecraft 1.20.3." .Src}}{{else if eq .Reason "waiting"}}{{t "Cubeherd erreicht RCON nicht. Meldung: %s" .Err}}{{else}}{{t "Cubeherd fragt den Server alle 5 Sekunden ab."}}{{end}}</span></div></div>
+{{if .Reason}}
+  <div class="callout {{if or (eq .Reason "timeout") (eq .Reason "waiting")}}crit{{else}}info{{end}}"><div><b>{{if eq .Reason "stopped"}}{{t "Der Server läuft nicht"}}{{else if eq .Reason "paused"}}{{t "Der Server ist pausiert"}}{{else if eq .Reason "starting"}}{{t "Der Server startet"}}{{else if eq .Reason "unsupported"}}{{t "Diese Version liefert keine Tick-Werte"}}{{else if eq .Reason "timeout"}}{{t "Der Server antwortet nicht"}}{{else if eq .Reason "unreadable"}}{{t "Unbekanntes Antwortformat"}}{{else if eq .Reason "waiting"}}{{t "Keine Antwort vom Server"}}{{else}}{{t "Messe …"}}{{end}}</b>
+    <span class="muted">{{if eq .Reason "stopped"}}{{t "Sobald er läuft, erscheinen hier die Werte."}}{{else if eq .Reason "paused"}}{{t "Pausierte Server werden nicht abgefragt, denn RCON würde sie nicht aufwecken. Die Werte erscheinen, sobald sich ein Spieler verbindet."}}{{else if eq .Reason "starting"}}{{t "Die Werte erscheinen, sobald der Server bereit ist."}}{{else if eq .Reason "unsupported"}}{{t "Der Befehl „%s“ ist hier nicht bekannt. Vanilla und Fabric kennen ihn erst ab Minecraft 1.20.3." .Src}}{{else if eq .Reason "timeout"}}{{t "RCON antwortet nicht innerhalb von 6 Sekunden. Das passiert bei starker Überlastung, wenn ein einzelner Tick sehr lange dauert, oder wenn der Server hängt. Gab es schon Messungen, sind unten die letzten bekannten Werte zu sehen."}}{{else if eq .Reason "unreadable"}}{{t "Der Server hat geantwortet, aber Cubeherd versteht die Ausgabe von „%s“ nicht. Diese Software ist hier noch nicht unterstützt." .Src}}{{else if eq .Reason "waiting"}}{{t "Cubeherd erreicht RCON nicht. Meldung: %s" .Err}}{{else}}{{t "Cubeherd fragt den Server alle 5 Sekunden ab."}}{{end}}</span></div></div>
 {{else}}
   <div class="callout {{if eq .State "ok"}}ok{{else}}{{.State}}{{end}}"><div><b>{{if eq .State "ok"}}{{t "Der Server läuft stabil"}}{{else if eq .State "warn"}}{{t "Der Server wird langsamer"}}{{else}}{{t "Der Server ist überlastet"}}{{end}}</b>
     <span class="muted">{{if eq .State "ok"}}{{t "Der Server hält die volle Taktrate von 20 TPS. Im Mittel braucht ein Tick %s ms von 50 ms." .MSPT}}{{else if eq .State "warn"}}{{t "Ein Tick braucht im Mittel fast das ganze Budget von 50 ms. Spieler merken das bald als Rubberbanding. Prüfe vorgeladene Chunks, Entities und große Maschinen-Netzwerke."}}{{else}}{{t "Die Ticks dauern länger als 50 ms, der Server fällt hinter die Echtzeit zurück. Das Spiel läuft für alle in Zeitlupe."}}{{end}}</span></div></div>
 {{end}}
 
-<div class="perf-top">
+<div class="perf-top{{if .Stale}} stale{{end}}">
   <div class="panel stat {{.TPSTone}}"><span class="label">TPS</span><div class="val"><b class="big">{{if .TPSTone}}{{.TPS}}{{else}}–{{end}}</b><span class="muted" style="font-size:12px">{{t "Ziel 20"}}</span></div>{{if .TPSTone}}<div class="tone-{{.TPSTone}}">{{.TPSSpark}}</div>{{end}}<div class="sub"><span>{{t "Ticks pro Sekunde"}}</span></div></div>
   <div class="panel stat {{.MSPTTone}}"><span class="label">MSPT</span><div class="val"><b class="big">{{if .MSPTTone}}{{.MSPT}} ms{{else}}–{{end}}</b><span class="muted" style="font-size:12px">{{t "von 50 ms"}}</span></div><div class="meter {{.MSPTTone}}"><i style="width:{{.MSPTPct}}%"></i></div><div class="sub"><span>{{t "Mittel"}}</span>{{if .HaveP95}}<span>P95 {{.P95}} ms</span>{{end}}</div></div>
   <div class="panel stat"><span class="label">CPU</span><div class="val"><b>{{.CPU}} %</b><span class="muted" style="font-size:12px">{{t "vom Host"}}</span></div>{{.CPUSpark}}<div class="sub"><span>{{t "aus Docker"}}</span></div></div>
@@ -370,8 +370,8 @@
 
 {{if .Dims}}
 <div class="panel">
-  <div class="panel-head"><b>{{t "Dimensionen"}}</b><span class="muted" style="font-size:12px">{{t "Nur Forge und NeoForge liefern Werte pro Welt"}}</span></div>
-  <div class="tbl-wrap"><table class="tbl"><thead><tr><th>{{t "Dimension"}}</th><th class="num">TPS</th><th class="num">MSPT</th><th>{{t "Auslastung des Tick-Budgets"}}</th></tr></thead><tbody>
+  <div class="panel-head"><b>{{t "Dimensionen"}}</b><span class="muted" style="font-size:12px">{{t "Forge und NeoForge liefern Werte pro Welt, Folia pro Region"}}</span></div>
+  <div class="tbl-wrap"><table class="tbl"><thead><tr><th>{{t "Dimension oder Region"}}</th><th class="num">TPS</th><th class="num">MSPT</th><th>{{t "Auslastung des Tick-Budgets"}}</th></tr></thead><tbody>
     {{range .Dims}}<tr><td>{{.Name}}</td><td class="num tone-{{.Tone}}">{{.TPS}}</td><td class="num">{{.MSPT}} ms</td><td><div class="bar-cell"><div class="meter {{.Tone}}"><i style="width:{{.Pct}}%"></i></div><span class="muted num" style="font-size:12px;min-width:34px;text-align:right">{{.Pct}} %</span></div></td></tr>{{end}}
   </tbody></table></div>
 </div>

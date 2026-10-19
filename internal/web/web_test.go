@@ -150,6 +150,14 @@ func renderPartials(t *testing.T, lang string) {
 			t.Errorf("perfBody samples=%d: %v", n, err)
 		}
 	}
+	// A stuck server keeps the last known history on screen next to the timeout message.
+	for _, reason := range []string{"timeout", "waiting"} {
+		if out, err := a.renderString("server", "perfBody", a.perfView(s, ps[:1], nil, 3, 1<<30, reason, "x")); err != nil {
+			t.Errorf("perfBody stale %s: %v", reason, err)
+		} else if !strings.Contains(out, "Tick-Zeit") && lang == "de" {
+			t.Errorf("stale %s lost the chart", reason)
+		}
+	}
 	if _, err := a.renderString("server", "tabPerf", serverPage{Perf: a.perfView(s, nil, nil, 0, 0, "loading", "")}); err != nil {
 		t.Error(err)
 	}

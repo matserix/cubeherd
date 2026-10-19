@@ -2,6 +2,7 @@ package web
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"html/template"
 	"strings"
@@ -41,6 +42,7 @@ type perfData struct {
 	HeapGB              string
 	Chart               template.HTML
 	Dims                []perfDim
+	Stale               bool // the server stopped answering: the numbers are the last known ones
 }
 
 func tone(pct float64) string {
@@ -73,6 +75,7 @@ func (a *App) perfView(s *server.Server, samples []server.PerfSample, cpuHist []
 		return d
 	}
 	cur := samples[len(samples)-1]
+	d.Stale = reason == "timeout" || reason == "waiting"
 	d.State = server.PerfLevel(cur)
 	d.TPS, d.MSPT = a.perfFormat(cur.TPS), a.perfFormat(cur.MSPT)
 	d.TPSTone, d.MSPTTone = d.State, d.State
@@ -192,6 +195,10 @@ func (a *App) streamPerf(ctx context.Context, s *server.Server, emit func(string
 			switch {
 			case err == server.ErrPerfUnsupported:
 				reason = "unsupported"
+			case errors.Is(err, server.ErrPerfUnreadable):
+				reason = "unreadable"
+			case err != nil && (errors.Is(err, context.DeadlineExceeded) || strings.Contains(err.Error(), "deadline exceeded")):
+				reason = "timeout" // a server stuck in one very long tick answers nothing; keep the history on screen
 			case err != nil:
 				reason, errText = "waiting", err.Error()
 			default:

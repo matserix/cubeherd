@@ -186,8 +186,16 @@ func warnAfter(p server.BackupPlan) time.Duration {
 func (m *Manager) stamp(t time.Time) string { return t.In(m.Loc()).Format("2006-01-02 15:04") }
 
 func (m *Manager) ago(d time.Duration) string {
-	if d < 48*time.Hour {
-		return m.t("%d Stunden", max(1, int(d.Hours())))
+	switch n := int(d.Minutes()); {
+	case d < time.Hour:
+		if n <= 1 {
+			return m.t("1 Minute")
+		}
+		return m.t("%d Minuten", n)
+	case d < 2*time.Hour:
+		return m.t("1 Stunde")
+	case d < 48*time.Hour:
+		return m.t("%d Stunden", int(d.Hours()))
 	}
 	return m.t("%d Tagen", int(d.Hours()/24))
 }
