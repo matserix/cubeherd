@@ -158,7 +158,7 @@ var crashPatterns = []struct {
 	{"OutOfMemoryError", "Zu wenig Arbeitsspeicher. RAM in den Einstellungen erhöhen.", 0},
 	{"FAILED TO BIND TO PORT", "Der Port ist schon belegt.", 0},
 	{"Address already in use", "Der Port ist schon belegt.", 0},
-	{"agree to the EULA", "", 0},
+	{"agree to the EULA", "Die Minecraft-EULA ist nicht akzeptiert. Trage unter Einstellungen → Zusätzliche Variablen EULA=TRUE ein, wenn du sie akzeptierst.", 0},
 	{"Exception in server tick loop", "", 1},
 	{"Encountered an unexpected exception", "", 1},
 	{"Failed to start the minecraft server", "", 0},

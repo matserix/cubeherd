@@ -128,7 +128,7 @@
       </div>
       {{if .Remote}}<div class="grid-2">
         <label class="switch"><input type="checkbox" name="remote" {{if $p.Remote}}checked{{end}}><span class="txt">{{t "Auch im externen Speicher sichern"}}<small>{{t "Jedes Backup dieses Servers wird nach dem Erstellen automatisch hochgeladen. Die Aufbewahrung gilt auch dort."}}</small></span></label>
-        <label class="switch"><input type="checkbox" name="remoteOnly" {{if $p.RemoteOnly}}checked{{end}}><span class="txt">{{t "Lokal nicht behalten"}}<small>{{t "Nach erfolgreichem Upload wird die lokale Kopie gelöscht. Schlägt der Upload fehl, bleibt sie erhalten. Gilt nur zusammen mit dem externen Speicher."}}</small></span></label>
+        <label class="switch"><input type="checkbox" name="remoteOnly" {{if $p.RemoteOnly}}checked{{end}} {{if not $p.Remote}}disabled{{end}}><span class="txt">{{t "Lokal nicht behalten"}}<small>{{t "Nach erfolgreichem Upload wird die lokale Kopie gelöscht. Schlägt der Upload fehl, bleibt sie erhalten. Gilt nur zusammen mit dem externen Speicher."}}</small></span></label>
       </div>
       {{else}}<p class="muted" style="font-size:12px">{{t "Kein externer Speicher eingerichtet."}} <a href="/settings">{{t "Einstellungen"}}</a></p>{{end}}
       <div class="actions" style="justify-content:space-between">
@@ -144,7 +144,7 @@
 {{define "backupList"}}
 <div class="panel" {{if .Busy}}hx-get="/servers/{{.ID}}/backups/list" hx-trigger="every 3s" hx-target="#backup-list"{{end}}>
   <div class="panel-head"><h2>{{t "Vorhandene Backups"}} <span class="muted num" style="font-weight:400">{{len .List}}</span></h2>
-    <span class="muted" style="font-size:12px">{{if .List}}{{t "%s belegt" (mb .Total)}} · {{end}}{{if .Next.IsZero}}{{t "Kein Zeitplan"}}{{else}}{{t "Nächstes geplant: %s" (dt .Next)}}{{end}}{{if .Busy}} · <span class="spin-on-req" style="display:inline-block;vertical-align:-2px"></span> {{t "Aktion läuft"}}{{end}}</span></div>
+    <span class="muted" style="font-size:12px">{{if .List}}{{t "%s lokal belegt" (mb .Total)}} · {{end}}{{if .Next.IsZero}}{{t "Kein Zeitplan"}}{{else}}{{t "Nächstes geplant: %s" (dt .Next)}}{{end}}{{if .Busy}} · <span class="spin-on-req" style="display:inline-block;vertical-align:-2px"></span> {{t "Aktion läuft"}}{{end}}</span></div>
   {{if .RemoteError}}<div class="callout warn"><div><b>{{t "Externer Speicher nicht erreichbar"}}</b><span class="muted">{{.RemoteError}}</span></div></div>{{end}}
   <div class="tbl-wrap"><table class="tbl"><thead><tr><th>{{t "Zeitpunkt"}}</th><th>{{t "Anlass"}}</th><th class="hide-sm">{{t "Größe"}}</th>{{if .Remote}}<th class="hide-sm">{{t "Speicherort"}}</th>{{end}}<th class="right"></th></tr></thead><tbody>
   {{range .List}}<tr><td class="num">{{dt .Time}}</td><td>{{t .Label}}</td><td class="hide-sm num">{{mb .Size}}</td>
@@ -181,7 +181,7 @@
   <div id="addons-installed">{{template "addonInstalled" .}}</div>
   <div class="panel">
     <div class="panel-head"><h2>{{t "%s hinzufügen" (t .Word)}}</h2><span class="muted" style="font-size:12px">{{t "Gefiltert auf %s" (print (typeName $s.Type) " " $s.Version)}}</span></div>
-    <form class="panel-pad stack" hx-get="/servers/{{$s.ID}}/addons/search" hx-trigger="load, keyup changed delay:350ms from:find input[name=q], change, submit" hx-target="#addon-results" hx-sync="this:replace">
+    <form class="panel-pad stack" hx-get="/servers/{{$s.ID}}/addons/search" hx-trigger="load, input changed delay:350ms from:find input[name=q], change, submit" hx-target="#addon-results" hx-sync="this:replace">
       <div class="actions" style="justify-content:space-between">
         <div class="seg">{{range $i, $src := .Sources}}<label><input type="radio" name="src" value="{{$src.Key}}" {{if eq $i 0}}checked{{end}}>{{$src.Label}}</label>{{end}}</div>
         {{if not .HasCFKey}}<span class="muted" style="font-size:12px">{{t "CurseForge-Suche braucht einen API-Key (Einstellungen)."}}</span>{{end}}
@@ -294,10 +294,10 @@
   {{if .Error}}<p class="err">{{.Error}}</p>{{end}}
   {{if eq .Mode "mc"}}
     <div class="field"><span>{{t "Minecraft-Version"}}</span><div class="ver-flow"><span class="cur">{{$s.Version}}</span><span class="muted">→</span>
-      <select class="input" name="version">{{range $i, $v := .Releases}}<option value="{{$v}}" {{if eq $v $.Target}}selected{{end}}>{{$v}}{{if eq $i 0}} ({{t "neueste"}}){{end}}</option>{{end}}</select></div></div>
+      <select class="input" name="version">{{range $i, $v := .Releases}}<option value="{{$v}}" {{if older $v $s.Version}}data-older="1"{{end}} {{if eq $v $.Target}}selected{{end}}>{{$v}}{{if eq $i 0}} ({{t "neueste"}}){{end}}</option>{{end}}</select></div></div>
     <label class="field"><span>{{t "Server-Software"}}</span><select class="input" name="type">{{range types}}<option value="{{.ID}}" {{if eq .ID $s.Type}}selected{{end}}>{{.Name}}</option>{{end}}</select><small>{{t "Ein Wechsel des Loaders (z. B. Paper → Fabric) macht vorhandene Plugins und Mods unbrauchbar."}}</small></label>
-    <div class="callout warn"><div><b>{{t "Kein Downgrade"}}</b><span class="muted">{{t "Welten lassen sich nicht auf ältere Versionen zurückführen. Cubeherd lässt Downgrades nur mit ausdrücklicher Bestätigung zu."}}</span></div></div>
-    <label class="switch"><input type="checkbox" name="allowDowngrade"><span class="txt">{{t "Downgrade trotzdem erlauben"}}<small>{{t "Nur wenn du ein Backup der Welt hast."}}</small></span></label>
+    <div class="callout warn" data-older-only {{if not (older .Target $s.Version)}}hidden{{end}}><div><b>{{t "Kein Downgrade"}}</b><span class="muted">{{t "Welten lassen sich nicht auf ältere Versionen zurückführen. Cubeherd lässt Downgrades nur mit ausdrücklicher Bestätigung zu."}}</span></div></div>
+    <label class="switch" data-older-only {{if not (older .Target $s.Version)}}hidden{{end}}><input type="checkbox" name="allowDowngrade"><span class="txt">{{t "Downgrade trotzdem erlauben"}}<small>{{t "Nur wenn du ein Backup der Welt hast."}}</small></span></label>
   {{else if eq .Mode "pack"}}
     <div class="field"><span>{{$s.Pack.Name}}</span><div class="ver-flow"><span class="cur">{{$s.Pack.VersionLabel}}</span><span class="muted">→</span>
       <select class="input" name="packVersion">{{range $i, $v := .PackVersions}}<option value="{{$v.ID}}" {{if eq $v.ID $s.Pack.Version}}selected{{end}}>{{$v.Name}}{{with $v.MC}} · MC {{.}}{{end}}{{if eq $i 0}} ({{t "neueste"}}){{end}}</option>{{end}}</select></div>

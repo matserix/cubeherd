@@ -12,6 +12,7 @@ import (
 
 	"cubeherd/internal/i18n"
 	"cubeherd/internal/server"
+	"cubeherd/internal/sources"
 )
 
 // displayLoc is the time zone used for dates in the UI (set by New).
@@ -95,6 +96,9 @@ func newFuncs(lang string) template.FuncMap {
 				return dec(float64(n)/(1<<10)) + " KB"
 			}
 			return strconv.FormatInt(n, 10) + " B"
+		},
+		"older": func(target, current string) bool {
+			return sources.IsVersion(current) && sources.IsVersion(target) && sources.CompareMC(target, current) < 0
 		},
 		"mb": func(n int64) string {
 			if n >= 1<<30 {

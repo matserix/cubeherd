@@ -207,3 +207,23 @@ func TestAutostopAndCPU(t *testing.T) {
 		t.Errorf("compose without limits:\n%s", c)
 	}
 }
+
+func TestEnvEULA(t *testing.T) {
+	s := &Server{Kind: KindSoftware, Type: "VANILLA", Version: "1.21.4", MemoryGB: 4}
+	if v := envValue(s.Env(Globals{}), "EULA"); v != "TRUE" {
+		t.Fatalf("new server EULA=%q", v)
+	}
+	s.EULAPending = true
+	if v := envValue(s.Env(Globals{}), "EULA"); v != "FALSE" {
+		t.Fatalf("adopted server without EULA got %q", v)
+	}
+}
+
+func envValue(kv []KV, key string) string {
+	for _, e := range kv {
+		if e.Key == key {
+			return e.Value
+		}
+	}
+	return ""
+}

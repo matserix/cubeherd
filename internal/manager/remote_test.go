@@ -228,3 +228,15 @@ func TestShipRemoteOnly(t *testing.T) {
 		})
 	}
 }
+
+func TestBackupExcludesRegeneratedFabricFiles(t *testing.T) {
+	ex := strings.Join(excludes(&server.Server{}), " ")
+	for _, want := range []string{"--exclude=./.fabric/server", "--exclude=./.fabric/remappedJars"} {
+		if !strings.Contains(ex, want) {
+			t.Errorf("missing %s in %s", want, ex)
+		}
+	}
+	if strings.Contains(ex, "processedMods") {
+		t.Error("processedMods must stay in the archive")
+	}
+}

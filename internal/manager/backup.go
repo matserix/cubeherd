@@ -129,7 +129,8 @@ func (m *Manager) BackupNow(id, reason string) error {
 func excludes(s *server.Server) []string {
 	ex := []string{"--no-wildcards-match-slash"}
 	for _, p := range []string{"./logs", "./crash-reports", "./debug", "./cache", "./.cache", "./versions", "./libraries", "./libraries-*",
-		"./*.jar", "./.paused", "./.rcon-cli.*", "./.mixin.out", "./backups"} {
+		"./*.jar", "./.paused", "./.rcon-cli.*", "./.mixin.out", "./backups",
+		"./.fabric/server", "./.fabric/remappedJars"} {
 		ex = append(ex, "--exclude="+p)
 	}
 	if s.Pack != nil {

@@ -381,7 +381,9 @@ textarea.input { font-family: var(--font-mono); font-size: 13px; line-height: 1.
   .nav { flex-direction: row; flex-wrap: wrap; gap: 2px; }
   .nav a { width: auto; padding: 6px 9px; }
   .nav .nav-txt { display: none; }
-  .rack-wrap, .side-foot { display: none; }
+  .rack-wrap, .side-foot .row { display: none; }
+  .side-foot { margin: 0 0 0 auto; padding: 0; }
+  .side-foot .btn { padding-left: 9px !important; }
   .main { padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 18px 40px; overflow: visible; }
   .files { grid-template-columns: minmax(0, 1fr); }
   .tree { border-right: 0; border-bottom: 1px solid var(--line); max-height: 220px; }

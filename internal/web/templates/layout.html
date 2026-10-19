@@ -23,10 +23,7 @@
     </nav>
     <div class="rack-wrap">
       <div class="rack-head"><span class="label">Server</span><span class="label num">{{len .Rack}}</span></div>
-      <div class="rack">
-        {{range .Rack}}<a href="/servers/{{.S.ID}}" aria-current="{{eq $.Current .S.ID}}"><span class="nm"><i class="dot s-{{.Status.CSS}}"></i><span>{{.S.Name}}</span></span><span class="meta">{{t .Status.Label}}</span></a>
-        {{else}}<p class="muted" style="padding:0 10px;font-size:13px">{{t "Noch keine Server."}}</p>{{end}}
-      </div>
+      <div class="rack" hx-get="/partials/rack?current={{.Current}}" hx-trigger="rack-refresh from:body" hx-swap="innerHTML">{{template "rackList" .}}</div>
     </div>
     <div class="side-foot">
       <div class="row"><span>Cubeherd</span><span class="num">{{.Version}}</span></div>
@@ -42,5 +39,8 @@
 <div class="toasts" id="toasts" aria-live="polite"></div>
 </body>
 </html>{{end}}
+
+{{define "rackList"}}{{range .Rack}}<a href="/servers/{{.S.ID}}" aria-current="{{eq $.Current .S.ID}}"><span class="nm"><i class="dot s-{{.Status.CSS}}"></i><span>{{.S.Name}}</span></span><span class="meta">{{t .Status.Label}}</span></a>
+{{else}}<p class="muted" style="padding:0 10px;font-size:13px">{{t "Noch keine Server."}}</p>{{end}}{{end}}
 
 {{define "logo"}}<svg viewBox="0 0 24 24" aria-hidden="true" width="26" height="26"><path d="M12 2 21 7 12 12 3 7Z" fill="var(--accent-2)"/><path d="M3 7 12 12V22L3 17Z" fill="var(--accent)"/><path d="M21 7 12 12V22L21 17Z" fill="var(--accent-3)"/></svg>{{end}}

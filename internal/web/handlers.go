@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"html/template"
 	"net/http"
+	"regexp"
 	"runtime"
 	"strconv"
 	"strings"
@@ -142,6 +143,12 @@ func (a *App) overview(w http.ResponseWriter, r *http.Request) {
 
 func (a *App) overviewPartial(w http.ResponseWriter, r *http.Request) {
 	a.partial(w, "overview", "ovLive", a.overviewData(r.Context(), false))
+}
+
+// rackPartial re-renders the sidebar server list, so it follows status changes without a reload.
+func (a *App) rackPartial(w http.ResponseWriter, r *http.Request) {
+	rack, _ := a.M.Views(r.Context(), false)
+	a.partial(w, "overview", "rackList", Page{Rack: rack, Current: r.FormValue("current")})
 }
 
 func (a *App) importPost(w http.ResponseWriter, r *http.Request) {
@@ -599,13 +606,20 @@ func (a *App) serverCommand(w http.ResponseWriter, r *http.Request) {
 			line("info", a.t("spark antwortet nicht über RCON. Führe den Befehl im Spiel aus; für TPS gibt es neoforge tps bzw. forge tps."))
 		}
 	default:
-		for _, l := range strings.Split(out, "\n") {
+		for _, l := range strings.Split(splitRCONError(out), "\n") {
 			line(server.Level(l), l)
 		}
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	fmt.Fprint(w, b.String())
 }
+
+// rconErrorGlue matches the end of Minecraft's "Unknown or incomplete command" message when the
+// echo of the command follows without a line break ("…for errorspark tps<--[HERE]").
+var rconErrorGlue = regexp.MustCompile(`(see below for error)([^\n])`)
+
+// splitRCONError puts the command echo of a Minecraft command error on its own line.
+func splitRCONError(out string) string { return rconErrorGlue.ReplaceAllString(out, "$1\n$2") }
 
 func (a *App) serverSettings(w http.ResponseWriter, r *http.Request) {
 	s, ok := a.loadServer(w, r)

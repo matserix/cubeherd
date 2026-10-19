@@ -91,7 +91,7 @@ func (m *Manager) Import(ctx context.Context, containerID, name string) (*server
 		ID: id, Name: name, Kind: server.KindSoftware, Type: strings.ToUpper(env["TYPE"]), Version: env["VERSION"],
 		MemoryGB: 4, Aikar: truthy(env["USE_AIKAR_FLAGS"]), Autopause: truthy(env["ENABLE_AUTOPAUSE"]),
 		Autostart: ci.HostConfig.RestartPolicy.Name == "unless-stopped" || ci.HostConfig.RestartPolicy.Name == "always",
-		Imported:  true, CreatedAt: time.Now(),
+		Imported:  true, EULAPending: !truthy(env["EULA"]), CreatedAt: time.Now(),
 	}
 	if s.Type == "" {
 		s.Type = "VANILLA"

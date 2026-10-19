@@ -165,3 +165,14 @@ func renderPartials(t *testing.T, lang string) {
 		t.Error(err)
 	}
 }
+
+func TestSplitRCONError(t *testing.T) {
+	in := "Unknown or incomplete command, see below for errorspark tps<--[HERE]"
+	want := "Unknown or incomplete command, see below for error\nspark tps<--[HERE]"
+	if got := splitRCONError(in); got != want {
+		t.Fatalf("got %q", got)
+	}
+	if got := splitRCONError("There are 0 of a max of 10 players online:"); got != "There are 0 of a max of 10 players online:" {
+		t.Fatalf("unrelated output changed: %q", got)
+	}
+}

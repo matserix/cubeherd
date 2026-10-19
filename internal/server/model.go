@@ -210,6 +210,7 @@ type Server struct {
 	DataDir      string    `json:"dataDir,omitempty"`    // imported servers whose data lives in another host folder
 	DataVol      string    `json:"dataVolume,omitempty"` // imported servers whose data lives in a Docker volume
 	Imported     bool      `json:"imported,omitempty"`
+	EULAPending  bool      `json:"eulaPending,omitempty"` // adopted container never accepted the EULA; Cubeherd must not accept it for the user
 	CreatedAt    time.Time `json:"createdAt"`
 }
 
@@ -292,6 +293,9 @@ type Globals struct {
 func (s *Server) Env(g Globals) []KV {
 	cfKey := g.CFKey
 	e := []KV{{"EULA", "TRUE"}}
+	if s.EULAPending {
+		e[0].Value = "FALSE"
+	}
 	switch s.Kind {
 	case KindModrinth:
 		e = append(e, KV{"TYPE", "MODRINTH"}, KV{"MODRINTH_MODPACK", s.Pack.Slug})

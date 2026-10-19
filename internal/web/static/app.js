@@ -82,6 +82,30 @@
   });
   window.addEventListener('load', stickLog);
 
+  /* ---------------- Sidebar follows status changes ---------------- */
+  document.body.addEventListener('htmx:afterSwap', e => { if (e.target && e.target.id === 'srv-head') htmx.trigger(document.body, 'rack-refresh'); });
+  document.body.addEventListener('htmx:afterRequest', e => {
+    const p = e.detail && e.detail.pathInfo && e.detail.pathInfo.requestPath;
+    if (p === '/partials/overview' && e.detail.successful) htmx.trigger(document.body, 'rack-refresh');
+  });
+
+  /* ---------------- Update dialog: downgrade warning only for older targets ---------------- */
+  document.addEventListener('change', e => {
+    const sel = e.target.closest && e.target.closest('select[name=version]');
+    if (!sel || !sel.closest('#modal')) return;
+    const older = !!(sel.selectedOptions[0] && sel.selectedOptions[0].dataset.older);
+    $$('[data-older-only]', sel.closest('form')).forEach(el => { el.hidden = !older; });
+  });
+
+  /* ---------------- Backup plan: remote-only needs the upload switch ---------------- */
+  document.addEventListener('change', e => {
+    if (!e.target.matches || !e.target.matches('input[name=remote]')) return;
+    const ro = e.target.form && e.target.form.querySelector('input[name=remoteOnly]');
+    if (!ro) return;
+    ro.disabled = !e.target.checked;
+    if (!e.target.checked) ro.checked = false;
+  });
+
   /* ---------------- Wizard ---------------- */
   const wiz = $('#wizard');
   if (wiz) {
@@ -108,6 +132,7 @@
           ? ($('input[name=type]:checked', wiz).dataset.name + ' ' + $('#w-version', wiz).value)
           : (($(`input[name=pack_name_${kind()}]`, wiz) || {}).value || '');
         $('#w-name', wiz).value = sug;
+        update();
       }
     };
     const update = () => { $('#wiz-next').disabled = !valid(); $('#wiz-create').disabled = !valid(); };

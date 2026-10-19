@@ -116,6 +116,7 @@ func (a *App) Handler() http.Handler {
 
 	mux.HandleFunc("GET /{$}", a.overview)
 	mux.HandleFunc("GET /partials/overview", a.overviewPartial)
+	mux.HandleFunc("GET /partials/rack", a.rackPartial)
 	mux.HandleFunc("POST /import", a.importPost)
 
 	mux.HandleFunc("GET /servers/new", a.wizardPage)
