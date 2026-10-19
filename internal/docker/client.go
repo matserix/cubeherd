@@ -19,8 +19,8 @@ import (
 	"time"
 )
 
-// apiVersion 1.41 corresponds to Docker 20.10 and is accepted by all newer engines.
-const apiVersion = "v1.41"
+// apiVersion 1.44 corresponds to Docker 25 and is the minimum that Docker 29+ engines accept.
+const apiVersion = "v1.44"
 
 type Client struct {
 	hc     *http.Client // requests with a deadline
