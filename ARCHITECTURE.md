@@ -125,6 +125,25 @@ internal/web          handlers, templates, SSE, static assets
 - The backup tab merges local and remote listings (remote listings are cached for a minute and refreshed after uploads and deletes).
   Remote-only archives can be downloaded, restored (they are fetched into the local folder first) and deleted; deleting removes every copy.
 - Credentials are stored in `cubeherd.json` (mode 0600), like the CurseForge key. The secret is never rendered back into the form.
+- Verification (on by default, `NoVerify` turns it off): right after an archive is written, `tar -I zstd -tf` reads it completely in a
+  short-lived container of the server image (low CPU and I/O priority, nothing is extracted). A broken archive is kept but never pruned
+  against or uploaded, makes the operation fail (so an update, restore or uninstall that depended on it stops) and is marked "damaged" in
+  the list. The "Check" button re-reads an archive on demand; remote-only archives are downloaded for it and removed again.
+- Health (`servers/<id>/backup-health.json`, a few facts only): time of the last good backup (written, verified and uploaded as configured),
+  the last failure and its cause, and the check result per archive name. The banner on top of the Backups tab is derived from it: critical
+  when the newest archive is damaged, a warning when a run failed or none succeeded within the limit (default two intervals, or 25 h, or 3 days;
+  never for a schedule that is off, and not for a stopped server with "only back up while running"). Archives from before the feature count as
+  good until a check says otherwise. `NoWarn` hides the banner.
+
+## Performance tab
+
+- Tick performance comes from RCON, because spark does not answer over RCON: `neoforge tps` / `forge tps` (per dimension), `tps` + `mspt`
+  on Paper and Purpur, `tps` on Folia, `tick query` on Vanilla, Fabric and Quilt (Minecraft 1.20.3 and newer, adds the 95th percentile).
+  Parsers live in `internal/server/perf.go` and are tested against output captured from real containers.
+- Like everything live, it only runs while the tab is open: one SSE stream samples every 5 s, keeps up to 120 samples (10 minutes) in memory
+  for that page and renders the whole panel (cards, chart, dimension table) server side. Nothing is stored.
+- A paused server is never queried, because RCON would not wake it. A stopped or starting server just shows why there are no values.
+- Rating (`PerfLevel`): critical below 15 TPS or from 60 ms per tick, warning below 19.5 TPS or from 40 ms, otherwise fine.
 
 ## Findings from live tests
 

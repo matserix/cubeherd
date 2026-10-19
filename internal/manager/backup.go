@@ -27,6 +27,8 @@ type Backup struct {
 	Remote bool // archive exists in the external storage
 	// UploadErr is set by backup() when the archive was made but the external upload failed.
 	UploadErr error
+	// Check is the stored verification result: "" (never checked), ok or bad.
+	Check, CheckErr string
 }
 
 const (
@@ -120,7 +122,10 @@ func (m *Manager) BackupNow(id, reason string) error {
 	return m.run(id, server.StatusBackingUp, func(o *Op) error {
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Hour)
 		defer cancel()
-		_, err := m.backup(ctx, s, o, reason, m.BackupDir(s), "")
+		b, err := m.backup(ctx, s, o, reason, m.BackupDir(s), "")
+		if err == nil {
+			err = b.UploadErr // visible as a failed operation; the local archive is kept
+		}
 		return err
 	})
 }
@@ -159,6 +164,14 @@ func (m *Manager) paused(ctx context.Context, s *server.Server) bool {
 // backup writes one archive into destDir. A running server stops writing chunks while the
 // archive is made (save-off / save-all flush / save-on); paused and stopped servers are consistent anyway.
 func (m *Manager) backup(ctx context.Context, s *server.Server, o *Op, reason, destDir, prefix string) (Backup, error) {
+	b, err := m.backupRun(ctx, s, o, reason, destDir, prefix)
+	if err != nil && prefix == "" && !errors.Is(err, errCorrupt) {
+		m.recordFail(s.ID, err.Error(), false)
+	}
+	return b, err
+}
+
+func (m *Manager) backupRun(ctx context.Context, s *server.Server, o *Op, reason, destDir, prefix string) (Backup, error) {
 	if err := os.MkdirAll(destDir, 0o755); err != nil {
 		return Backup{}, err
 	}
@@ -223,6 +236,21 @@ func (m *Manager) backup(ctx context.Context, s *server.Server, o *Op, reason, d
 		b.Size = info.Size()
 	}
 	o.add("[cubeherd] " + m.t("Backup fertig: %s (%.1f MB, %s)", name, float64(b.Size)/(1<<20), time.Since(now).Round(time.Second)))
+	if !s.Plan().NoVerify {
+		o.add("[cubeherd] " + m.t("Prüfe Archiv"))
+		if err := m.verifyArchive(ctx, s, destDir, name); err != nil {
+			if prefix == "" {
+				m.recordCheck(s.ID, name, err)
+				m.recordFail(s.ID, err.Error(), true)
+			}
+			// A broken archive is kept for inspection, but neither pruned against nor uploaded.
+			return b, &corruptError{fmt.Sprintf(m.t("Backup beschädigt: %s"), err.Error())}
+		}
+		if prefix == "" {
+			m.recordCheck(s.ID, name, nil)
+		}
+		o.add("[cubeherd] " + m.t("Archiv ist in Ordnung"))
+	}
 	if prefix == "" && b.Automatic() {
 		if n := m.prune(s); n > 0 {
 			o.add("[cubeherd] " + m.t("%d alte automatische Backups gelöscht", n))
@@ -230,6 +258,11 @@ func (m *Manager) backup(ctx context.Context, s *server.Server, o *Op, reason, d
 	}
 	if prefix == "" {
 		m.ship(ctx, s, o, &b)
+		if b.UploadErr != nil {
+			m.recordFail(s.ID, b.UploadErr.Error(), false)
+		} else {
+			m.recordOK(s.ID)
+		}
 	}
 	return b, nil
 }

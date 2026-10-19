@@ -158,6 +158,7 @@ func newFuncs(lang string) template.FuncMap {
 		"diffName":     func(d string) string { return t(diffNames[d]) },
 		"diffTitle":    func(d string) string { return t(diffTitles[d]) },
 		"intervalName": func(i string) string { return t(intervalNames[i]) },
+		"warnName":     func(w string) string { return t(warnNames[w]) },
 		"idleName":     func(m string) string { return t(idleNames[m]) },
 	}
 }
@@ -167,6 +168,7 @@ var (
 	modeNames     = map[string]string{"survival": "Überleben", "creative": "Kreativ", "adventure": "Abenteuer", "spectator": "Zuschauer"}
 	diffNames     = map[string]string{"peaceful": "friedlich", "easy": "leicht", "normal": "normal", "hard": "schwer"}
 	diffTitles    = map[string]string{"peaceful": "Friedlich", "easy": "Leicht", "normal": "Normal", "hard": "Schwer"}
+	warnNames     = map[string]string{"": "2 verpassten Läufen", "25h": "25 Stunden", "3d": "3 Tagen"}
 	intervalNames = map[string]string{"off": "Aus", "6h": "Alle 6 Stunden", "daily": "Täglich", "weekly": "Wöchentlich"}
 	idleNames     = map[string]string{"pause": "Pausieren (Autopause)", "stop": "Stoppen (Autostop)", "none": "Weiterlaufen"}
 )

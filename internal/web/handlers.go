@@ -376,7 +376,7 @@ type tab struct {
 	V2         bool
 }
 
-var tabs = []tab{{"console", "Konsole", false}, {"settings", "Einstellungen", false}, {"players", "Spieler", false},
+var tabs = []tab{{"console", "Konsole", false}, {"perf", "Performance", false}, {"settings", "Einstellungen", false}, {"players", "Spieler", false},
 	{"mods", "Mods & Plugins", false}, {"backups", "Backups", false}, {"files", "Dateien", false}}
 
 type serverPage struct {
@@ -397,6 +397,7 @@ type serverPage struct {
 	DataDir    string
 	Backups    backupsData
 	Addons     addonsData
+	Perf       perfData
 }
 
 type statsData struct {
@@ -462,6 +463,8 @@ func (a *App) serverPageData(ctx context.Context, s *server.Server, tabKey strin
 			}
 		}
 		d.FullEnv = server.FormatEnv(env)
+	case "perf":
+		d.Perf = a.perfView(s, nil, nil, 0, 0, "loading", "")
 	case "players":
 		d.Bans = a.bans(s)
 	case "backups":

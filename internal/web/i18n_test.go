@@ -80,7 +80,7 @@ func usedKeys(t *testing.T) map[string]bool {
 	for _, v := range manager.ReasonLabels() {
 		add(v)
 	}
-	for _, m := range []map[string]string{modeNames, diffNames, diffTitles, intervalNames, idleNames, fileHints} {
+	for _, m := range []map[string]string{modeNames, diffNames, diffTitles, intervalNames, warnNames, idleNames, fileHints} {
 		for _, v := range m {
 			add(v)
 		}

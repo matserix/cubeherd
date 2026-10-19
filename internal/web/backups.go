@@ -24,10 +24,13 @@ type backupsData struct {
 	Running     bool
 	Remote      bool   // an external storage is configured
 	RemoteError string // listing the external storage failed
+	Health      manager.Health
+	OOB         bool // refresh the health banner above the schedule together with the list (htmx out-of-band)
 }
 
 func (a *App) backupsData(ctx context.Context, s *server.Server, st server.Status) backupsData {
 	d := backupsData{ID: s.ID, Plan: s.Plan(), Next: a.M.NextBackupFor(s), Busy: st.Busy(), Running: st.Up(), Remote: a.M.HasRemote()}
+	d.Health = a.M.BackupHealth(s, st.Live())
 	var err error
 	d.List, err = a.M.BackupsAll(ctx, s)
 	if err != nil {
@@ -47,7 +50,9 @@ func (a *App) backupList(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	v := a.M.View(r.Context(), s, false)
-	a.partial(w, "server", "backupList", a.backupsData(r.Context(), s, v.Status))
+	d := a.backupsData(r.Context(), s, v.Status)
+	d.OOB = true
+	a.partial(w, "server", "backupList", d)
 }
 
 func (a *App) backupCreate(w http.ResponseWriter, r *http.Request) {
@@ -80,6 +85,11 @@ func (a *App) backupPlan(w http.ResponseWriter, r *http.Request) {
 		Interval: r.FormValue("interval"), Time: strings.TrimSpace(r.FormValue("time")),
 		Keep: formInt(r, "keep", 7, 1, 100), BeforeUpdate: checked(r, "beforeUpdate"), OnlyIfActive: checked(r, "onlyIfActive"),
 		Remote: s.Plan().Remote, RemoteOnly: s.Plan().RemoteOnly,
+		NoVerify: !checked(r, "verify"), NoWarn: !checked(r, "warn"),
+	}
+	switch w := r.FormValue("warnAfter"); w {
+	case "25h", "3d":
+		p.WarnAfter = w
 	}
 	if a.M.HasRemote() {
 		p.Remote = checked(r, "remote")
@@ -106,7 +116,9 @@ func (a *App) backupPlan(w http.ResponseWriter, r *http.Request) {
 	} else {
 		a.toast(w, "ok", "Zeitplan gespeichert.")
 	}
-	a.partial(w, "server", "backupList", a.backupsData(r.Context(), s, a.M.View(r.Context(), s, false).Status))
+	d := a.backupsData(r.Context(), s, a.M.View(r.Context(), s, false).Status)
+	d.OOB = true
+	a.partial(w, "server", "backupList", d)
 }
 
 func (a *App) backupDownload(w http.ResponseWriter, r *http.Request) {
@@ -157,6 +169,20 @@ func (a *App) backupUpload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	a.toast(w, "", "Upload läuft.")
+	time.Sleep(150 * time.Millisecond)
+	a.backupList(w, r)
+}
+
+func (a *App) backupVerify(w http.ResponseWriter, r *http.Request) {
+	s, ok := a.loadServer(w, r)
+	if !ok {
+		return
+	}
+	if err := a.M.VerifyBackup(s.ID, r.PathValue("name")); err != nil {
+		fail(w, a.t(err.Error()))
+		return
+	}
+	a.toast(w, "", "Prüfung läuft.")
 	time.Sleep(150 * time.Millisecond)
 	a.backupList(w, r)
 }

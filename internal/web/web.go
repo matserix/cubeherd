@@ -152,6 +152,7 @@ func (a *App) Handler() http.Handler {
 	mux.HandleFunc("POST /servers/{id}/backups/plan", a.backupPlan)
 	mux.HandleFunc("GET /servers/{id}/backups/{name}", a.backupDownload)
 	mux.HandleFunc("POST /servers/{id}/backups/{name}/upload", a.backupUpload)
+	mux.HandleFunc("POST /servers/{id}/backups/{name}/verify", a.backupVerify)
 	mux.HandleFunc("POST /servers/{id}/backups/{name}/delete", a.backupDelete)
 	mux.HandleFunc("GET /servers/{id}/backups/{name}/restore", a.restoreModal)
 	mux.HandleFunc("POST /servers/{id}/backups/{name}/restore", a.restorePost)

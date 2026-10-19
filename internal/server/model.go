@@ -167,6 +167,9 @@ type BackupPlan struct {
 	OnlyIfActive bool   `json:"onlyIfActive"`         // skip scheduled runs while the server is stopped or paused
 	Remote       bool   `json:"remote,omitempty"`     // also upload every backup to the external storage
 	RemoteOnly   bool   `json:"remoteOnly,omitempty"` // delete the local copy after a successful upload (needs Remote)
+	NoVerify     bool   `json:"noVerify,omitempty"`   // skip reading the archive back after creating it
+	NoWarn       bool   `json:"noWarn,omitempty"`     // no health banner for missed or broken backups
+	WarnAfter    string `json:"warnAfter,omitempty"`  // "" (2 missed runs) | 25h | 3d
 }
 
 // DefaultBackupPlan is used for new servers and servers created before backups existed.

@@ -434,3 +434,29 @@ details summary::marker { color: var(--faint); }
 .tree-upload .btn { width: 100%; justify-content: flex-start; }
 .editor form { display: flex; flex-direction: column; }
 .btn { color: var(--fg); }
+
+/* Performance tab */
+.callout.ok { border-color: var(--ok); background: var(--ok-soft); }
+.perf-top { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; }
+@media (max-width: 1100px) { .perf-top { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 520px) { .perf-top { grid-template-columns: 1fr; } }
+.stat .sub { font-size: 12px; color: var(--muted); display: flex; justify-content: space-between; gap: 8px; }
+.stat.ok b.big { color: var(--ok); } .stat.warn b.big { color: var(--warn); } .stat.crit b.big { color: var(--crit); }
+.tone-ok { color: var(--ok); } .tone-warn { color: var(--warn); } .tone-crit { color: var(--crit); }
+.chart-wrap { padding: 8px 18px 18px; }
+.chart { width: 100%; height: 200px; display: block; }
+.chart .grid { stroke: var(--line); stroke-width: 1; }
+.chart .limit { stroke: var(--crit); stroke-width: 1; stroke-dasharray: 4 4; opacity: .7; }
+.chart .axis { fill: var(--faint); font-size: 10px; font-family: var(--font-mono); }
+.chart .area { fill: var(--accent-soft); }
+.chart .line { fill: none; stroke: var(--accent); stroke-width: 1.6; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
+.chart .line2 { fill: none; stroke: var(--info); stroke-width: 1.2; stroke-dasharray: 3 3; vector-effect: non-scaling-stroke; }
+.legend { display: flex; gap: 16px; font-size: 12px; color: var(--muted); padding: 0 18px 16px; flex-wrap: wrap; }
+.legend i { display: inline-block; width: 14px; height: 0; border-top: 2px solid var(--accent); vertical-align: middle; margin-right: 6px; }
+.legend i.b { border-top: 2px dashed var(--info); }
+.legend i.r { border-top: 2px dashed var(--crit); }
+.bar-cell { display: flex; align-items: center; gap: 10px; min-width: 160px; }
+.bar-cell .meter { flex: 1; }
+.src-note { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; font-size: 12px; color: var(--muted); }
+.tbl td.num, .tbl th.num { text-align: right; font-variant-numeric: tabular-nums; }
+#backup-health:empty { display: none; }

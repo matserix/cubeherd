@@ -78,6 +78,8 @@ It has a single admin account (bcrypt), signed session cookies (`SameSite=Strict
 - **Uninstall:** keep the data or delete everything.
 - **Adopt** existing itzg containers.
 - **Backups:** manual, scheduled, automatic before updates, restore, download. Optionally uploaded to S3-compatible storage (AWS S3, Backblaze B2, Hetzner, Wasabi, Cloudflare R2, MinIO), and optionally kept only there.
+- **Backup checks:** every archive is read back after it is made, damaged ones are flagged, and a banner warns when backups fail or stay overdue.
+- **Performance:** live TPS, tick time (MSPT), CPU and memory with a short history, per dimension on Forge and NeoForge. Queried over RCON only while the tab is open.
 - **Mods & plugins:** search Modrinth, CurseForge and Spigot, add and remove entries (itzg installs them on startup), upload your own JARs.
   Also works on top of modpacks.
 - **Files & worlds:** file browser with editor, upload, download and delete; export a world as a ZIP and import one.

@@ -1,0 +1,268 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Design-Mock: Performance-Tab · Cubeherd</title>
+<!-- Design mock only. Uses the real stylesheet; all numbers are fake. -->
+<link rel="stylesheet" href="../internal/web/static/app.css">
+<style>
+  .mock-bar { position: fixed; right: 16px; bottom: 16px; z-index: 50; display: flex; gap: 6px; align-items: center; background: var(--surface); border: 1px solid var(--line-strong); border-radius: 8px; padding: 8px 10px; box-shadow: var(--shadow); font-size: 12px; }
+  .mock-bar .label { margin-right: 4px; }
+  .mock-bar .btn[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent); color: var(--fg); }
+  .pill.ok { color: var(--ok); background: var(--ok-soft); }
+  .pill.warn { color: var(--warn); background: var(--warn-soft); }
+  .pill.crit { color: var(--crit); background: var(--crit-soft); }
+  .pill.muted { color: var(--muted); background: var(--surface-3); }
+  .perf-top { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; }
+  @media (max-width: 1100px) { .perf-top { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  @media (max-width: 520px) { .perf-top { grid-template-columns: 1fr; } }
+  .stat .sub { font-size: 12px; color: var(--muted); display: flex; justify-content: space-between; gap: 8px; }
+  .stat.ok b.big { color: var(--ok); } .stat.warn b.big { color: var(--warn); } .stat.crit b.big { color: var(--crit); }
+  .chart-wrap { padding: 8px 18px 18px; }
+  .chart { width: 100%; height: 200px; display: block; }
+  .chart .grid { stroke: var(--line); stroke-width: 1; }
+  .chart .limit { stroke: var(--crit); stroke-width: 1; stroke-dasharray: 4 4; opacity: .7; }
+  .chart .axis { fill: var(--faint); font-size: 10px; font-family: var(--font-mono); }
+  .chart .area { fill: var(--accent-soft); }
+  .chart .line { fill: none; stroke: var(--accent); stroke-width: 1.6; stroke-linejoin: round; }
+  .chart .line2 { fill: none; stroke: var(--info); stroke-width: 1.2; stroke-dasharray: 3 3; }
+  .legend { display: flex; gap: 16px; font-size: 12px; color: var(--muted); padding: 0 18px 0; flex-wrap: wrap; }
+  .legend i { display: inline-block; width: 14px; height: 0; border-top: 2px solid var(--accent); vertical-align: middle; margin-right: 6px; }
+  .legend i.b { border-top: 2px dashed var(--info); }
+  .legend i.r { border-top: 2px dashed var(--crit); }
+  .bar-cell { display: flex; align-items: center; gap: 10px; min-width: 160px; }
+  .bar-cell .meter { flex: 1; }
+  .src-note { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; font-size: 12px; color: var(--muted); }
+  .view[hidden] { display: none; }
+  .badge-ok { color: var(--ok); } .badge-warn { color: var(--warn); } .badge-crit { color: var(--crit); }
+  .tbl td.num, .tbl th.num { text-align: right; font-variant-numeric: tabular-nums; }
+</style>
+</head>
+<body>
+<div class="app" id="app">
+  <aside class="side">
+    <a class="brand" href="#" style="text-decoration:none;color:inherit"><svg viewBox="0 0 24 24" aria-hidden="true" width="26" height="26"><path d="M12 2 21 7 12 12 3 7Z" fill="var(--accent-2)"/><path d="M3 7 12 12V22L3 17Z" fill="var(--accent)"/><path d="M21 7 12 12V22L21 17Z" fill="var(--accent-3)"/></svg><b>Cubeherd</b></a>
+    <nav class="nav">
+      <a href="#" class="navlink">Übersicht</a>
+      <a href="#" class="navlink">Neuer Server</a>
+      <a href="#" class="navlink">Einstellungen</a>
+    </nav>
+    <div class="rack-wrap">
+      <div class="rack-head"><span class="label">Server</span><span class="label num">2</span></div>
+      <div class="rack">
+        <a href="#" aria-current="true"><span class="nm"><i class="dot s-running"></i><span>All the Mods 10</span></span><span class="meta">0/10</span></a>
+        <a href="#"><span class="nm"><i class="dot s-stopped"></i><span>Survival</span></span><span class="meta"></span></a>
+      </div>
+    </div>
+    <div class="side-foot"><div class="row"><span>Cubeherd</span><span class="num">0.3.0</span></div></div>
+  </aside>
+
+  <main class="main" id="main">
+    <section class="view" id="v-perf">
+      <div class="srv-head">
+        <div>
+          <div class="srv-title"><h1>All the Mods 10</h1><span class="pill ok">Läuft</span></div>
+          <div class="srv-meta"><span>NeoForge 1.21.1</span><span class="mono">:25565</span><span class="mono">java21</span><span>läuft seit 3 Std.</span></div>
+        </div>
+        <div class="actions"><button class="btn">Neu starten</button><button class="btn">Stoppen</button><button class="btn">Update</button></div>
+      </div>
+      <div class="tabs" role="tablist" style="margin-top:16px">
+        <a class="tab" href="#" aria-selected="false">Konsole</a>
+        <a class="tab" href="#" aria-selected="true">Performance</a>
+        <a class="tab" href="#" aria-selected="false">Einstellungen</a>
+        <a class="tab" href="#" aria-selected="false">Spieler</a>
+        <a class="tab" href="#" aria-selected="false">Mods &amp; Plugins</a>
+        <a class="tab" href="#" aria-selected="false" data-go="backups">Backups</a>
+        <a class="tab" href="#" aria-selected="false">Dateien</a>
+      </div>
+
+      <div class="stack" style="margin-top:16px" id="perf-body">
+        <div class="callout" id="verdict"></div>
+
+        <div class="perf-top">
+          <div class="panel stat" id="c-tps"></div>
+          <div class="panel stat" id="c-mspt"></div>
+          <div class="panel stat" id="c-cpu"></div>
+          <div class="panel stat" id="c-ram"></div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-head">
+            <b>Tick-Zeit</b>
+            <div class="src-note"><span>Seit Seitenaufruf · alle 5 s abgefragt · maximal 10 Minuten</span></div>
+          </div>
+          <div class="chart-wrap">
+            <svg class="chart" id="chart" viewBox="0 0 900 200" preserveAspectRatio="none" aria-label="MSPT-Verlauf"></svg>
+          </div>
+          <div class="legend" style="padding-bottom:16px">
+            <span><i></i>MSPT (Mittel)</span><span><i class="b"></i>95. Perzentil</span><span><i class="r"></i>50 ms = Limit für 20 TPS</span>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-head"><b>Dimensionen</b><span class="muted" style="font-size:12px">Nur Forge, NeoForge, Paper, Purpur und Folia liefern Werte pro Welt</span></div>
+          <div class="tbl-wrap"><table class="tbl"><thead><tr><th>Dimension</th><th class="num">TPS</th><th class="num">MSPT</th><th>Auslastung des Tick-Budgets</th></tr></thead><tbody id="dims"></tbody></table></div>
+        </div>
+
+        <div class="callout info">
+          <div><b>Tiefer analysieren</b><span class="muted">Welche Mod oder welcher Chunk die Zeit frisst, zeigt ein Profiler. Starte <span class="mono">spark profiler</span> im Spiel als Operator. spark antwortet nicht über RCON, deshalb kann Cubeherd es hier nicht anzeigen.</span></div>
+        </div>
+        <p class="muted" style="font-size:12px">Quelle: <span class="mono" id="srcCmd">neoforge tps</span> über RCON. Cubeherd fragt nur, solange diese Seite offen ist, und speichert nichts. Der Verlauf verschwindet beim Schließen.</p>
+      </div>
+    </section>
+
+    <section class="view" id="v-backups" hidden>
+      <div class="srv-head">
+        <div>
+          <div class="srv-title"><h1>All the Mods 10</h1><span class="pill ok">Läuft</span></div>
+          <div class="srv-meta"><span>NeoForge 1.21.1</span><span class="mono">:25565</span><span class="mono">java21</span></div>
+        </div>
+      </div>
+      <div class="tabs" role="tablist" style="margin-top:16px">
+        <a class="tab" href="#" aria-selected="false">Konsole</a>
+        <a class="tab" href="#" aria-selected="false" data-go="perf">Performance</a>
+        <a class="tab" href="#" aria-selected="false">Einstellungen</a>
+        <a class="tab" href="#" aria-selected="false">Spieler</a>
+        <a class="tab" href="#" aria-selected="false">Mods &amp; Plugins</a>
+        <a class="tab" href="#" aria-selected="true">Backups</a>
+        <a class="tab" href="#" aria-selected="false">Dateien</a>
+      </div>
+      <div class="stack" style="margin-top:16px">
+        <div class="callout" id="bk-verdict"></div>
+        <div class="panel">
+          <div class="panel-head"><b>Vorhandene Backups <span class="muted">4</span></b><span class="muted" style="font-size:12px">Nächstes geplant: Morgen, 04:00</span></div>
+          <div class="tbl-wrap"><table class="tbl"><thead><tr><th>Zeitpunkt</th><th>Anlass</th><th>Größe</th><th>Speicherort</th><th>Prüfung</th><th class="right"></th></tr></thead><tbody id="bk-rows"></tbody></table></div>
+        </div>
+        <div class="panel panel-pad">
+          <div class="grid-2">
+            <label class="switch"><input type="checkbox" checked><span class="txt">Archive nach dem Erstellen prüfen<small>Liest das Archiv einmal komplett durch (zstd und tar), ohne es zu entpacken. Kostet ein paar Sekunden CPU mit niedriger Priorität.</small></span></label>
+            <label class="switch"><input type="checkbox" checked><span class="txt">Warnen, wenn zu lange kein Backup gelingt<small>Meldet sich im Dashboard und, falls eingerichtet, per Webhook.</small></span></label>
+          </div>
+          <div class="grid-3" style="margin-top:16px">
+            <label class="field"><span>Warnen nach</span><select class="input"><option>2 verpassten Läufen</option><option>25 Stunden</option><option>3 Tagen</option></select><small>Gilt für geplante Backups. Gestoppte Server mit „Nur sichern, wenn der Server läuft“ zählen nicht.</small></label>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<div class="mock-bar">
+  <span class="label">Zustand</span>
+  <button class="btn sm" data-state="ok" aria-pressed="true">Gesund</button>
+  <button class="btn sm" data-state="warn" aria-pressed="false">Langsam</button>
+  <button class="btn sm" data-state="crit" aria-pressed="false">Überlastet</button>
+  <button class="btn sm" data-state="none" aria-pressed="false">Keine Daten</button>
+  <span class="label" style="margin-left:10px">Software</span>
+  <button class="btn sm" data-sw="neoforge" aria-pressed="true">NeoForge</button>
+  <button class="btn sm" data-sw="vanilla" aria-pressed="false">Vanilla</button>
+</div>
+
+<script>
+const $ = (s, r = document) => r.querySelector(s);
+let state = 'ok', sw = 'neoforge';
+const cfg = {
+  ok:   { tps: 20.0, mspt: 14.2, p95: 22, cpu: 31, ram: 6.8, tone: 'ok',   base: 14, jit: 4 },
+  warn: { tps: 18.4, mspt: 43.8, p95: 71, cpu: 78, ram: 7.4, tone: 'warn', base: 42, jit: 14 },
+  crit: { tps: 9.7,  mspt: 102.5, p95: 160, cpu: 99, ram: 7.9, tone: 'crit', base: 100, jit: 30 },
+};
+const dimsAll = [
+  ['Overworld', 1.0], ['The Nether', .55], ['The End', .2], ['Mining Dimension', .15], ['Twilight Forest', .3], ['The Aether', .25], ['Moon', .12],
+];
+function series(c, n = 120) {
+  let v = c.base, out = [], out95 = [];
+  for (let i = 0; i < n; i++) {
+    v = Math.max(3, c.base + (v - c.base) * .7 + (Math.sin(i / 7) * c.jit * .4) + (Math.random() - .5) * c.jit);
+    out.push(v); out95.push(v * 1.4 + Math.random() * c.jit * .4);
+  }
+  return [out, out95];
+}
+function spark(vals, max, tone) {
+  const w = 160, h = 40, p = vals.map((v, i) => `${(i / (vals.length - 1) * w).toFixed(1)},${(h - Math.min(v / max, 1) * (h - 4) - 2).toFixed(1)}`);
+  const col = `var(--${tone === 'none' ? 'faint' : tone})`;
+  return `<svg class="spark" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none"><polyline points="${p.join(' ')}" fill="none" stroke="${col}" stroke-width="1.6" stroke-linejoin="round"/></svg>`;
+}
+function render() {
+  const none = state === 'none', c = cfg[state] || cfg.ok, tone = none ? 'none' : c.tone;
+  const verdict = $('#verdict');
+  const msgs = {
+    ok:   ['info', 'Der Server läuft stabil', `Der Server hält die volle Taktrate von 20 TPS. Im Mittel braucht ein Tick ${c.mspt.toLocaleString('de')} ms von 50 ms.`],
+    warn: ['warn', 'Der Server wird langsamer', 'Ein Tick braucht im Mittel fast das ganze Budget von 50 ms. Spieler merken das bald als Rubberbanding. Prüfe vorgeladene Chunks, Entities und große Maschinen-Netzwerke.'],
+    crit: ['crit', 'Der Server ist überlastet', 'Die Ticks dauern länger als 50 ms, der Server fällt hinter die Echtzeit zurück. Das Spiel läuft für alle in Zeitlupe.'],
+    none: ['info', 'Noch keine Messwerte', 'Cubeherd erreicht RCON nicht oder der Server startet gerade. Sobald er antwortet, erscheinen hier die Werte.'],
+  }[none ? 'none' : state];
+  verdict.className = 'callout ' + (msgs[0] === 'info' && state === 'ok' ? '' : msgs[0]);
+  if (state === 'ok') verdict.style.cssText = 'border-color:var(--ok);background:var(--ok-soft)'; else verdict.style.cssText = '';
+  verdict.innerHTML = `<div><b>${msgs[1]}</b><span class="muted">${msgs[2]}</span></div>`;
+
+  const [s1, s95] = series(c);
+  const tpsS = s1.map(v => Math.min(20, 1000 / Math.max(v, 50)));
+  const dash = '<span class="muted">–</span>';
+  $('#c-tps').className = 'panel stat ' + (none ? '' : c.tone);
+  $('#c-tps').innerHTML = `<span class="label">TPS</span><div class="val"><b class="big">${none ? '–' : c.tps.toLocaleString('de', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}</b><span class="muted" style="font-size:12px">Ziel 20</span></div>${none ? '' : spark(tpsS, 20, tone)}<div class="sub"><span>Ticks pro Sekunde</span></div>`;
+  $('#c-mspt').className = 'panel stat ' + (none ? '' : c.tone);
+  const pct = none ? 0 : Math.min(100, c.mspt / 50 * 100);
+  $('#c-mspt').innerHTML = `<span class="label">MSPT</span><div class="val"><b class="big">${none ? '–' : c.mspt.toLocaleString('de') + ' ms'}</b><span class="muted" style="font-size:12px">von 50 ms</span></div><div class="meter ${none ? '' : c.tone}"><i style="width:${pct}%"></i></div><div class="sub"><span>Mittel</span><span>${none ? '' : 'P95 ' + c.p95 + ' ms'}</span></div>`;
+  $('#c-cpu').className = 'panel stat';
+  $('#c-cpu').innerHTML = `<span class="label">CPU</span><div class="val"><b>${none ? '–' : c.cpu + ' %'}</b><span class="muted" style="font-size:12px">vom Host</span></div>${none ? '' : spark(s1.map(v => c.cpu * (0.8 + v / (c.base * 5))), 100, 'accent')}<div class="sub"><span>aus Docker</span></div>`;
+  $('#c-ram').className = 'panel stat';
+  $('#c-ram').innerHTML = `<span class="label">Arbeitsspeicher</span><div class="val"><b>${none ? '–' : c.ram.toLocaleString('de') + ' GB'}</b><span class="muted num" style="font-size:12px">von 10 GB</span></div><div class="meter ${none ? '' : (c.ram > 9 ? 'crit' : c.ram > 7.5 ? 'warn' : '')}"><i style="width:${none ? 0 : c.ram / 10 * 100}%"></i></div><div class="sub"><span>Heap 7,0 GB</span></div>`;
+
+  // chart
+  const W = 900, H = 200, maxY = Math.max(60, ...s95) * 1.1;
+  const y = v => H - 22 - (v / maxY) * (H - 30), x = i => 36 + (i / (s1.length - 1)) * (W - 44);
+  const pts = a => a.map((v, i) => `${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(' ');
+  let g = '';
+  [0, 25, 50, 75, 100, 150, 200].filter(t => t <= maxY).forEach(t => { g += `<line class="grid" x1="36" x2="${W - 8}" y1="${y(t)}" y2="${y(t)}"/><text class="axis" x="30" y="${y(t) + 3}" text-anchor="end">${t}</text>`; });
+  ['vor 10 Min.', 'vor 5 Min.', 'jetzt'].forEach((t, i) => { g += `<text class="axis" x="${[36, W / 2, W - 8][i]}" y="${H - 4}" text-anchor="${['start', 'middle', 'end'][i]}">${t}</text>`; });
+  $('#chart').innerHTML = none ? `<text class="axis" x="${W / 2}" y="${H / 2}" text-anchor="middle">Keine Daten</text>` :
+    `${g}<line class="limit" x1="36" x2="${W - 8}" y1="${y(50)}" y2="${y(50)}"/><polygon class="area" points="36,${y(0)} ${pts(s1)} ${W - 8},${y(0)}"/><polyline class="line2" points="${pts(s95)}"/><polyline class="line" points="${pts(s1)}"/>`;
+
+  // dimensions
+  const rows = $('#dims');
+  $('#srcCmd').textContent = sw === 'neoforge' ? 'neoforge tps' : 'tick query';
+  const dims = sw === 'neoforge' ? dimsAll : [['Gesamt', 1]];
+  rows.innerHTML = none ? '<tr><td colspan="4" class="muted">Keine Daten.</td></tr>' : dims.map(([n, f]) => {
+    const m = +(c.mspt * f).toFixed(1), t = Math.min(20, 1000 / Math.max(m, 50)), p = Math.min(100, m / 50 * 100);
+    const tn = p > 95 ? 'crit' : p > 70 ? 'warn' : 'ok';
+    return `<tr><td>${n}</td><td class="num ${'badge-' + tn}">${t.toLocaleString('de', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}</td><td class="num">${m.toLocaleString('de')} ms</td><td><div class="bar-cell"><div class="meter ${tn}"><i style="width:${p}%"></i></div><span class="muted num" style="font-size:12px;min-width:34px;text-align:right">${Math.round(p)} %</span></div></td></tr>`;
+  }).join('');
+}
+document.querySelectorAll('[data-state]').forEach(b => b.addEventListener('click', () => {
+  state = b.dataset.state; document.querySelectorAll('[data-state]').forEach(x => x.setAttribute('aria-pressed', x === b)); render(); renderBackups();
+}));
+document.querySelectorAll('[data-sw]').forEach(b => b.addEventListener('click', () => {
+  sw = b.dataset.sw; document.querySelectorAll('[data-sw]').forEach(x => x.setAttribute('aria-pressed', x === b)); render();
+}));
+
+/* ---- Backups ---- */
+function renderBackups() {
+  const bad = state === 'crit', old = state === 'warn';
+  const v = $('#bk-verdict');
+  if (bad) { v.className = 'callout crit'; v.innerHTML = '<div><b>Das letzte Backup ist beschädigt</b><span class="muted">Die Prüfung von „Heute, 04:00“ ist fehlgeschlagen: Archiv endet unerwartet (zstd: Frame abgeschnitten). Das letzte gute Backup ist 2 Tage alt. Lege jetzt ein neues an.</span></div><button class="btn danger-solid">Jetzt sichern</button>'; }
+  else if (old) { v.className = 'callout warn'; v.innerHTML = '<div><b>Seit 3 Tagen kein erfolgreiches Backup</b><span class="muted">Die letzten 3 geplanten Läufe sind ausgefallen (Upload in den externen Speicher fehlgeschlagen: AccessDenied). Das letzte gute Backup ist vom 16.10., 04:00.</span></div><button class="btn">Jetzt sichern</button>'; }
+  else { v.className = 'callout'; v.style.cssText = 'border-color:var(--ok);background:var(--ok-soft)'; v.innerHTML = '<div><b>Backups sind in Ordnung</b><span class="muted">Letztes erfolgreiches Backup: heute, 04:00 · geprüft · extern gespeichert.</span></div>'; }
+  if (bad || old) v.style.cssText = '';
+  const chk = (t, tip) => `<span class="pill ${t}" title="${tip}">${{ ok: 'Geprüft', crit: 'Defekt', warn: 'Ungeprüft', muted: 'Läuft …' }[t]}</span>`;
+  const rows = old ? [
+    ['Fr., 16.10., 04:00', 'Zeitplan', '1,2 GB', 'Lokal + extern', chk('ok', '')],
+    ['Do., 15.10., 04:00', 'Zeitplan', '1,2 GB', 'Lokal + extern', chk('ok', '')],
+    ['Mi., 14.10., 22:10', 'Vor Update', '1,1 GB', 'Extern', chk('ok', '')],
+    ['So., 11.10., 15:41', 'Manuell', '1,1 GB', 'Lokal', chk('warn', 'Vor dem Einschalten der Prüfung erstellt')],
+  ] : [
+    ['Heute, 04:00', 'Zeitplan', '1,2 GB', 'Lokal + extern', bad ? chk('crit', 'Archiv abgeschnitten') : chk('ok', 'Gelesen am Heute, 04:03')],
+    ['Gestern, 04:00', 'Zeitplan', '1,2 GB', 'Lokal + extern', chk('ok', '')],
+    ['Mo., 22:10', 'Vor Update', '1,1 GB', 'Extern', chk('ok', '')],
+    ['So., 15:41', 'Manuell', '1,1 GB', 'Lokal', chk('warn', 'Vor dem Einschalten der Prüfung erstellt')],
+  ];
+  $('#bk-rows').innerHTML = rows.map(r => `<tr><td>${r[0]}</td><td>${r[1]}</td><td>${r[2]}</td><td>${r[3]}</td><td>${r[4]}</td><td class="right"><button class="btn sm">Wiederherstellen</button> <button class="btn sm ghost">Prüfen</button></td></tr>`).join('');
+}
+document.querySelectorAll('[data-go]').forEach(a => a.addEventListener('click', e => {
+  e.preventDefault(); const t = a.dataset.go;
+  $('#v-perf').hidden = t !== 'perf'; $('#v-backups').hidden = t !== 'backups';
+}));
+render(); renderBackups();
+</script>
+</body>
+</html>

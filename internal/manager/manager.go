@@ -41,6 +41,7 @@ type Manager struct {
 	phase map[string]*phaseEntry
 
 	rcache map[string]remoteEntry // external backup listings per server
+	hmu    sync.Mutex             // serialises backup-health.json updates
 
 	started  time.Time            // scheduler: anchor for catching up missed runs
 	wake     chan struct{}        // scheduler: recompute next backup

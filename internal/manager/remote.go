@@ -98,6 +98,7 @@ func (m *Manager) BackupsAll(ctx context.Context, s *server.Server) ([]Backup, e
 	}
 	c := m.remote()
 	if c == nil {
+		m.annotate(s, local)
 		return local, nil
 	}
 	objs, rerr := m.remoteObjects(ctx, s, false)
@@ -120,6 +121,7 @@ func (m *Manager) BackupsAll(ctx context.Context, s *server.Server) ([]Backup, e
 	}
 	local = append(local, remoteOnly...)
 	sort.Slice(local, func(i, j int) bool { return local[i].Time.After(local[j].Time) })
+	m.annotate(s, local)
 	return local, rerr
 }
 

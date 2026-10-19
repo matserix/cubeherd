@@ -46,6 +46,9 @@ func (a *App) serverEvents(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	if r.FormValue("tab") == "perf" {
+		go a.streamPerf(ctx, s, emit)
+	}
 	if console {
 		lines := make(chan string, 512)
 		go a.streamLogs(ctx, s, lines)

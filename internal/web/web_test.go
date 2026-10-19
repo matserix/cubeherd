@@ -128,6 +128,31 @@ func renderPartials(t *testing.T, lang string) {
 	if _, err := a.renderString("server", "tabBackups", bd); err != nil {
 		t.Error(err)
 	}
+	// Backup health banner and verification column in every state.
+	for _, lvl := range []string{"ok", "warn", "crit", "off", ""} {
+		bd.Health = manager.Health{Level: lvl, Title: "t", Detail: "d"}
+		bd.List[0].Check = map[string]string{"ok": "ok", "warn": "", "crit": "bad"}[lvl]
+		if out, err := a.renderString("server", "backupList", bd); err != nil {
+			t.Errorf("backupList %q: %v", lvl, err)
+		} else if lvl == "off" && strings.Contains(out, `class="callout off"`) {
+			t.Error("health level off must not render a banner")
+		}
+	}
+	// Performance tab: every state, with and without per-dimension rows and percentiles.
+	ps := []server.PerfSample{{TPS: 20, MSPT: 14.2, P95: 22, HaveP95: true, Dims: []server.PerfDim{{Name: "Overworld", TPS: 20, MSPT: 14.2}}}, {TPS: 9.7, MSPT: 102.5}}
+	for _, reason := range []string{"loading", "stopped", "paused", "starting", "unsupported", "waiting"} {
+		if _, err := a.renderString("server", "perfBody", a.perfView(s, nil, nil, 0, 0, reason, "boom")); err != nil {
+			t.Errorf("perfBody %s: %v", reason, err)
+		}
+	}
+	for _, n := range []int{1, 2} {
+		if _, err := a.renderString("server", "perfBody", a.perfView(s, ps[:n], []float64{3, 8, 5}, 31, 7<<30, "", "")); err != nil {
+			t.Errorf("perfBody samples=%d: %v", n, err)
+		}
+	}
+	if _, err := a.renderString("server", "tabPerf", serverPage{Perf: a.perfView(s, nil, nil, 0, 0, "loading", "")}); err != nil {
+		t.Error(err)
+	}
 	if _, err := a.renderString("server", "restoreModal", map[string]any{"S": s, "B": bd.List[0], "Pack": true}); err != nil {
 		t.Error(err)
 	}
