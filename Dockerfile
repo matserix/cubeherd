@@ -4,7 +4,8 @@ WORKDIR /src
 COPY go.mod go.sum ./
 RUN go mod download
 COPY . .
-RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /cubeherd ./cmd/cubeherd
+ARG VERSION=dev
+RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w -X cubeherd/internal/web.Version=${VERSION#v}" -o /cubeherd ./cmd/cubeherd
 
 # docker:cli ships docker and the compose plugin; Cubeherd calls "docker compose".
 FROM docker:29-cli

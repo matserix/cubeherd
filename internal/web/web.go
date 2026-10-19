@@ -31,7 +31,8 @@ var templateFS embed.FS
 //go:embed static
 var staticFS embed.FS
 
-const Version = "0.1.0"
+// Version is set at build time (-ldflags "-X cubeherd/internal/web.Version=0.2.4"); "dev" for plain go builds.
+var Version = "dev"
 
 type App struct {
 	M       *manager.Manager
