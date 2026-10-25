@@ -11,7 +11,7 @@
 <script src="{{static "app.js"}}" defer></script>
 <meta name="htmx-config" content='{"includeIndicatorStyles":false,"defaultSwapStyle":"innerHTML"}'>
 </head>
-<body data-decimal="{{decimal}}" data-t-reqfail="{{t "Anfrage fehlgeschlagen. Ist Cubeherd erreichbar?"}}" data-t-noconn="{{t "Keine Verbindung zu Cubeherd."}}">
+<body data-decimal="{{decimal}}" data-t-reqfail="{{t "Anfrage fehlgeschlagen. Ist Cubeherd erreichbar?"}}" data-t-noconn="{{t "Keine Verbindung zu Cubeherd."}}" data-t-uprest="{{t "noch %s"}}" data-t-upleave="{{t "Der Upload läuft noch. Seite wirklich verlassen?"}}">
 {{if eq .Nav "login"}}{{template "content" .}}{{else}}
 <div class="app" id="app">
   <aside class="side">

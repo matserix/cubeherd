@@ -227,6 +227,10 @@ func (a *App) worldUpload(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
+	if a.M.Busy(s.ID) {
+		a.fail(w, manager.ErrBusy.Error())
+		return
+	}
 	r.Body = http.MaxBytesReader(w, r.Body, maxWorldUpload)
 	mr, err := r.MultipartReader()
 	if err != nil {

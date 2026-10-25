@@ -207,9 +207,15 @@ func (m *Manager) ImportWorld(s *server.Server, zipPath string) error {
 			return fmt.Errorf(m.t("Sicherung der bisherigen Welt fehlgeschlagen, nichts geändert: %w"), err)
 		}
 		name := m.LevelName(ctx, s)
-		o.add("[cubeherd] " + m.t("Ersetze Welt „%s“", name))
+		files, total := zipSize(&zr.Reader, root)
+		o.add("[cubeherd] " + m.t("Ersetze Welt „%s“ (%d Dateien, %s)", name, files, humanSize(total)))
 		pr, pw := io.Pipe()
-		go func() { pw.CloseWithError(zipToTar(&zr.Reader, root, name, pw)) }()
+		go func() {
+			prog := &progressWriter{w: pw, total: total, report: func(pct int) {
+				o.add("[cubeherd] " + m.t("Entpacke Welt … %d %%", pct))
+			}}
+			pw.CloseWithError(zipToTar(&zr.Reader, root, name, prog))
+		}()
 		script := `set -e; cd /data; rm -rf -- "$N" "${N}_nether" "${N}_the_end"; tar -xf - --no-same-permissions; chown -R 1000:1000 "$N"`
 		var out bytes.Buffer
 		if err := m.dataShell(ctx, s, script, map[string]string{"N": name}, pr, &out, false); err != nil {
@@ -224,4 +230,50 @@ func (m *Manager) ImportWorld(s *server.Server, zipPath string) error {
 		}
 		return nil
 	})
+}
+
+// zipSize counts the regular files below root and their uncompressed size.
+func zipSize(zr *zip.Reader, root string) (files int, total int64) {
+	for _, f := range zr.File {
+		n := strings.ReplaceAll(f.Name, "\\", "/")
+		if strings.HasPrefix(n, root) && !f.FileInfo().IsDir() {
+			files++
+			total += int64(f.UncompressedSize64)
+		}
+	}
+	return files, total
+}
+
+func humanSize(n int64) string {
+	const unit = 1024
+	if n < unit {
+		return fmt.Sprintf("%d B", n)
+	}
+	f, i := float64(n), 0
+	for f >= unit && i < 4 {
+		f /= unit
+		i++
+	}
+	return fmt.Sprintf("%.1f %s", f, []string{"KB", "MB", "GB", "TB", "PB"}[i-1])
+}
+
+// progressWriter reports every 10 % of the expected bytes passing through it.
+type progressWriter struct {
+	w      io.Writer
+	total  int64
+	n      int64
+	last   int
+	report func(pct int)
+}
+
+func (p *progressWriter) Write(b []byte) (int, error) {
+	n, err := p.w.Write(b)
+	p.n += int64(n)
+	if p.total > 0 {
+		if pct := int(min(p.n*100/p.total, 99)) / 10 * 10; pct > p.last {
+			p.last = pct
+			p.report(pct)
+		}
+	}
+	return n, err
 }

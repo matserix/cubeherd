@@ -90,3 +90,28 @@ func TestTarToZip(t *testing.T) {
 		t.Errorf("zip entries: %v", zr.File)
 	}
 }
+
+func TestProgressWriter(t *testing.T) {
+	var got []int
+	p := &progressWriter{w: io.Discard, total: 1000, report: func(pct int) { got = append(got, pct) }}
+	for i := 0; i < 10; i++ {
+		p.Write(make([]byte, 100))
+	}
+	want := []int{10, 20, 30, 40, 50, 60, 70, 80, 90}
+	if len(got) != len(want) {
+		t.Fatalf("reports = %v, want %v", got, want)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Fatalf("reports = %v, want %v", got, want)
+		}
+	}
+}
+
+func TestHumanSize(t *testing.T) {
+	for n, want := range map[int64]string{512: "512 B", 2048: "2.0 KB", 5 << 30: "5.0 GB"} {
+		if got := humanSize(n); got != want {
+			t.Errorf("humanSize(%d) = %q, want %q", n, got, want)
+		}
+	}
+}

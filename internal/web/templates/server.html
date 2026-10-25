@@ -254,10 +254,19 @@
 <div class="stack">
   <div class="actions">
     <a class="btn" href="/servers/{{$s.ID}}/world.zip" download style="text-decoration:none">{{t "Welt herunterladen (ZIP)"}}</a>
-    <form hx-post="/servers/{{$s.ID}}/world" hx-encoding="multipart/form-data" hx-trigger="change" hx-confirm="{{t "Die aktuelle Welt wird durch die hochgeladene ersetzt. Vorher entsteht automatisch ein Backup. Fortfahren?"}}">
+    <form id="world-form" hx-post="/servers/{{$s.ID}}/world" hx-encoding="multipart/form-data" hx-trigger="change" hx-confirm="{{t "Die aktuelle Welt wird durch die hochgeladene ersetzt. Vorher entsteht automatisch ein Backup. Fortfahren?"}}">
       <label class="btn"><input type="file" name="world" accept=".zip" hidden>{{t "Welt hochladen (ZIP)"}} <span class="spin-on-req"></span></label>
     </form>
     <span class="muted" style="font-size:12px">{{t "Singleplayer-Welten funktionieren direkt. Vor dem Ersetzen wird automatisch gesichert."}}</span>
+  </div>
+  <div class="panel panel-pad upload" id="world-up" hidden role="status" aria-live="polite">
+    <div class="upload-head"><b id="wu-name" class="mono"></b><span class="muted num" id="wu-pct"></span></div>
+    <div class="meter"><i id="wu-bar"></i></div>
+    <div class="upload-meta">
+      <span class="muted num" id="wu-info"></span>
+      <button class="btn sm" type="button" id="wu-cancel">{{t "Abbrechen"}}</button>
+    </div>
+    <p class="muted" id="wu-phase" style="margin:0;font-size:12.5px" hidden>{{t "Upload abgeschlossen. Cubeherd prüft die Datei und startet das Einspielen …"}}</p>
   </div>
   <div class="panel files">
     <div class="tree" id="file-tree" hx-get="/servers/{{$s.ID}}/files/list?path=" hx-trigger="load"><p class="empty" style="padding:8px">{{t "Lade …"}}</p></div>

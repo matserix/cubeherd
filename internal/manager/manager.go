@@ -220,6 +220,17 @@ func (m *Manager) Op(id string) *Op {
 	return m.ops[id]
 }
 
+// Busy reports whether an operation is running for the server.
+func (m *Manager) Busy(id string) bool {
+	o := m.Op(id)
+	if o == nil {
+		return false
+	}
+	o.mu.Lock()
+	defer o.mu.Unlock()
+	return !o.done
+}
+
 func (m *Manager) opStatus(id string) server.Status {
 	if o := m.Op(id); o != nil {
 		o.mu.Lock()

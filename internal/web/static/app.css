@@ -461,3 +461,10 @@ details summary::marker { color: var(--faint); }
 .tbl td.num, .tbl th.num { text-align: right; font-variant-numeric: tabular-nums; }
 #backup-health:empty { display: none; }
 .perf-top.stale { opacity: .45; }
+
+.upload { display: flex; flex-direction: column; gap: 8px; }
+.upload[hidden] { display: none; }
+.upload-head, .upload-meta { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+.upload-head b { font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.upload-meta { font-size: 12.5px; }
+.upload .meter > i { transition: width .15s linear; }

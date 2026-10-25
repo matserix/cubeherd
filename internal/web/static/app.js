@@ -106,6 +106,61 @@
     if (!e.target.checked) ro.checked = false;
   });
 
+  /* ---------------- World upload: progress, speed and remaining time ---------------- */
+  const fmtBytes = n => {
+    const u = ['B', 'KB', 'MB', 'GB', 'TB']; let i = 0;
+    while (n >= 1024 && i < u.length - 1) { n /= 1024; i++; }
+    return (i < 2 ? Math.round(n) : n.toFixed(1).replace('.', decimalSep)) + ' ' + u[i];
+  };
+  const fmtTime = sec => {
+    sec = Math.max(0, Math.round(sec));
+    const h = Math.floor(sec / 3600), m = Math.floor(sec % 3600 / 60), s = sec % 60;
+    return h ? `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}` : `${m}:${String(s).padStart(2, '0')}`;
+  };
+  let up = null;
+  const upEls = () => ({ box: $('#world-up'), name: $('#wu-name'), pct: $('#wu-pct'), bar: $('#wu-bar'), info: $('#wu-info'), cancel: $('#wu-cancel'), phase: $('#wu-phase') });
+  const upEnd = () => {
+    up = null;
+    const e = upEls(); if (e.box) e.box.hidden = true;
+    const f = $('#world-form'); if (f) f.reset();
+  };
+  document.body.addEventListener('htmx:beforeRequest', e => {
+    if (!e.target || e.target.id !== 'world-form') return;
+    const file = e.target.querySelector('input[type=file]').files[0], el = upEls();
+    if (!file || !el.box) return;
+    up = { start: performance.now(), total: file.size, samples: [] };
+    el.name.textContent = file.name;
+    el.pct.textContent = '0 %'; el.bar.style.width = '0';
+    el.info.textContent = '0 B / ' + fmtBytes(file.size);
+    el.cancel.hidden = false; el.phase.hidden = true; el.box.hidden = false;
+  });
+  document.body.addEventListener('htmx:xhr:progress', e => {
+    if (!up || !e.target || e.target.id !== 'world-form') return;
+    const el = upEls(), now = performance.now(), loaded = e.detail.loaded;
+    const total = e.detail.lengthComputable ? e.detail.total : up.total;
+    // Speed over the last ~5 s, so a short stall does not distort the remaining time.
+    up.samples.push([now, loaded]);
+    while (up.samples.length > 2 && now - up.samples[0][0] > 5000) up.samples.shift();
+    const [t0, b0] = up.samples[0], dt = (now - t0) / 1000;
+    const speed = dt > 0.3 ? (loaded - b0) / dt : 0;
+    const pct = Math.min(100, Math.floor(loaded / total * 100));
+    el.bar.style.width = (loaded / total * 100) + '%';
+    el.pct.textContent = pct + ' %';
+    let info = fmtBytes(loaded) + ' / ' + fmtBytes(total);
+    if (loaded >= total) {
+      up.done = true;
+      el.phase.hidden = false; el.cancel.hidden = true;
+    } else if (speed > 0) {
+      info += ' · ' + fmtBytes(speed) + '/s · ' + msg('Uprest').replace('%s', fmtTime((total - loaded) / speed));
+    }
+    el.info.textContent = info;
+  });
+  document.body.addEventListener('htmx:afterRequest', e => { if (e.target && e.target.id === 'world-form') upEnd(); });
+  document.addEventListener('click', e => {
+    if (e.target.closest('#wu-cancel')) { const f = $('#world-form'); if (f) htmx.trigger(f, 'htmx:abort'); }
+  });
+  window.addEventListener('beforeunload', e => { if (up && !up.done) { e.preventDefault(); e.returnValue = msg('Upleave'); } });
+
   /* ---------------- Wizard ---------------- */
   const wiz = $('#wizard');
   if (wiz) {

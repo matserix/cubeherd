@@ -90,6 +90,8 @@ internal/web          handlers, templates, SSE, static assets
   (region files are stored uncompressed, since they are already compressed). If the server is running, `save-all flush` is run first.
 - World upload: the ZIP is streamed next to the server, the folder containing `level.dat` is located (e.g. "My World/"), the server is stopped, backed up,
   the old world is removed and the contents are unpacked into the container as a tar (owner 1000). ZIP slip, `__MACOSX` and symlinks are discarded.
+  The browser shows the upload with a progress bar (bytes, speed, remaining time, cancel) driven by htmx's `htmx:xhr:progress`;
+  the import then reports file count, size and extraction progress in 10 % steps in the console log.
 
 ## Mods & plugins
 
