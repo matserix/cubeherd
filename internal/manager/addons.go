@@ -87,11 +87,20 @@ func (m *Manager) AddonFiles(ctx context.Context, s *server.Server) ([]AddonFile
 func (m *Manager) writeDataFile(ctx context.Context, s *server.Server, rel string, r io.Reader) error {
 	if dir := m.Store.DataDir(s); dir != "" {
 		p := filepath.Join(dir, rel)
-		if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
+		if err := mkdirAllLike(filepath.Dir(p), dir); err != nil {
 			return err
 		}
+		// The server runs as another user (itzg: 1000) than Cubeherd, so the new file keeps the owner and mode
+		// of the one it replaces. Otherwise itzg can no longer rewrite files such as server.properties on start.
+		mode, uid, gid := os.FileMode(0o644), -1, -1
+		if fi, err := os.Stat(p); err == nil {
+			mode = fi.Mode().Perm()
+			uid, gid = ownerOf(fi)
+		} else if fi, err := os.Stat(filepath.Dir(p)); err == nil {
+			uid, gid = ownerOf(fi)
+		}
 		tmp := p + ".part"
-		f, err := os.Create(tmp)
+		f, err := os.OpenFile(tmp, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, mode)
 		if err != nil {
 			return err
 		}
@@ -103,6 +112,13 @@ func (m *Manager) writeDataFile(ctx context.Context, s *server.Server, rel strin
 		if err := f.Close(); err != nil {
 			return err
 		}
+		if err := os.Chmod(tmp, mode); err != nil {
+			os.Remove(tmp)
+			return err
+		}
+		if uid >= 0 {
+			_ = os.Chown(tmp, uid, gid) // fails without privileges when the owner differs; the file is then still ours
+		}
 		return os.Rename(tmp, p)
 	}
 	cmd := exec.CommandContext(ctx, "docker", "run", "--rm", "-i", "-e", "P=/data/"+rel, "-v", s.DataVol+":/data",
@@ -111,6 +127,27 @@ func (m *Manager) writeDataFile(ctx context.Context, s *server.Server, rel strin
 	cmd.Stdin, cmd.Stderr = r, &stderr
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("%s", firstLine(stderr.String(), err))
+	}
+	return nil
+}
+
+// mkdirAllLike creates missing folders below root with the owner of their parent, see writeDataFile.
+func mkdirAllLike(dir, root string) error {
+	if _, err := os.Stat(dir); err == nil {
+		return nil
+	}
+	if dir != root {
+		if err := mkdirAllLike(filepath.Dir(dir), root); err != nil {
+			return err
+		}
+	}
+	if err := os.Mkdir(dir, 0o755); err != nil && !errors.Is(err, os.ErrExist) {
+		return err
+	}
+	if fi, err := os.Stat(filepath.Dir(dir)); err == nil {
+		if uid, gid := ownerOf(fi); uid >= 0 {
+			_ = os.Chown(dir, uid, gid)
+		}
 	}
 	return nil
 }
