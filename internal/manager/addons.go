@@ -37,8 +37,12 @@ func (m *Manager) AddonFiles(ctx context.Context, s *server.Server) ([]AddonFile
 	}
 	var out []AddonFile
 	if dir := m.Store.DataDir(s); dir != "" {
-		entries, err := os.ReadDir(filepath.Join(dir, s.AddonDir()))
-		if err != nil && !errors.Is(err, os.ErrNotExist) {
+		var entries []os.DirEntry
+		if p, err := m.hostPath(s, s.AddonDir()); err != nil {
+			if !errors.Is(err, os.ErrNotExist) {
+				return nil, err
+			}
+		} else if entries, err = os.ReadDir(p); err != nil && !errors.Is(err, os.ErrNotExist) {
 			return nil, err
 		}
 		for _, e := range entries {
@@ -86,7 +90,15 @@ func (m *Manager) AddonFiles(ctx context.Context, s *server.Server) ([]AddonFile
 // writeDataFile writes into /data/<rel> on the host folder or, for volumes, through a throwaway container.
 func (m *Manager) writeDataFile(ctx context.Context, s *server.Server, rel string, r io.Reader) error {
 	if dir := m.Store.DataDir(s); dir != "" {
-		p := filepath.Join(dir, rel)
+		// Every host-folder write goes through hostPath: the container can plant symlinks anywhere in /data
+		// (also a mods or plugins folder), and this process may be root.
+		p, err := m.hostPath(s, rel)
+		if err != nil {
+			return err
+		}
+		if rootReal, err := filepath.EvalSymlinks(dir); err == nil {
+			dir = rootReal
+		}
 		if err := mkdirAllLike(filepath.Dir(p), dir); err != nil {
 			return err
 		}
@@ -99,8 +111,14 @@ func (m *Manager) writeDataFile(ctx context.Context, s *server.Server, rel strin
 		} else if fi, err := os.Stat(filepath.Dir(p)); err == nil {
 			uid, gid = ownerOf(fi)
 		}
+		// The temp name sits in a folder the container can write. Remove whatever is there (a planted symlink is
+		// removed itself, not followed) and create the file exclusively, so the open can never follow a link.
+		// Mode and owner are set on the open handle, not by path.
 		tmp := p + ".part"
-		f, err := os.OpenFile(tmp, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, mode)
+		if err := os.Remove(tmp); err != nil && !errors.Is(err, os.ErrNotExist) {
+			return err
+		}
+		f, err := os.OpenFile(tmp, os.O_WRONLY|os.O_CREATE|os.O_EXCL, mode)
 		if err != nil {
 			return err
 		}
@@ -109,15 +127,17 @@ func (m *Manager) writeDataFile(ctx context.Context, s *server.Server, rel strin
 			os.Remove(tmp)
 			return err
 		}
-		if err := f.Close(); err != nil {
-			return err
-		}
-		if err := os.Chmod(tmp, mode); err != nil {
+		if err := f.Chmod(mode); err != nil {
+			f.Close()
 			os.Remove(tmp)
 			return err
 		}
 		if uid >= 0 {
-			_ = os.Chown(tmp, uid, gid) // fails without privileges when the owner differs; the file is then still ours
+			_ = f.Chown(uid, gid) // fails without privileges when the owner differs; the file is then still ours
+		}
+		if err := f.Close(); err != nil {
+			os.Remove(tmp)
+			return err
 		}
 		return os.Rename(tmp, p)
 	}
@@ -154,11 +174,14 @@ func mkdirAllLike(dir, root string) error {
 
 func (m *Manager) removeDataFile(ctx context.Context, s *server.Server, rel string) error {
 	if dir := m.Store.DataDir(s); dir != "" {
-		err := os.Remove(filepath.Join(dir, rel))
-		if errors.Is(err, os.ErrNotExist) {
-			return nil
+		p, err := m.hostPath(s, rel)
+		if err != nil {
+			return err
 		}
-		return err
+		if err := os.Remove(p); err != nil && !errors.Is(err, os.ErrNotExist) {
+			return err
+		}
+		return nil
 	}
 	cmd := exec.CommandContext(ctx, "docker", "run", "--rm", "-e", "P=/data/"+rel, "-v", s.DataVol+":/data",
 		"--entrypoint", "sh", s.ImageRef(), "-c", `rm -f "$P"`)

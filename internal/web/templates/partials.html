@@ -99,6 +99,6 @@
 
 {{define "players"}}
 <div class="val"><span class="label">{{t "Online"}}</span><span class="muted num" style="font-size:12px">{{len .Online}} / {{.Max}}</span></div>
-{{if .Online}}<ul class="plist">{{range .Online}}<li><span class="who">{{avatar .}}<span>{{.}}</span></span><button class="btn sm ghost" hx-post="/servers/{{$.ID}}/command" hx-vals='{"cmd":"kick {{.}}"}' hx-target="#log" hx-swap="beforeend">{{t "Kicken"}}</button></li>{{end}}</ul>
+{{if .Online}}<ul class="plist">{{range .Online}}<li><span class="who">{{avatar .}}<span>{{.}}</span></span><button class="btn sm ghost" hx-post="/servers/{{$.ID}}/command" hx-vals='{{jsonVals "cmd" (print "kick " .)}}' hx-target="#log" hx-swap="beforeend">{{t "Kicken"}}</button></li>{{end}}</ul>
 {{else}}<p class="empty">{{if .Live}}{{t "Niemand online."}}{{else}}{{t "Server läuft nicht."}}{{end}}</p>{{end}}
 {{end}}

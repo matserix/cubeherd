@@ -704,5 +704,24 @@ func (m *Manager) ReadDataFile(s *server.Server, name string) ([]byte, error) {
 	if strings.ContainsAny(name, `/\`) {
 		return nil, os.ErrNotExist
 	}
-	return os.ReadFile(filepath.Join(m.Store.DataDir(s), name))
+	if m.Store.DataDir(s) == "" {
+		return nil, os.ErrNotExist // data in a Docker volume is not readable from the host
+	}
+	p, err := m.hostPath(s, name) // refuses symlinks that leave the data folder
+	if err != nil {
+		return nil, err
+	}
+	f, err := openRegular(p)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+	b, err := io.ReadAll(io.LimitReader(f, MaxEditSize+1))
+	if err != nil {
+		return nil, err
+	}
+	if len(b) > MaxEditSize {
+		return nil, errors.New("Datei zu groß")
+	}
+	return b, nil
 }

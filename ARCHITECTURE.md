@@ -87,6 +87,11 @@ internal/web          handlers, templates, SSE, static assets
 
 - File browser on `/data`: servers with a host folder are accessed directly through the file system (symlinks that lead outside are rejected),
   servers with a Docker volume via `docker exec` or `docker run --rm` with the server image. Paths are passed to the shell as environment variables.
+- The container can plant anything in `/data`, so reads and writes of host-folder servers never trust a path or its metadata:
+  every write (editor, upload, addons, deletes) resolves through `hostPath`; the temp file `<name>.part` is removed and created with `O_EXCL`, and mode and owner are set on the open handle;
+  reads open files non-blocking and accept regular files only (no FIFOs or devices), and `ReadText`/`ReadDataFile` cap the bytes read (1 MB), not just the size `stat` reports.
+- Routes reachable without a session (`POST /login`, `/setup`) get a 64 KB body limit and a 15 s read deadline; the server-wide read timeout stays off because world uploads can take hours.
+  `/setup` hands out a session only to the request whose password was actually stored.
 - Editor for UTF-8 text files up to 1 MB; larger or binary files can only be downloaded. Windows line endings are normalized on save.
 - World download: `tar` of the world folders (`level-name`, `_nether`, `_the_end`) from the container, converted on the fly to a ZIP in the dashboard
   (region files are stored uncompressed, since they are already compressed). If the server is running, `save-all flush` is run first.

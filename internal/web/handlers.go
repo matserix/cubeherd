@@ -90,15 +90,21 @@ func (a *App) setupPost(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	hash, err := auth.HashPassword(pw)
+	stored := false
 	if err == nil {
 		err = a.Cfg.Update(func(s *config.Settings) {
 			if s.PasswordHash == "" { // never overwrite through a race
-				s.PasswordHash = hash
+				s.PasswordHash, stored = hash, true
 			}
 		})
 	}
 	if err != nil {
 		fail("Speichern fehlgeschlagen: " + err.Error())
+		return
+	}
+	if !stored {
+		// Another request finished the setup first. A session signed with its password must not go to this caller.
+		http.Redirect(w, r, "/login", http.StatusSeeOther)
 		return
 	}
 	a.sess.Issue(w)

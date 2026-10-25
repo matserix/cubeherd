@@ -109,7 +109,7 @@
   <div class="panel-pad" style="display:flex;flex-direction:column;gap:12px">
     <form class="add-row" hx-post="/servers/{{.ID}}/players/{{.Key}}/add" hx-target="#players-tab">
       <input class="input" name="player" placeholder="{{t "Spielername"}}" autocomplete="off" pattern="[A-Za-z0-9_]{2,16}" required {{if not .Enabled}}disabled{{end}}><button class="btn" {{if not .Enabled}}disabled{{end}}>{{t "Hinzufügen"}}</button></form>
-    {{if .Items}}<ul class="plist">{{range .Items}}<li><span class="who">{{avatar .}}<span>{{.}}</span></span><button class="btn sm ghost" hx-post="/servers/{{$.ID}}/players/{{$.Key}}/remove" hx-vals='{"player":"{{.}}"}' hx-target="#players-tab" {{if not $.Enabled}}disabled{{end}}>{{t "Entfernen"}}</button></li>{{end}}</ul>
+    {{if .Items}}<ul class="plist">{{range .Items}}<li><span class="who">{{avatar .}}<span>{{.}}</span></span><button class="btn sm ghost" hx-post="/servers/{{$.ID}}/players/{{$.Key}}/remove" hx-vals='{{jsonVals "player" .}}' hx-target="#players-tab" {{if not $.Enabled}}disabled{{end}}>{{t "Entfernen"}}</button></li>{{end}}</ul>
     {{else}}<p class="empty">{{t .Hint}}</p>{{end}}
   </div></div>
 {{end}}

@@ -1,9 +1,16 @@
 package web
 
 import (
+	"encoding/json"
+	"html"
+	"io"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
+	"regexp"
+	"strconv"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -247,5 +254,71 @@ func TestUpdateBannerAndNetworkSettings(t *testing.T) {
 		if !strings.Contains(buf.String(), want) {
 			t.Errorf("missing %q", want)
 		}
+	}
+}
+
+func TestSetupRaceIssuesOneSession(t *testing.T) {
+	a := newTestApp(t, "")
+	var wg sync.WaitGroup
+	cookies := make([]int, 6)
+	for i := range cookies {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			form := url.Values{"password": {"a long password " + strconv.Itoa(i)}, "password2": {"a long password " + strconv.Itoa(i)}}
+			req := httptest.NewRequest("POST", "/setup", strings.NewReader(form.Encode()))
+			req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+			rec := httptest.NewRecorder()
+			a.setupPost(rec, req)
+			cookies[i] = len(rec.Result().Cookies())
+		}()
+	}
+	wg.Wait()
+	n := 0
+	for _, c := range cookies {
+		n += c
+	}
+	if n != 1 {
+		t.Errorf("%d setup requests got a session, want exactly 1", n)
+	}
+}
+
+func TestPublicPostBodyIsLimited(t *testing.T) {
+	a := newTestApp(t, "correct horse battery")
+	var read int64
+	h := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		n, _ := io.Copy(io.Discard, r.Body)
+		read = n
+	})
+	req := httptest.NewRequest("POST", "/login", io.LimitReader(zeros{}, 10<<20))
+	req.Header.Set("Content-Type", "multipart/form-data; boundary=x")
+	req.Header.Set("HX-Request", "true")
+	a.security(h).ServeHTTP(httptest.NewRecorder(), req)
+	if read > maxPublicBody {
+		t.Errorf("handler read %d bytes of an unauthenticated body, limit is %d", read, maxPublicBody)
+	}
+}
+
+type zeros struct{}
+
+func (zeros) Read(p []byte) (int, error) { return len(p), nil }
+
+func TestPlayerNamesAreJSONEncodedInHxVals(t *testing.T) {
+	a := newTestApp(t, "")
+	if err := a.loadTemplates(); err != nil {
+		t.Fatal(err)
+	}
+	evil := `a","cmd":"stop`
+	out, err := a.renderString("server", "players", playersData{ID: "x", Online: []string{evil}, Max: 5, Live: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	m := regexp.MustCompile(`hx-vals='([^']*)'`).FindStringSubmatch(out)
+	if m == nil {
+		t.Fatalf("no hx-vals in %s", out)
+	}
+	var got map[string]string
+	if err := json.Unmarshal([]byte(html.UnescapeString(m[1])), &got); err != nil || got["cmd"] != "kick "+evil || len(got) != 1 {
+		t.Errorf("hx-vals = %q → %v, %v", m[1], got, err)
 	}
 }

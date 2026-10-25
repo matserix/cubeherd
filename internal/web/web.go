@@ -180,6 +180,11 @@ func cacheForever(h http.Handler) http.Handler {
 
 var publicPaths = map[string]bool{"/login": true, "/setup": true}
 
+const (
+	maxPublicBody     = 64 << 10 // POST /login and /setup carry a few short fields
+	publicReadTimeout = 15 * time.Second
+)
+
 func (a *App) security(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		h := w.Header()
@@ -196,6 +201,11 @@ func (a *App) security(next http.Handler) http.Handler {
 		if r.Method != http.MethodGet && r.Method != http.MethodHead && !sameOrigin(r) {
 			http.Error(w, a.t("Ungültige Herkunft der Anfrage"), http.StatusForbidden)
 			return
+		}
+		if r.Method == http.MethodPost && publicPaths[r.URL.Path] {
+			// Reachable without a session: keep the body small and the read short (uploads have their own limits).
+			r.Body = http.MaxBytesReader(w, r.Body, maxPublicBody)
+			_ = http.NewResponseController(w).SetReadDeadline(time.Now().Add(publicReadTimeout))
 		}
 		setup := a.Cfg.Get().PasswordHash == ""
 		switch {

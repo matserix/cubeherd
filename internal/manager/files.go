@@ -14,6 +14,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"syscall"
 	"time"
 	"unicode/utf8"
 
@@ -42,6 +43,45 @@ func CleanRel(rel string) (string, error) {
 		return "", ErrOutside
 	}
 	return strings.TrimPrefix(c, "/"), nil
+}
+
+var errNotRegular = errors.New("keine reguläre Datei")
+
+// openRegular opens p for reading without blocking on FIFOs and refuses everything but regular files,
+// since the server (a container the admin does not fully control) can plant FIFOs and devices in /data.
+func openRegular(p string) (*os.File, error) {
+	f, err := os.OpenFile(p, os.O_RDONLY|syscall.O_NONBLOCK, 0)
+	if err != nil {
+		return nil, err
+	}
+	fi, err := f.Stat()
+	if err != nil {
+		f.Close()
+		return nil, err
+	}
+	if !fi.Mode().IsRegular() {
+		f.Close()
+		return nil, errNotRegular
+	}
+	return f, nil
+}
+
+// limitWriter stops a copy once more than n bytes arrive and calls cancel to end the producer.
+type limitWriter struct {
+	w        io.Writer
+	n        int64
+	cancel   context.CancelFunc
+	exceeded bool
+}
+
+func (l *limitWriter) Write(p []byte) (int, error) {
+	if int64(len(p)) > l.n {
+		l.exceeded = true
+		l.cancel()
+		return 0, errors.New("zu groß")
+	}
+	l.n -= int64(len(p))
+	return l.w.Write(p)
 }
 
 // hostPath resolves rel inside the server's host data folder, refusing symlinks that leave it.
@@ -175,7 +215,7 @@ func (m *Manager) Stat(ctx context.Context, s *server.Server, rel string) (Entry
 		return Entry{Name: info.Name(), Dir: info.IsDir(), Size: info.Size(), ModTime: info.ModTime()}, nil
 	}
 	var buf bytes.Buffer
-	if err := m.dataShell(ctx, s, `stat -c '%F|%s|%Y' "/data/$P"`, map[string]string{"P": rel}, nil, &buf, true); err != nil {
+	if err := m.dataShell(ctx, s, `stat -L -c '%F|%s|%Y' "/data/$P"`, map[string]string{"P": rel}, nil, &buf, true); err != nil {
 		return Entry{}, os.ErrNotExist
 	}
 	f := strings.Split(strings.TrimSpace(buf.String()), "|")
@@ -194,7 +234,7 @@ func (m *Manager) Open(ctx context.Context, s *server.Server, rel string, w io.W
 		if err != nil {
 			return err
 		}
-		f, err := os.Open(p)
+		f, err := openRegular(p)
 		if err != nil {
 			return err
 		}
@@ -214,8 +254,16 @@ func (m *Manager) ReadText(ctx context.Context, s *server.Server, rel string) (s
 	if st.Dir || st.Size > MaxEditSize {
 		return "", false, nil
 	}
+	// The size check above uses metadata; the read itself is capped too, because a symlink, FIFO or growing
+	// file planted by the container can report a small size and still stream without end.
+	rctx, cancel := context.WithCancel(ctx)
+	defer cancel()
 	var buf bytes.Buffer
-	if err := m.Open(ctx, s, rel, &buf); err != nil {
+	lw := &limitWriter{w: &buf, n: MaxEditSize, cancel: cancel}
+	if err := m.Open(rctx, s, rel, lw); err != nil {
+		if lw.exceeded {
+			return "", false, nil
+		}
 		return "", false, err
 	}
 	b := buf.Bytes()

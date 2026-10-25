@@ -82,6 +82,7 @@ func main() {
 		Addr:              listen,
 		Handler:           app.Handler(),
 		ReadHeaderTimeout: 10 * time.Second,
+		MaxHeaderBytes:    128 << 10,
 		IdleTimeout:       90 * time.Second,
 	}
 	go func() {
