@@ -194,10 +194,12 @@
   };
   let up = null;
   const upEls = () => ({ box: $('#world-up'), name: $('#wu-name'), pct: $('#wu-pct'), bar: $('#wu-bar'), info: $('#wu-info'), cancel: $('#wu-cancel'), phase: $('#wu-phase') });
+  // A disabled file input also keeps its label from opening the file picker again.
+  const upLock = (f, on) => { f.querySelector('input[type=file]').disabled = on; f.querySelector('label').setAttribute('aria-disabled', on); };
   const upEnd = () => {
     up = null;
     const e = upEls(); if (e.box) e.box.hidden = true;
-    const f = $('#world-form'); if (f) f.reset();
+    const f = $('#world-form'); if (f) { f.reset(); upLock(f, false); }
   };
   document.body.addEventListener('htmx:beforeRequest', e => {
     if (!e.target || e.target.id !== 'world-form') return;
@@ -208,6 +210,7 @@
     el.pct.textContent = '0 %'; el.bar.style.width = '0';
     el.info.textContent = '0 B / ' + fmtBytes(file.size);
     el.cancel.hidden = false; el.phase.hidden = true; el.box.hidden = false;
+    upLock(e.target, true);
   });
   document.body.addEventListener('htmx:xhr:progress', e => {
     if (!up || !e.target || e.target.id !== 'world-form') return;
