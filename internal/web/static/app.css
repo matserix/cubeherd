@@ -468,3 +468,19 @@ details summary::marker { color: var(--faint); }
 .upload-head b { font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
 .upload-meta { font-size: 12.5px; }
 .upload .meter > i { transition: width .15s linear; }
+
+/* Confirm dialog (replaces window.confirm), see cubeConfirm in app.js */
+.confirm { z-index: 60; }
+.confirm .modal-card { width: min(420px, 100%); overflow: hidden; }
+.confirm-body { padding: 20px 20px 18px; display: flex; gap: 14px; }
+.confirm-ico { flex: none; width: 36px; height: 36px; border-radius: 8px; display: grid; place-items: center; background: var(--accent-soft); color: var(--accent); }
+.confirm-ico svg { width: 20px; height: 20px; }
+.confirm.danger .confirm-ico { background: var(--crit-soft); color: var(--crit); }
+.confirm-text { min-width: 0; }
+.confirm-text h2 { margin: 2px 0 6px; font-size: 17px; }
+.confirm-text p { margin: 0; font-size: 14px; line-height: 1.55; color: var(--muted); overflow-wrap: anywhere; }
+.confirm-text .mono { color: var(--fg); background: var(--surface-2); border: 1px solid var(--line); border-radius: 4px; padding: 1px 6px; font-size: 12.5px; }
+.confirm-note { margin-top: 12px; display: flex; gap: 8px; align-items: flex-start; font-size: 12.5px; line-height: 1.5; color: var(--muted); background: var(--surface-2); border: 1px solid var(--line); border-radius: 6px; padding: 8px 10px; }
+.confirm-note svg { flex: none; width: 15px; height: 15px; margin-top: 1px; color: var(--warn); }
+.confirm .modal-foot { background: rgba(0, 0, 0, .12); }
+@media (max-width: 480px) { .confirm .modal-foot .btn { flex: 1; } }

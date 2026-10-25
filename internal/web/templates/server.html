@@ -167,7 +167,7 @@
       {{if and $.Remote .Local (not .Remote) (ne .Check "bad")}}<button class="btn sm ghost" hx-post="/servers/{{$.ID}}/backups/{{.Name}}/upload" hx-target="#backup-list" {{if $.Busy}}disabled{{end}}>{{t "Hochladen"}}</button>{{end}}
       <button class="btn sm ghost" hx-post="/servers/{{$.ID}}/backups/{{.Name}}/verify" hx-target="#backup-list" {{if $.Busy}}disabled{{end}}>{{t "Prüfen"}}</button>
       <a class="btn sm ghost" href="/servers/{{$.ID}}/backups/{{.Name}}" download style="text-decoration:none">{{t "Herunterladen"}}</a>
-      <button class="btn sm ghost" hx-post="/servers/{{$.ID}}/backups/{{.Name}}/delete" hx-target="#backup-list" {{if .Remote}}hx-confirm="{{t "Dieses Backup auch aus dem externen Speicher löschen?"}}"{{end}} {{if $.Busy}}disabled{{end}}>{{t "Löschen"}}</button>
+      <button class="btn sm ghost" hx-post="/servers/{{$.ID}}/backups/{{.Name}}/delete" hx-target="#backup-list" {{if .Remote}}hx-confirm="{{t "{} wird gelöscht."}}" data-dlg-title="{{t "Backup löschen?"}}" data-dlg-detail="{{.Name}}" data-dlg-note="{{t "Das Backup wird auch aus dem externen Speicher gelöscht."}}" data-dlg-ok="{{t "Löschen"}}" data-dlg-tone="danger" data-dlg-icon="trash"{{end}} {{if $.Busy}}disabled{{end}}>{{t "Löschen"}}</button>
     </div></td></tr>
   {{else}}<tr><td colspan="6" class="muted">{{t "Noch keine Backups. „Jetzt sichern“ erstellt das erste."}}</td></tr>{{end}}
   </tbody></table></div>
@@ -254,7 +254,7 @@
 <div class="stack">
   <div class="actions">
     <a class="btn" href="/servers/{{$s.ID}}/world.zip" download style="text-decoration:none">{{t "Welt herunterladen (ZIP)"}}</a>
-    <form id="world-form" hx-post="/servers/{{$s.ID}}/world" hx-encoding="multipart/form-data" hx-trigger="change" hx-confirm="{{t "Die aktuelle Welt wird durch die hochgeladene ersetzt. Vorher entsteht automatisch ein Backup. Fortfahren?"}}">
+    <form id="world-form" hx-post="/servers/{{$s.ID}}/world" hx-encoding="multipart/form-data" hx-trigger="change" hx-confirm="{{t "Die aktuelle Welt wird durch {} ersetzt."}}" data-dlg-title="{{t "Welt ersetzen?"}}" data-dlg-note="{{t "Vorher entsteht automatisch ein Backup. Der Server wird dafür kurz gestoppt."}}" data-dlg-ok="{{t "Welt ersetzen"}}" data-dlg-icon="upload">
       <label class="btn"><input type="file" name="world" accept=".zip" hidden>{{t "Welt hochladen (ZIP)"}} <span class="spin-on-req"></span></label>
     </form>
     <span class="muted" style="font-size:12px">{{t "Singleplayer-Welten funktionieren direkt. Vor dem Ersetzen wird automatisch gesichert."}}</span>
@@ -296,7 +296,7 @@
   <div class="editor-head"><span class="mono" style="overflow-wrap:anywhere">/data/{{.Path}}</span>
     <div class="actions">
       <a class="btn sm ghost" href="/servers/{{.ID}}/files/download?path={{.Path}}" download style="text-decoration:none">{{t "Herunterladen"}}</a>
-      <button class="btn sm ghost danger" type="button" hx-post="/servers/{{.ID}}/files/delete" hx-vals='{{jsonVals "path" .Path}}' hx-confirm="{{t "%s wirklich löschen?" .Entry.Name}}">{{t "Löschen"}}</button>
+      <button class="btn sm ghost danger" type="button" hx-post="/servers/{{.ID}}/files/delete" hx-vals='{{jsonVals "path" .Path}}' hx-confirm="{{t "{} wird endgültig gelöscht. Das lässt sich nicht rückgängig machen."}}" data-dlg-title="{{t "Datei löschen?"}}" data-dlg-detail="{{.Entry.Name}}" data-dlg-ok="{{t "Löschen"}}" data-dlg-tone="danger" data-dlg-icon="trash">{{t "Löschen"}}</button>
       {{if .IsText}}<button class="btn sm primary">{{t "Speichern"}}</button>{{end}}
     </div></div>
   {{with .Hint}}<div class="callout info" style="margin:12px 14px"><div><span class="muted">{{t .}}</span></div></div>{{end}}

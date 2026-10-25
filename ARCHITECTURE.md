@@ -9,6 +9,7 @@ Guiding principle: the dashboard runs alongside the Minecraft servers and must n
 |---|---|---|
 | Language / delivery | A single Go binary, templates and assets via `embed` | ~10–25 MB RAM, no runtime dependencies |
 | Frontend | Server-side HTML (`html/template`) + htmx + SSE extension, vendored | No build step, a few KB of JS |
+| Dialogs | One custom confirm dialog (`cubeConfirm` in `app.js`) | Never `window.confirm`: `hx-confirm` is intercepted via `htmx:confirm`; title, button, tone and note come from `data-dlg-*` attributes |
 | Dependencies | Standard library + `golang.org/x/crypto/bcrypt` | The Docker Engine API is called directly over the socket |
 | State | One folder per server, no database | Servers keep working with `docker compose` without the dashboard |
 | Writing (create, change, update) | Generated `compose.yml` + `docker compose up -d` | Compose remains the source of truth for the container |

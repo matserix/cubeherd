@@ -35,6 +35,81 @@
   });
   document.addEventListener('keydown', e => { if (e.key === 'Escape' && modal() && !modal().hidden) closeModal(); });
 
+  /* ---------------- Confirm dialog ----------------
+     Replaces window.confirm. Every element with hx-confirm gets it automatically; options come from
+     data-dlg-* attributes (title, ok, tone="danger", note, icon, detail). "{}" in the hx-confirm text
+     is replaced by the detail and shown as code. cubeConfirm({...}) returns a Promise<boolean>. */
+  const SVG = d => `<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
+  const ICONS = {
+    question: SVG('<circle cx="8" cy="8" r="6.2"/><path d="M6.2 6.3a1.9 1.9 0 1 1 2.6 1.7c-.5.3-.8.7-.8 1.3M8 11.4v.1"/>'),
+    upload: SVG('<path d="M8 10.5V2.5M5 5.5l3-3 3 3M2.5 10v3h11v-3"/>'),
+    trash: SVG('<path d="M2.5 4h11M6 4V2.5h4V4M4 4l.6 9h6.8L12 4M6.5 6.5v4M9.5 6.5v4"/>'),
+    shield: SVG('<path d="M8 1.8 3 3.6v4c0 3 2.1 5.2 5 6.6 2.9-1.4 5-3.6 5-6.6v-4z"/><path d="m5.8 8 1.6 1.6L10.4 6.6"/>'),
+  };
+  let confirmOpen = null;
+  function cubeConfirm(o) {
+    if (confirmOpen) confirmOpen(false);
+    return new Promise(resolve => {
+      const danger = o.tone === 'danger', prev = document.activeElement;
+      const host = document.createElement('div');
+      host.className = 'modal confirm' + (danger ? ' danger' : '');
+      host.innerHTML = `<div class="modal-card" role="alertdialog" aria-modal="true" aria-labelledby="cf-title" aria-describedby="cf-msg">
+        <div class="confirm-body"><div class="confirm-ico">${ICONS[o.icon] || ICONS.question}</div>
+          <div class="confirm-text"><h2 id="cf-title"></h2><p id="cf-msg"></p></div></div>
+        <div class="modal-foot"><button type="button" class="btn ghost" data-act="no"></button><button type="button" class="btn ${danger ? 'danger-solid' : 'primary'}" data-act="yes"></button></div></div>`;
+      $('#cf-title', host).textContent = o.title || o.message || '';
+      const msg = $('#cf-msg', host);
+      if (o.title && o.message) {
+        const [a, b] = o.detail && o.message.includes('{}') ? o.message.split('{}') : [o.message, null];
+        msg.append(a);
+        if (b !== null) { const c = document.createElement('span'); c.className = 'mono'; c.textContent = o.detail; msg.append(c, b); }
+      } else msg.remove();
+      if (o.note) {
+        const n = document.createElement('div'); n.className = 'confirm-note';
+        n.innerHTML = ICONS.shield; n.append(o.note); $('.confirm-text', host).append(n);
+      }
+      const no = $('[data-act=no]', host), yes = $('[data-act=yes]', host);
+      no.textContent = o.cancel || document.body.dataset.tCancel;
+      yes.textContent = o.ok || document.body.dataset.tOk;
+      const done = ok => {
+        confirmOpen = null; host.remove();
+        document.removeEventListener('keydown', onKey, true);
+        if (prev && prev.focus) prev.focus();
+        resolve(ok);
+      };
+      const onKey = e => {
+        if (e.key === 'Escape') { e.preventDefault(); e.stopImmediatePropagation(); done(false); }
+        else if (e.key === 'Tab') {
+          e.preventDefault();
+          (document.activeElement === no ? yes : no).focus();
+        }
+      };
+      host.addEventListener('click', e => {
+        if (e.target === host) done(false);
+        else if (e.target.closest('[data-act=no]')) done(false);
+        else if (e.target.closest('[data-act=yes]')) done(true);
+      });
+      document.addEventListener('keydown', onKey, true);
+      confirmOpen = done;
+      document.body.append(host);
+      (danger ? no : yes).focus();
+    });
+  }
+  window.cubeConfirm = cubeConfirm;
+  document.body.addEventListener('htmx:confirm', e => {
+    const q = e.detail.question;
+    if (!q) return;
+    e.preventDefault();
+    const el = e.detail.elt, d = el.dataset || {};
+    const file = el.querySelector && el.querySelector('input[type=file]');
+    const f = file && file.files[0];
+    const detail = d.dlgDetail || (f ? f.name + ' (' + fmtBytes(f.size) + ')' : '');
+    cubeConfirm({ message: q, detail, title: d.dlgTitle, ok: d.dlgOk, tone: d.dlgTone, note: d.dlgNote, icon: d.dlgIcon }).then(ok => {
+      if (ok) e.detail.issueRequest(true);
+      else if (el.tagName === 'FORM') el.reset();
+    });
+  });
+
   /* ---------------- Formular-Helfer ---------------- */
   // Same formula as server.HeapMB: the container limit minus headroom for non-heap memory.
   const heapGB = (gb, modded) => {
