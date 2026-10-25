@@ -54,6 +54,7 @@ internal/auth         password, session cookie, login throttling
 internal/docker       minimal Engine API client (list, inspect, start/stop, logs, stats, exec, info)
 internal/server       server definition, on-disk store, Compose generation, status derivation
 internal/s3           minimal S3 client (SigV4, multipart upload) for external backups, standard library only
+internal/update       newest GitHub release (cached, looked up lazily on page views)
 internal/sources      Mojang versions, Modrinth and CurseForge search (only on user action, cached)
 internal/host         host resources (Linux: /proc + statfs, otherwise Docker /info)
 internal/web          handlers, templates, SSE, static assets
@@ -93,6 +94,15 @@ internal/web          handlers, templates, SSE, static assets
   the old world is removed and the contents are unpacked into the container as a tar (owner 1000). ZIP slip, `__MACOSX` and symlinks are discarded.
   The browser shows the upload with a progress bar (bytes, speed, remaining time, cancel) driven by htmx's `htmx:xhr:progress`;
   the import then reports file count, size and extraction progress in 10 % steps in the console log.
+
+## Network & updates
+
+- Port publishing: each server has an optional `bindIp`; the compose entry becomes `ip:port:25565` (IPv6 in brackets), empty means all interfaces.
+  The selectable addresses are a list in the global settings (the host's own addresses cannot be discovered reliably from inside a container),
+  plus a default for new servers. The port must stay unique across servers regardless of the address.
+- Update notice: the first page view (and then every 6 hours, 30 minutes after a failed lookup) starts one background request to
+  `api.github.com/repos/matserix/cubeherd/releases/latest`; the banner appears on the following page view. The GitHub release notes are the patch notes
+  (shown as plain text), so they have to be written for users. Dismissing stores the tag; the lookup can be turned off in the settings. `dev` builds never show a banner.
 
 ## Mods & plugins
 

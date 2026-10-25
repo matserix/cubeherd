@@ -56,6 +56,7 @@
       </div>
       <div class="grid-2">
         <label class="switch"><input type="checkbox" name="pvp" {{if $p.PVP}}checked{{end}}><span class="txt">PvP<small>{{t "Spieler können sich gegenseitig verletzen."}}</small></span></label>
+        <label class="switch"><input type="checkbox" name="allowFlight" {{if $p.AllowFlight}}checked{{end}}><span class="txt">{{t "Fliegen erlauben"}}<small>{{t "Allow Flight: Spieler dürfen in Survival fliegen, etwa mit Mods oder Plugins. Ohne dies kickt der Server sie dafür."}}</small></span></label>
         <label class="switch"><input type="checkbox" name="whitelist" {{if $p.Whitelist}}checked{{end}}><span class="txt">{{t "Whitelist aktiv"}}<small>{{t "Nur eingetragene Spieler dürfen beitreten."}}</small></span></label>
       </div>
     </div></div>
@@ -75,6 +76,7 @@
     </div></div>
   <div class="form-sec"><div class="intro"><h2>{{t "Netzwerk"}}</h2></div>
     <div class="body"><div class="grid-2">
+      <label class="field"><span>{{t "IP-Adresse"}}</span><select class="input mono" name="bindIp"><option value="">{{t "Alle (*)"}}</option>{{range .BindIPs}}<option value="{{.}}" {{if eq . $s.BindIP}}selected{{end}}>{{.}}</option>{{end}}</select></label>
       <label class="field"><span>Port</span><input class="input mono" name="port" value="{{$s.Port}}" inputmode="numeric"></label>
       <label class="switch"><input type="checkbox" name="onlineMode" {{if $p.OnlineMode}}checked{{end}}><span class="txt">{{t "Online-Modus"}}<small>{{t "Accounts bei Mojang prüfen."}}</small></span></label>
     </div></div></div>

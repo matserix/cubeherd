@@ -46,6 +46,7 @@
         <h2>{{t "Name & Ressourcen"}}</h2>
         <div class="grid-2">
           <label class="field"><span>{{t "Name"}}</span><input class="input" name="name" id="w-name" placeholder="{{t "z. B. Survival"}}" maxlength="40" required><small>{{t "Daraus entsteht die ID für Container und Ordner."}}</small></label>
+          <label class="field"><span>{{t "IP-Adresse"}}</span><select class="input mono" name="bindIp"><option value="">{{t "Alle (*)"}}</option>{{range $d.BindIPs}}<option value="{{.}}" {{if eq . $d.BindIP}}selected{{end}}>{{.}}</option>{{end}}</select><small>{{t "Auf welcher Host-Adresse der Port freigegeben wird. Weitere Adressen legst du in den Einstellungen an."}}</small></label>
           <label class="field"><span>Port</span><input class="input mono" name="port" id="w-port" value="{{$d.Port}}" inputmode="numeric"><small>{{t "Nächster freier Port im Bereich %s." $d.PortRange}}</small></label>
         </div>
         <label class="field"><span>{{t "Arbeitsspeicher (Container-Limit)"}}</span><div class="range-row"><input type="range" name="memory" id="w-ram" min="1" max="{{$d.MaxRAM}}" value="{{$d.RAM}}" data-out="w-ram-out" data-heap="auto"><output id="w-ram-out" style="min-width:150px">{{$d.RAM}} GB</output></div>

@@ -66,6 +66,7 @@ type Props struct {
 	PVP          bool   `json:"pvp"`
 	Whitelist    bool   `json:"whitelist"`
 	OnlineMode   bool   `json:"onlineMode"`
+	AllowFlight  bool   `json:"allowFlight,omitempty"`
 }
 
 // Addon is a mod or plugin that itzg installs on start (declarative, see Env).
@@ -191,6 +192,7 @@ type Server struct {
 	Pack      *Pack  `json:"pack,omitempty"`
 	JavaTag   string `json:"javaTag"`
 	Port      int    `json:"port"`
+	BindIP    string `json:"bindIp,omitempty"` // host address the port is published on; "" = all interfaces
 	MemoryGB  int    `json:"memoryGb"`
 	Autopause bool   `json:"autopause"`
 	Aikar     bool   `json:"aikar"`
@@ -215,6 +217,17 @@ type Server struct {
 	Imported     bool      `json:"imported,omitempty"`
 	EULAPending  bool      `json:"eulaPending,omitempty"` // adopted container never accepted the EULA; Cubeherd must not accept it for the user
 	CreatedAt    time.Time `json:"createdAt"`
+}
+
+// PortMapping is the compose "ports" entry; IPv6 addresses need brackets.
+func (s *Server) PortMapping() string {
+	switch {
+	case s.BindIP == "":
+		return fmt.Sprintf("%d:25565", s.Port)
+	case strings.Contains(s.BindIP, ":"):
+		return fmt.Sprintf("[%s]:%d:25565", s.BindIP, s.Port)
+	}
+	return fmt.Sprintf("%s:%d:25565", s.BindIP, s.Port)
 }
 
 func (s *Server) Container() string { return "mc-" + s.ID }
@@ -358,6 +371,7 @@ func (s *Server) Env(g Globals) []KV {
 	add("SEED", p.Seed)
 	add("PVP", boolEnv(p.PVP))
 	add("ONLINE_MODE", boolEnv(p.OnlineMode))
+	add("ALLOW_FLIGHT", boolEnv(p.AllowFlight))
 	if p.Whitelist {
 		add("ENABLE_WHITELIST", "TRUE")
 	}

@@ -6,9 +6,11 @@ import (
 	"errors"
 	"fmt"
 	"html/template"
+	"net"
 	"net/http"
 	"regexp"
 	"runtime"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -168,6 +170,8 @@ type wizardData struct {
 	Releases  []string
 	Java      string
 	Port      int
+	BindIPs   []string
+	BindIP    string
 	PortRange string
 	RAM       int
 	MaxRAM    int
@@ -199,6 +203,7 @@ func (a *App) wizardPage(w http.ResponseWriter, r *http.Request) {
 	rel := a.releases(r.Context())
 	d := wizardData{
 		Releases: rel, Java: a.M.Sources.JavaTag(r.Context(), rel[0]), Port: a.M.NextPort(""),
+		BindIPs: cfg.BindIPs, BindIP: cfg.DefaultBindIP,
 		PortRange: fmt.Sprintf("%d–%d", cfg.PortMin, cfg.PortMax), RAM: cfg.DefaultMemoryGB, MaxRAM: a.maxRAM(r.Context()),
 		Autopause: cfg.DefaultAutopause, HasCFKey: cfg.CFAPIKey != "", HostRAM: decimal(a.lang(), float64(a.Host.Read(r.Context()).MemTotal)/(1<<30)),
 	}
@@ -271,6 +276,14 @@ func formInt(r *http.Request, key string, def, lo, hi int) int {
 	return max(lo, min(hi, n))
 }
 
+// bindIPAllowed accepts "" (all interfaces), a configured address, or the one the server already uses.
+func (a *App) bindIPAllowed(ip, current string) bool {
+	if ip == "" || ip == current {
+		return true
+	}
+	return slices.Contains(a.Cfg.Get().BindIPs, ip)
+}
+
 func checked(r *http.Request, key string) bool { return r.FormValue(key) == "on" }
 
 // serverFromWizard builds a definition from the wizard form and validates it.
@@ -279,7 +292,7 @@ func (a *App) serverFromWizard(r *http.Request) (*server.Server, error) {
 	name := strings.TrimSpace(r.FormValue("name"))
 	s := &server.Server{
 		ID: server.Slug(name), Name: name, Kind: r.FormValue("kind"),
-		Port: formInt(r, "port", 0, 1, 65535), MemoryGB: formInt(r, "memory", 4, 1, 64),
+		Port: formInt(r, "port", 0, 1, 65535), BindIP: strings.TrimSpace(r.FormValue("bindIp")), MemoryGB: formInt(r, "memory", 4, 1, 64),
 		Autopause: checked(r, "autopause"), Aikar: checked(r, "aikar"), Autostart: checked(r, "autostart"),
 		Props: server.Props{
 			MOTD: strings.TrimSpace(r.FormValue("motd")), Mode: r.FormValue("mode"), Difficulty: r.FormValue("difficulty"),
@@ -299,6 +312,9 @@ func (a *App) serverFromWizard(r *http.Request) (*server.Server, error) {
 	}
 	if a.M.PortTaken(s.Port, "") {
 		return nil, fmt.Errorf(a.t("Port %d nutzt schon ein anderer Server."), s.Port)
+	}
+	if !a.bindIPAllowed(s.BindIP, "") {
+		return nil, errors.New(a.t("Diese IP-Adresse ist in den Einstellungen nicht hinterlegt."))
 	}
 	switch s.Kind {
 	case server.KindSoftware:
@@ -398,6 +414,7 @@ type serverPage struct {
 	Backups    backupsData
 	Addons     addonsData
 	Perf       perfData
+	BindIPs    []string
 }
 
 type statsData struct {
@@ -454,6 +471,7 @@ func (a *App) serverPageData(ctx context.Context, s *server.Server, tabKey strin
 	d.Players = playersData{ID: s.ID, Online: d.V.Online, Max: d.V.MaxPlayers, Live: d.V.Status.Live()}
 	switch tabKey {
 	case "settings":
+		d.BindIPs = a.Cfg.Get().BindIPs
 		d.CPUOptions, d.CPUValue = a.cpuOptions(ctx, s)
 		d.ExtraEnv = server.FormatEnv(s.ExtraEnv)
 		env := s.Env(server.Globals{CFKey: a.Cfg.Get().CFAPIKey, TZ: a.Cfg.Get().Timezone})
@@ -645,6 +663,12 @@ func (a *App) serverSettings(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.Port = port
+	bind := strings.TrimSpace(r.FormValue("bindIp"))
+	if !a.bindIPAllowed(bind, s.BindIP) {
+		a.fail(w, "Diese IP-Adresse ist in den Einstellungen nicht hinterlegt.")
+		return
+	}
+	s.BindIP = bind
 	s.MemoryGB = formInt(r, "memory", s.MemoryGB, 1, 64)
 	s.Aikar, s.Autostart = checked(r, "aikar"), checked(r, "autostart")
 	switch r.FormValue("idle") {
@@ -666,6 +690,7 @@ func (a *App) serverSettings(w http.ResponseWriter, r *http.Request) {
 	s.Props.SimDistance = formInt(r, "simDistance", 0, 0, 32)
 	s.Props.Seed = strings.TrimSpace(r.FormValue("seed"))
 	s.Props.PVP, s.Props.Whitelist, s.Props.OnlineMode = checked(r, "pvp"), checked(r, "whitelist"), checked(r, "onlineMode")
+	s.Props.AllowFlight = checked(r, "allowFlight")
 	s.ExtraEnv = extra
 	restart := r.FormValue("apply") == "1"
 	if err := a.M.Apply(s, false, restart); err != nil {
@@ -932,6 +957,16 @@ func (a *App) settingsPost(w http.ResponseWriter, r *http.Request) {
 	}
 	tzChanged := tz != a.Cfg.Get().Timezone
 	langChanged := lang != a.lang()
+	ips, ierr := parseBindIPs(r.FormValue("bindIps"))
+	if ierr != nil {
+		a.fail(w, "„%s“ ist keine gültige IP-Adresse.", ierr.Error())
+		return
+	}
+	defIP := strings.TrimSpace(r.FormValue("defaultBindIp"))
+	if defIP != "" && !slices.Contains(ips, defIP) {
+		a.fail(w, "Die Standard-IP muss in der Liste der IP-Adressen stehen.")
+		return
+	}
 	remote, rerr := a.remoteFromForm(r)
 	if rerr != nil {
 		fail(w, a.t(rerr.Error()))
@@ -946,6 +981,8 @@ func (a *App) settingsPost(w http.ResponseWriter, r *http.Request) {
 		s.DefaultMemoryGB = formInt(r, "defaultMemoryGb", 4, 1, 64)
 		s.SessionDays = formInt(r, "sessionDays", 7, 1, 30)
 		s.DefaultAutopause = checked(r, "defaultAutopause")
+		s.BindIPs, s.DefaultBindIP = ips, defIP
+		s.NoUpdateCheck = !checked(r, "updateCheck")
 	})
 	if err != nil {
 		fail(w, a.t(err.Error()))
@@ -961,6 +998,32 @@ func (a *App) settingsPost(w http.ResponseWriter, r *http.Request) {
 	}
 	a.toast(w, "ok", "Einstellungen gespeichert.")
 	w.WriteHeader(http.StatusNoContent)
+}
+
+// parseBindIPs reads one address per line (commas and spaces also separate), normalised and without duplicates.
+// On a bad entry the error text is that entry.
+func parseBindIPs(text string) ([]string, error) {
+	var out []string
+	for _, f := range strings.FieldsFunc(text, func(r rune) bool { return r == '\n' || r == ',' || r == ' ' || r == ';' || r == '\t' || r == '\r' }) {
+		ip := net.ParseIP(f)
+		if ip == nil {
+			return nil, errors.New(f)
+		}
+		if ip.IsUnspecified() {
+			continue // "all interfaces" is always available
+		}
+		if n := ip.String(); !slices.Contains(out, n) {
+			out = append(out, n)
+		}
+	}
+	return out, nil
+}
+
+func (a *App) updateDismiss(w http.ResponseWriter, r *http.Request) {
+	if rel := a.Updates.Available(Version); rel != nil {
+		_ = a.Cfg.Update(func(s *config.Settings) { s.DismissedUpdate = rel.Tag })
+	}
+	w.WriteHeader(http.StatusOK) // empty body replaces the banner
 }
 
 func (a *App) passwordPost(w http.ResponseWriter, r *http.Request) {

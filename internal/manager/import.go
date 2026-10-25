@@ -65,7 +65,7 @@ func (m *Manager) Discover(ctx context.Context) []Unmanaged {
 var envFields = map[string]bool{
 	"EULA": true, "TYPE": true, "VERSION": true, "MEMORY": true, "USE_AIKAR_FLAGS": true, "ENABLE_AUTOPAUSE": true,
 	"MAX_TICK_TIME": true, "MOTD": true, "MODE": true, "DIFFICULTY": true, "MAX_PLAYERS": true, "VIEW_DISTANCE": true,
-	"SIMULATION_DISTANCE": true, "SEED": true, "PVP": true, "ONLINE_MODE": true, "ENABLE_WHITELIST": true,
+	"SIMULATION_DISTANCE": true, "SEED": true, "PVP": true, "ONLINE_MODE": true, "ALLOW_FLIGHT": true, "ENABLE_WHITELIST": true,
 	"WHITELIST": true, "OPS": true, "EXISTING_WHITELIST_FILE": true, "EXISTING_OPS_FILE": true,
 	"MODRINTH_MODPACK": true, "MODRINTH_VERSION": true, "CF_SLUG": true, "CF_FILE_ID": true, "CF_API_KEY": true,
 }
@@ -122,13 +122,16 @@ func (m *Manager) Import(ctx context.Context, containerID, name string) (*server
 		if p, err := strconv.Atoi(b[0].HostPort); err == nil {
 			s.Port = p
 		}
+		if ip := b[0].HostIP; ip != "0.0.0.0" && ip != "::" {
+			s.BindIP = ip
+		}
 	}
 	atoi := func(k string) int { n, _ := strconv.Atoi(env[k]); return n }
 	s.Props = server.Props{
 		MOTD: env["MOTD"], Mode: strings.ToLower(env["MODE"]), Difficulty: strings.ToLower(env["DIFFICULTY"]),
 		MaxPlayers: atoi("MAX_PLAYERS"), ViewDistance: atoi("VIEW_DISTANCE"), SimDistance: atoi("SIMULATION_DISTANCE"),
 		Seed: env["SEED"], PVP: env["PVP"] == "" || truthy(env["PVP"]), Whitelist: truthy(env["ENABLE_WHITELIST"]),
-		OnlineMode: env["ONLINE_MODE"] == "" || truthy(env["ONLINE_MODE"]),
+		OnlineMode: env["ONLINE_MODE"] == "" || truthy(env["ONLINE_MODE"]), AllowFlight: truthy(env["ALLOW_FLIGHT"]),
 	}
 	if s.Props.MaxPlayers == 0 {
 		s.Props.MaxPlayers = 20

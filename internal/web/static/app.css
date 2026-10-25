@@ -486,3 +486,8 @@ details summary::marker { color: var(--faint); }
 @media (max-width: 480px) { .confirm .modal-foot .btn { flex: 1; } }
 
 .btn[aria-disabled=true] { opacity: .45; cursor: not-allowed; }
+
+.app-update { margin-bottom: 16px; }
+.app-update details { margin-top: 6px; }
+.app-update summary { cursor: pointer; }
+.release-notes { margin: 8px 0 0; padding: 10px 12px; max-height: 280px; overflow: auto; white-space: pre-wrap; word-break: break-word; font: 12.5px/1.6 var(--font-mono); background: var(--surface-2); border-radius: 6px; }

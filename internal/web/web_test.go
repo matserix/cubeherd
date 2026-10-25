@@ -13,6 +13,7 @@ import (
 	"cubeherd/internal/manager"
 	"cubeherd/internal/server"
 	"cubeherd/internal/sources"
+	"cubeherd/internal/update"
 )
 
 func TestASCIIJSON(t *testing.T) {
@@ -207,5 +208,44 @@ func TestSplitRCONError(t *testing.T) {
 	}
 	if got := splitRCONError("There are 0 of a max of 10 players online:"); got != "There are 0 of a max of 10 players online:" {
 		t.Fatalf("unrelated output changed: %q", got)
+	}
+}
+
+func TestParseBindIPs(t *testing.T) {
+	got, err := parseBindIPs("192.168.1.10\n10.8.0.1, 192.168.1.10\r\n0.0.0.0\nFD00:0:0:0:0:0:0:1")
+	if err != nil || strings.Join(got, "|") != "192.168.1.10|10.8.0.1|fd00::1" {
+		t.Fatalf("got %v, %v", got, err)
+	}
+	if _, err := parseBindIPs("10.0.0.1\nnot-an-ip"); err == nil || err.Error() != "not-an-ip" {
+		t.Fatalf("want error naming the entry, got %v", err)
+	}
+	if got, err := parseBindIPs("  \n"); err != nil || len(got) != 0 {
+		t.Fatalf("empty: %v, %v", got, err)
+	}
+}
+
+func TestUpdateBannerAndNetworkSettings(t *testing.T) {
+	a := newTestApp(t, "")
+	a.Cfg.Update(func(s *config.Settings) {
+		s.Language = "en"
+		s.BindIPs = []string{"192.168.1.10"}
+		s.DefaultBindIP = "192.168.1.10"
+	})
+	if err := a.loadTemplates(); err != nil {
+		t.Fatal(err)
+	}
+	var buf strings.Builder
+	p := Page{Title: "x", Nav: "settings", Version: "0.5.1", Data: settingsData{Cfg: a.Cfg.Get()},
+		Update: &update.Release{Tag: "v0.6.0", URL: "https://example.test/r", Notes: "- <b>new</b> thing"}}
+	var b strings.Builder
+	if err := a.pages["en"]["settings"].ExecuteTemplate(&b, "layout", p); err != nil {
+		t.Fatal(err)
+	}
+	buf.WriteString(b.String())
+	for _, want := range []string{"Cubeherd v0.6.0 is available", "You are running version 0.5.1.", "- &lt;b&gt;new&lt;/b&gt; thing",
+		`<option value="192.168.1.10" selected>`, "192.168.1.10\n</textarea>", `name="updateCheck" checked`} {
+		if !strings.Contains(buf.String(), want) {
+			t.Errorf("missing %q", want)
+		}
 	}
 }

@@ -31,6 +31,9 @@
     </div>
   </aside>
   <main class="main" id="main">
+    {{with .Update}}<div class="callout accent app-update"><div><b>{{t "Cubeherd %s ist verfügbar" .Tag}}</b><span class="muted">{{t "Du nutzt Version %s." $.Version}} <a href="{{.URL}}" target="_blank" rel="noopener noreferrer">{{t "Auf GitHub ansehen"}}</a></span>
+      {{if .Notes}}<details><summary>{{t "Neuerungen anzeigen"}}</summary><pre class="release-notes">{{.Notes}}</pre></details>{{end}}</div>
+      <div class="actions" style="flex:none"><button class="btn sm ghost" hx-post="/update/dismiss" hx-target="closest .app-update" hx-swap="outerHTML">{{t "Ausblenden"}}</button></div></div>{{end}}
     {{template "content" .}}
   </main>
 </div>

@@ -24,6 +24,12 @@ type Settings struct {
 	DefaultAutopause bool   `json:"defaultAutopause"`
 	Timezone         string `json:"timezone,omitempty"` // IANA name; "" = TZ env / system
 	Language         string `json:"language,omitempty"` // de | en; "" = German (installs before i18n)
+	// BindIPs are the host addresses a server's port may be published on; "" (all interfaces) is always available.
+	BindIPs       []string `json:"bindIps,omitempty"`
+	DefaultBindIP string   `json:"defaultBindIp,omitempty"` // preselected in the wizard; "" = all interfaces
+	// NoUpdateCheck turns off the GitHub release lookup for new Cubeherd versions.
+	NoUpdateCheck   bool   `json:"noUpdateCheck,omitempty"`
+	DismissedUpdate string `json:"dismissedUpdate,omitempty"` // release tag whose banner was dismissed
 	// Remote is the optional S3 bucket that backups are uploaded to (nil = local backups only).
 	Remote *s3.Config `json:"remote,omitempty"`
 }

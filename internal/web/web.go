@@ -23,6 +23,7 @@ import (
 	"cubeherd/internal/host"
 	"cubeherd/internal/i18n"
 	"cubeherd/internal/manager"
+	"cubeherd/internal/update"
 )
 
 //go:embed templates/*.html
@@ -40,6 +41,7 @@ type App struct {
 	Host    *host.Reader
 	DataDir string
 	Listen  string
+	Updates *update.Checker
 
 	sess  auth.Sessions
 	lim   *auth.Limiter
@@ -48,7 +50,7 @@ type App struct {
 }
 
 func New(m *manager.Manager, cfg *config.Store, h *host.Reader, dataDir, listen string) (*App, error) {
-	a := &App{M: m, Cfg: cfg, Host: h, DataDir: dataDir, Listen: listen, lim: auth.NewLimiter(), start: time.Now()}
+	a := &App{M: m, Cfg: cfg, Host: h, DataDir: dataDir, Listen: listen, lim: auth.NewLimiter(), start: time.Now(), Updates: update.New()}
 	a.sess = auth.Sessions{
 		Secret: func() (string, string) {
 			s := cfg.Get()
@@ -164,6 +166,7 @@ func (a *App) Handler() http.Handler {
 	mux.HandleFunc("POST /settings/password", a.passwordPost)
 	mux.HandleFunc("POST /settings/cf-check", a.cfCheck)
 	mux.HandleFunc("POST /settings/remote-check", a.remoteCheck)
+	mux.HandleFunc("POST /update/dismiss", a.updateDismiss)
 
 	return a.security(mux)
 }
@@ -240,6 +243,7 @@ type Page struct {
 	Rack    []manager.View
 	Current string
 	Version string
+	Update  *update.Release // newer Cubeherd release, nil if none or dismissed
 	Data    any
 }
 
@@ -247,6 +251,11 @@ func (a *App) render(w http.ResponseWriter, r *http.Request, page string, p Page
 	p.Version = Version
 	if page != "login" {
 		p.Rack, _ = a.M.Views(r.Context(), false)
+		if cfg := a.Cfg.Get(); !cfg.NoUpdateCheck {
+			if rel := a.Updates.Available(Version); rel != nil && rel.Tag != cfg.DismissedUpdate {
+				p.Update = rel
+			}
+		}
 	}
 	var buf bytes.Buffer
 	if err := a.pages[a.lang()][page].ExecuteTemplate(&buf, "layout", p); err != nil {

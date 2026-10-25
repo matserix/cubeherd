@@ -45,6 +45,14 @@
       </div>
     </div>
     <div class="form-sec">
+      <div class="intro"><h2>{{t "Netzwerk-Schnittstellen"}}</h2><p>{{t "IP-Adressen des Hosts, auf denen Server-Ports freigegeben werden dürfen, etwa eine LAN- und eine VPN-Adresse. „Alle (*)“ ist immer möglich."}}</p></div>
+      <div class="body">
+        <label class="field"><span>{{t "IP-Adressen (eine pro Zeile)"}}</span><textarea class="input mono" name="bindIps" rows="3" placeholder="192.168.1.10&#10;10.8.0.1" autocomplete="off" spellcheck="false">{{range $c.BindIPs}}{{.}}
+{{end}}</textarea>
+          <small>{{t "Die Adresse muss auf dem Docker-Host vorhanden sein, sonst startet der Server nicht. Gilt für einen Server ab seinem nächsten Start."}}</small></label>
+      </div>
+    </div>
+    <div class="form-sec">
       <div class="intro"><h2>{{t "Standards für neue Server"}}</h2><p>{{t "Vorbelegung im Assistenten."}}</p></div>
       <div class="body">
         <div class="grid-2">
@@ -53,7 +61,16 @@
           <label class="field"><span>{{t "Standard-RAM"}}</span><select class="input" name="defaultMemoryGb">{{range $d.RAMOptions}}<option value="{{.}}" {{if eq . $c.DefaultMemoryGB}}selected{{end}}>{{.}} GB</option>{{end}}</select></label>
           <label class="field"><span>{{t "Sitzung gültig für"}}</span><select class="input" name="sessionDays">{{range list "1" "7" "30"}}<option value="{{.}}" {{if eq . (print $c.SessionDays)}}selected{{end}}>{{if eq . "1"}}{{t "1 Tag"}}{{else}}{{t "%s Tage" .}}{{end}}</option>{{end}}</select></label>
         </div>
+        <label class="field"><span>{{t "Standard-IP für Server-Ports"}}</span>
+          <select class="input mono" name="defaultBindIp"><option value="" {{if not $c.DefaultBindIP}}selected{{end}}>{{t "Alle (*)"}}</option>{{range $c.BindIPs}}<option value="{{.}}" {{if eq . $c.DefaultBindIP}}selected{{end}}>{{.}}</option>{{end}}</select>
+          <small>{{t "Auswahl aus den IP-Adressen oben. Neue IP-Adressen erscheinen hier nach dem Speichern."}}</small></label>
         <label class="switch"><input type="checkbox" name="defaultAutopause" {{if $c.DefaultAutopause}}checked{{end}}><span class="txt">{{t "Autopause standardmäßig an"}}<small>{{t "Server frieren ein, solange niemand verbunden ist."}}</small></span></label>
+      </div>
+    </div>
+    <div class="form-sec">
+      <div class="intro"><h2>{{t "Updates"}}</h2><p>{{t "Cubeherd fragt GitHub nach neuen Versionen, solange du das Dashboard benutzt."}}</p></div>
+      <div class="body">
+        <label class="switch"><input type="checkbox" name="updateCheck" {{if not $c.NoUpdateCheck}}checked{{end}}><span class="txt">{{t "Auf neue Versionen prüfen"}}<small>{{t "Zeigt einen Hinweis mit den Release Notes, wenn es eine neuere Version gibt. Dafür geht eine Anfrage an api.github.com; es werden keine Daten über deine Server gesendet."}}</small></span></label>
       </div>
     </div>
     <div class="form-sec">

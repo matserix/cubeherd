@@ -227,3 +227,24 @@ func envValue(kv []KV, key string) string {
 	}
 	return ""
 }
+
+func TestBindIPAndFlight(t *testing.T) {
+	s := &Server{ID: "x", Kind: KindSoftware, Type: "PAPER", Version: "1.21.10", MemoryGB: 4, Port: 25570}
+	for bind, want := range map[string]string{
+		"":             `- "25570:25565"`,
+		"192.168.1.10": `- "192.168.1.10:25570:25565"`,
+		"fd00::1":      `- "[fd00::1]:25570:25565"`,
+	} {
+		s.BindIP = bind
+		if c := Compose(s, Globals{}); !strings.Contains(c, want) {
+			t.Errorf("bind %q: want %s in\n%s", bind, want, c)
+		}
+	}
+	if v := envValue(s.Env(Globals{}), "ALLOW_FLIGHT"); v != "FALSE" {
+		t.Errorf("ALLOW_FLIGHT=%q, want FALSE", v)
+	}
+	s.Props.AllowFlight = true
+	if v := envValue(s.Env(Globals{}), "ALLOW_FLIGHT"); v != "TRUE" {
+		t.Errorf("ALLOW_FLIGHT=%q, want TRUE", v)
+	}
+}

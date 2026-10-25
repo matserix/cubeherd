@@ -24,7 +24,7 @@ func Compose(s *Server, g Globals) string {
 	for _, kv := range s.Env(g) {
 		fmt.Fprintf(&b, "      %s: %s\n", kv.Key, q(kv.Value))
 	}
-	fmt.Fprintf(&b, "    ports:\n      - %s\n", q(fmt.Sprintf("%d:25565", s.Port)))
+	fmt.Fprintf(&b, "    ports:\n      - %s\n", q(s.PortMapping()))
 	data := "./data"
 	switch {
 	case s.DataVol != "":
