@@ -2,7 +2,6 @@
 package agent
 
 import (
-	"context"
 	"crypto/tls"
 	"encoding/json"
 	"errors"
@@ -14,20 +13,17 @@ import (
 	"cubeherd/internal/api"
 	"cubeherd/internal/auth"
 	"cubeherd/internal/docker"
-	"cubeherd/internal/host"
 	"cubeherd/internal/manager"
+	"cubeherd/internal/node"
 	"cubeherd/internal/server"
 )
 
 // Backend is the part of a node the agent exposes so far.
 type Backend interface {
-	Views(ctx context.Context, withStats bool) ([]api.View, error)
-	Start(id string) error
-	Stop(id string) error
-	Restart(id string) error
-	HostStats(ctx context.Context) host.Stats
-	DockerInfo(ctx context.Context) (docker.Info, error)
-	DockerHost() string
+	node.Servers
+	node.Console
+	node.Live
+	node.Host
 }
 
 var _ Backend = (*manager.Manager)(nil)
@@ -51,8 +47,7 @@ func (a *Agent) Handler() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /v1/info", a.info)
 	mux.HandleFunc("GET /v1/host", a.host)
-	mux.HandleFunc("GET /v1/servers", a.servers)
-	mux.HandleFunc("POST /v1/servers/{id}/{action}", a.lifecycle)
+	a.routes(mux)
 	return a.guard(mux)
 }
 
@@ -93,7 +88,7 @@ func (a *Agent) guard(next http.Handler) http.Handler {
 
 func (a *Agent) info(w http.ResponseWriter, r *http.Request) {
 	hn, _ := os.Hostname()
-	in := api.Info{Version: a.Version, API: api.Version, Hostname: hn, DockerHost: a.B.DockerHost(), DataDir: a.DataDir}
+	in := api.Info{Version: a.Version, API: api.Version, Hostname: hn, DockerHost: a.B.DockerHost(), DataDir: a.DataDir, Timezone: a.B.Loc().String()}
 	if _, err := a.B.DockerInfo(r.Context()); err != nil {
 		in.DockerErr = err.Error()
 	} else {
@@ -106,44 +101,6 @@ func (a *Agent) host(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, a.B.HostStats(r.Context()))
 }
 
-func (a *Agent) servers(w http.ResponseWriter, r *http.Request) {
-	views, err := a.B.Views(r.Context(), r.URL.Query().Get("stats") == "1")
-	if err != nil {
-		writeErr(w, http.StatusInternalServerError, "", err.Error())
-		return
-	}
-	if views == nil {
-		views = []api.View{}
-	}
-	writeJSON(w, http.StatusOK, views)
-}
-
-func (a *Agent) lifecycle(w http.ResponseWriter, r *http.Request) {
-	id := r.PathValue("id")
-	var fn func(string) error
-	switch r.PathValue("action") {
-	case "start":
-		fn = a.B.Start
-	case "stop":
-		fn = a.B.Stop
-	case "restart":
-		fn = a.B.Restart
-	default:
-		writeErr(w, http.StatusNotFound, "", "unknown action")
-		return
-	}
-	switch err := fn(id); {
-	case err == nil:
-		w.WriteHeader(http.StatusAccepted)
-	case errors.Is(err, manager.ErrBusy):
-		writeErr(w, http.StatusConflict, "busy", err.Error())
-	case errors.Is(err, server.ErrNotFound):
-		writeErr(w, http.StatusNotFound, "notfound", err.Error())
-	default:
-		writeErr(w, http.StatusInternalServerError, "", err.Error())
-	}
-}
-
 func writeJSON(w http.ResponseWriter, code int, v any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(code)
@@ -152,4 +109,18 @@ func writeJSON(w http.ResponseWriter, code int, v any) {
 
 func writeErr(w http.ResponseWriter, code int, kind, msg string) {
 	writeJSON(w, code, api.Error{Error: msg, Code: kind})
+}
+
+// fail maps well-known errors to a status and a code the client turns back into the same error.
+func fail(w http.ResponseWriter, err error) {
+	switch {
+	case errors.Is(err, manager.ErrBusy):
+		writeErr(w, http.StatusConflict, "busy", err.Error())
+	case errors.Is(err, server.ErrNotFound):
+		writeErr(w, http.StatusNotFound, "notfound", err.Error())
+	case errors.Is(err, docker.ErrNotFound):
+		writeErr(w, http.StatusNotFound, "dockernotfound", err.Error())
+	default:
+		writeErr(w, http.StatusInternalServerError, "", err.Error())
+	}
 }

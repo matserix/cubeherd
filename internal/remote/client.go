@@ -15,9 +15,11 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"cubeherd/internal/api"
+	"cubeherd/internal/docker"
 	"cubeherd/internal/host"
 	"cubeherd/internal/manager"
 	"cubeherd/internal/server"
@@ -35,6 +37,10 @@ type Client struct {
 	token   string
 	hc      *http.Client
 	Timeout time.Duration // per request unless the context is shorter; 5 s by default
+
+	mu     sync.Mutex
+	info   api.Info
+	infoAt time.Time
 }
 
 // New returns a client for the agent at addr ("host:port" or "https://host:port").
@@ -114,8 +120,7 @@ func (c *Client) do(ctx context.Context, method, path string, body io.Reader, ou
 	if err != nil {
 		return err
 	}
-	req.Header.Set("Authorization", "Bearer "+c.token)
-	req.Header.Set(api.Header, strconv.Itoa(api.Version))
+	c.sign(req)
 	resp, err := c.hc.Do(req)
 	if err != nil {
 		if errors.Is(err, ErrFingerprint) {
@@ -134,6 +139,12 @@ func (c *Client) do(ctx context.Context, method, path string, body io.Reader, ou
 	return json.NewDecoder(resp.Body).Decode(out)
 }
 
+// sign adds the bearer token and the API major.
+func (c *Client) sign(req *http.Request) {
+	req.Header.Set("Authorization", "Bearer "+c.token)
+	req.Header.Set(api.Header, strconv.Itoa(api.Version))
+}
+
 func decodeErr(resp *http.Response) error {
 	b, _ := io.ReadAll(io.LimitReader(resp.Body, 64<<10))
 	var e api.Error
@@ -147,6 +158,8 @@ func decodeErr(resp *http.Response) error {
 		return manager.ErrBusy
 	case e.Code == "notfound":
 		return server.ErrNotFound
+	case e.Code == "dockernotfound":
+		return docker.ErrNotFound
 	case e.Error != "":
 		return errors.New(e.Error)
 	}
@@ -167,21 +180,3 @@ func (c *Client) HostStats(ctx context.Context) host.Stats {
 	}
 	return s
 }
-
-// Views lists every server on the agent.
-func (c *Client) Views(ctx context.Context, withStats bool) ([]api.View, error) {
-	path := "/v1/servers"
-	if withStats {
-		path += "?stats=1"
-	}
-	var v []api.View
-	return v, c.do(ctx, http.MethodGet, path, nil, &v)
-}
-
-func (c *Client) action(id, action string) error {
-	return c.do(context.Background(), http.MethodPost, "/v1/servers/"+url.PathEscape(id)+"/"+action, nil, nil)
-}
-
-func (c *Client) Start(id string) error   { return c.action(id, "start") }
-func (c *Client) Stop(id string) error    { return c.action(id, "stop") }
-func (c *Client) Restart(id string) error { return c.action(id, "restart") }

@@ -36,7 +36,9 @@ because Compose resolves relative paths on the client side and the Docker daemon
 
 ## Agent (work in progress)
 
-`cubeherd agent` serves a node API (`/v1/info`, `/v1/host`, `/v1/servers`, `/v1/servers/{id}/{start|stop|restart}` so far) and runs the scheduler.
+`cubeherd agent` serves a node API and runs the scheduler. Done so far: identity and host (`/v1/info`, `/v1/host`, `/v1/docker`), server definitions and lifecycle
+(`/v1/servers[/{id}]`, `start|stop|restart|update|forget`, ports, discover/import), console (`rcon`, `players`, `perf`) and live data. Live data are
+newline-delimited JSON streams (`stats`, `logs`, `ops`) that are flushed per value and end when the caller disconnects. Still missing: files, worlds, mods and backups.
 The dashboard opens every connection. Transport is HTTPS (TLS 1.3 only): the agent creates a self-signed ECDSA certificate in `$CUBEHERD_DATA/agent/` on
 first start and prints its SHA-256 fingerprint; the client pins that fingerprint instead of trusting a CA (`remote.Probe` fetches it for trust on first use).
 Each request carries `Authorization: Bearer <token>` and `X-Cubeherd-API: <major>`. The token comes from `CUBEHERD_AGENT_TOKEN` or is generated on the first
@@ -64,7 +66,7 @@ internal/docker       minimal Engine API client (list, inspect, start/stop, logs
 internal/api          wire types shared by dashboard and agent (View, Info, fingerprint helper)
 internal/agent        `cubeherd agent`: HTTPS node API with self-signed certificate and bearer token
 internal/remote       agent client: pinned certificate fingerprint, Probe for trust on first use
-internal/node         the Node interface: everything the web layer needs from one host (implemented by manager)
+internal/node         the Node interface, split by feature (Servers, Console, Live, Files, Addons, Backups, Host); the manager implements all of it, remote so far Servers, Console, Live and Host
 internal/server       server definition, on-disk store, Compose generation, status derivation
 internal/s3           minimal S3 client (SigV4, multipart upload) for external backups, standard library only
 internal/update       newest GitHub release (cached, looked up lazily on page views)

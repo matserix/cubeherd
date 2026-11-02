@@ -10,27 +10,37 @@ import (
 	"io"
 	"time"
 
+	"cubeherd/internal/api"
 	"cubeherd/internal/docker"
 	"cubeherd/internal/host"
 	"cubeherd/internal/manager"
 	"cubeherd/internal/server"
 )
 
-// Node is one host: its servers, their data and the resources they run on.
+// Node is one host: everything the dashboard needs from it, split by feature so that an
+// implementation can be built up (and tested) piece by piece.
 type Node interface {
-	// Servers and status.
+	Servers
+	Console
+	Live
+	Files
+	Addons
+	Backups
+	Host
+}
+
+// Servers covers definitions, status and lifecycle.
+type Servers interface {
 	Server(id string) (*server.Server, error)
 	ServerExists(id string) bool
-	View(ctx context.Context, s *server.Server, withStats bool) manager.View
-	Views(ctx context.Context, withStats bool) ([]manager.View, error)
-	Op(id string) *manager.Op
+	View(ctx context.Context, s *server.Server, withStats bool) api.View
+	Views(ctx context.Context, withStats bool) ([]api.View, error)
 	Busy(id string) bool
 	Forget(id string)
 	DiskUsage(s *server.Server) int64
 	NextPort(excludeID string) int
 	PortTaken(port int, excludeID string) bool
 
-	// Lifecycle.
 	Create(s *server.Server) error
 	Start(id string) error
 	Stop(id string) error
@@ -38,25 +48,33 @@ type Node interface {
 	Apply(s *server.Server, pull, restart bool) error
 	ApplyUpdate(s *server.Server, pull, restart, backupFirst bool) error
 	Uninstall(id, mode string) error
-	Discover(ctx context.Context) []manager.Unmanaged
+	Discover(ctx context.Context) []api.Unmanaged
 	Import(ctx context.Context, containerID, name string) (*server.Server, error)
+}
 
-	// Console, players, performance.
+// Console covers RCON, players and tick performance.
+type Console interface {
 	RCON(ctx context.Context, s *server.Server, cmd string) (string, error)
 	Players(ctx context.Context, s *server.Server) ([]string, int, error)
 	Perf(ctx context.Context, s *server.Server) (server.PerfSample, error)
+}
 
-	// Live container data.
-	Inspect(ctx context.Context, container string) (*docker.ContainerJSON, error)
-	StatsStream(ctx context.Context, container string, fn func(docker.Stats)) error
-	LogsSince(ctx context.Context, container string, follow bool, tail int, since int64, tty bool, fn func(line string)) error
+// Live covers data that is followed while a page is open.
+type Live interface {
+	Inspect(ctx context.Context, s *server.Server) (*docker.ContainerJSON, error)
+	StatsStream(ctx context.Context, s *server.Server, fn func(docker.Stats)) error
+	LogsSince(ctx context.Context, s *server.Server, follow bool, tail int, since int64, fn func(line string)) error
+	// FollowOps passes the output of Cubeherd actions (compose pull/up, stop) to fn until ctx ends.
+	FollowOps(ctx context.Context, id string, fn func(line string))
+}
 
-	// Files, data and worlds.
+// Files covers the file browser and worlds.
+type Files interface {
 	DataDir(s *server.Server) string
 	ServerDir(id string) string
 	ArchiveDir() string
-	List(ctx context.Context, s *server.Server, rel string) ([]manager.Entry, bool, error)
-	Stat(ctx context.Context, s *server.Server, rel string) (manager.Entry, error)
+	List(ctx context.Context, s *server.Server, rel string) ([]api.Entry, bool, error)
+	Stat(ctx context.Context, s *server.Server, rel string) (api.Entry, error)
 	Open(ctx context.Context, s *server.Server, rel string, w io.Writer) error
 	ReadText(ctx context.Context, s *server.Server, rel string) (string, bool, error)
 	ReadDataFile(s *server.Server, name string) ([]byte, error)
@@ -65,18 +83,22 @@ type Node interface {
 	WorldZip(ctx context.Context, s *server.Server, w io.Writer) error
 	StageWorld(s *server.Server, r io.Reader) (string, error)
 	ImportWorld(s *server.Server, zipPath string) error
+}
 
-	// Mods and plugins.
-	AddonFiles(ctx context.Context, s *server.Server) ([]manager.AddonFile, error)
+// Addons covers mods and plugins.
+type Addons interface {
+	AddonFiles(ctx context.Context, s *server.Server) ([]api.AddonFile, error)
 	AddonsPending(ctx context.Context, s *server.Server) bool
 	UploadAddon(ctx context.Context, s *server.Server, name string, r io.Reader) error
 	DeleteUpload(ctx context.Context, s *server.Server, name string) error
+}
 
-	// Backups.
+// Backups covers archives, their health and the schedule.
+type Backups interface {
 	BackupsAll(ctx context.Context, s *server.Server) ([]manager.Backup, error)
 	BackupNow(id, reason string) error
 	BackupPath(s *server.Server, name string) (string, error)
-	BackupHealth(s *server.Server, running bool) manager.Health
+	BackupHealth(s *server.Server, running bool) api.Health
 	DeleteBackupEverywhere(ctx context.Context, s *server.Server, name string) error
 	VerifyBackup(id, name string) error
 	UploadBackup(id, name string) error
@@ -86,8 +108,10 @@ type Node interface {
 	InvalidateRemote()
 	NextBackupFor(s *server.Server) time.Time
 	WakeScheduler()
+}
 
-	// The host itself.
+// Host covers the machine itself.
+type Host interface {
 	HostStats(ctx context.Context) host.Stats
 	DockerInfo(ctx context.Context) (docker.Info, error)
 	DockerHost() string

@@ -135,7 +135,7 @@ func (a *App) streamLogs(ctx context.Context, s *server.Server, out chan<- strin
 	shown := false
 	var since int64
 	for ctx.Err() == nil {
-		c, err := a.M.Inspect(ctx, s.Container())
+		c, err := a.M.Inspect(ctx, s)
 		if err != nil {
 			sleep(ctx, 2*time.Second)
 			continue
@@ -152,13 +152,13 @@ func (a *App) streamLogs(ctx context.Context, s *server.Server, out chan<- strin
 		}
 		if !c.State.Running {
 			if !shown {
-				_ = a.M.LogsSince(ctx, s.Container(), false, tail, 0, c.Config.Tty, send)
+				_ = a.M.LogsSince(ctx, s, false, tail, 0, send)
 				shown, since = true, time.Now().Unix()
 			}
 			sleep(ctx, 2*time.Second)
 			continue
 		}
-		_ = a.M.LogsSince(ctx, s.Container(), true, tail, since, c.Config.Tty, send)
+		_ = a.M.LogsSince(ctx, s, true, tail, since, send)
 		shown, since = true, time.Now().Unix()
 		sleep(ctx, time.Second)
 	}
@@ -166,40 +166,12 @@ func (a *App) streamLogs(ctx context.Context, s *server.Server, out chan<- strin
 
 // streamOps forwards Cubeherd action output (compose pull/up, stop) into the console.
 func (a *App) streamOps(ctx context.Context, id string, out chan<- string) {
-	var cur *manager.Op
-	idx := 0
-	for ctx.Err() == nil {
-		o := a.M.Op(id)
-		if o == nil {
-			sleep(ctx, 2*time.Second)
-			continue
-		}
-		if o != cur {
-			cur, idx = o, 0
-			// Skip output of actions that ended before this page was opened.
-			if lines, _, done := o.Since(0); done {
-				idx = len(lines)
-			}
-		}
-		lines, changed, done := o.Since(idx)
-		idx += len(lines)
-		for _, l := range lines {
-			select {
-			case out <- "\x00" + l: // marker: Cubeherd line
-			case <-ctx.Done():
-				return
-			}
-		}
-		if done {
-			sleep(ctx, 2*time.Second)
-			continue
-		}
+	a.M.FollowOps(ctx, id, func(l string) {
 		select {
-		case <-changed:
+		case out <- "\x00" + l: // marker: Cubeherd line
 		case <-ctx.Done():
-		case <-time.After(5 * time.Second):
 		}
-	}
+	})
 }
 
 // batchLines groups log lines into one SSE event per ~120 ms.
@@ -242,13 +214,13 @@ func batchLines(ctx context.Context, in <-chan string, emit func(string)) {
 func (a *App) streamStats(ctx context.Context, s *server.Server, emit func(string, string)) {
 	hist := make([]float64, 0, 40)
 	for ctx.Err() == nil {
-		c, err := a.M.Inspect(ctx, s.Container())
+		c, err := a.M.Inspect(ctx, s)
 		if err != nil || !c.State.Running {
 			sleep(ctx, 3*time.Second)
 			continue
 		}
 		n := 0
-		_ = a.M.StatsStream(ctx, s.Container(), func(st dockerStats) {
+		_ = a.M.StatsStream(ctx, s, func(st dockerStats) {
 			if n++; n%2 == 1 {
 				return // one update every ~2 s is plenty
 			}

@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"time"
 
 	"cubeherd/internal/docker"
 	"cubeherd/internal/host"
@@ -27,19 +28,67 @@ func (m *Manager) ServerDir(id string) string { return m.Store.Dir(id) }
 // DataDir is the host path mounted at /data ("" when the data lives in a Docker volume).
 func (m *Manager) DataDir(s *server.Server) string { return m.Store.DataDir(s) }
 
-// Inspect returns the container's current state.
-func (m *Manager) Inspect(ctx context.Context, container string) (*docker.ContainerJSON, error) {
-	return m.Docker.Inspect(ctx, container)
+// Inspect returns the state of the server's container.
+func (m *Manager) Inspect(ctx context.Context, s *server.Server) (*docker.ContainerJSON, error) {
+	return m.Docker.Inspect(ctx, s.Container())
 }
 
-// StatsStream calls fn for every stats sample of a running container until ctx ends.
-func (m *Manager) StatsStream(ctx context.Context, container string, fn func(docker.Stats)) error {
-	return m.Docker.StatsStream(ctx, container, fn)
+// StatsStream calls fn for every stats sample of the server's running container until ctx ends.
+func (m *Manager) StatsStream(ctx context.Context, s *server.Server, fn func(docker.Stats)) error {
+	return m.Docker.StatsStream(ctx, s.Container(), fn)
 }
 
-// LogsSince streams log lines of a container (see docker.Client.LogsSince).
-func (m *Manager) LogsSince(ctx context.Context, container string, follow bool, tail int, since int64, tty bool, fn func(line string)) error {
-	return m.Docker.LogsSince(ctx, container, follow, tail, since, tty, fn)
+// LogsSince streams the server's log lines (see docker.Client.LogsSince); the terminal mode is looked up here.
+func (m *Manager) LogsSince(ctx context.Context, s *server.Server, follow bool, tail int, since int64, fn func(line string)) error {
+	c, err := m.Docker.Inspect(ctx, s.Container())
+	if err != nil {
+		return err
+	}
+	return m.Docker.LogsSince(ctx, s.Container(), follow, tail, since, c.Config.Tty, fn)
+}
+
+// FollowOps passes the output of Cubeherd actions (compose pull/up, stop) of one server to fn until ctx ends.
+// Output of an action that ended before the call is skipped.
+func (m *Manager) FollowOps(ctx context.Context, id string, fn func(line string)) {
+	var cur *Op
+	idx := 0
+	for ctx.Err() == nil {
+		o := m.Op(id)
+		if o == nil {
+			sleepCtx(ctx, 2*time.Second)
+			continue
+		}
+		if o != cur {
+			cur, idx = o, 0
+			if lines, _, done := o.Since(0); done {
+				idx = len(lines)
+			}
+		}
+		lines, changed, done := o.Since(idx)
+		idx += len(lines)
+		for _, l := range lines {
+			if ctx.Err() != nil {
+				return
+			}
+			fn(l)
+		}
+		if done {
+			sleepCtx(ctx, 2*time.Second)
+			continue
+		}
+		select {
+		case <-changed:
+		case <-ctx.Done():
+		case <-time.After(5 * time.Second):
+		}
+	}
+}
+
+func sleepCtx(ctx context.Context, d time.Duration) {
+	select {
+	case <-ctx.Done():
+	case <-time.After(d):
+	}
 }
 
 // DockerInfo returns the engine's /info.

@@ -29,6 +29,7 @@ type Info struct {
 	DockerOK   bool
 	DockerErr  string
 	DataDir    string
+	Timezone   string // IANA name of the agent's display time zone
 }
 
 // View is everything the UI shows for one server.
@@ -82,7 +83,7 @@ type Health struct {
 // Error is the JSON body of a failed request.
 type Error struct {
 	Error string
-	Code  string // busy | notfound | "" for anything else
+	Code  string // busy | notfound | dockernotfound | "" for anything else
 }
 
 // Fingerprint is the SHA-256 of a certificate's DER bytes as lower-case hex pairs joined by colons.
@@ -96,3 +97,17 @@ func Fingerprint(der []byte) string {
 	}
 	return strings.Join(parts, ":")
 }
+
+// Small request and response bodies.
+type (
+	// ImportRequest adopts an existing itzg container.
+	ImportRequest struct{ ContainerID, Name string }
+	// RCONRequest and RCONReply carry one console command.
+	RCONRequest struct{ Cmd string }
+	RCONReply   struct{ Out string }
+	// Players lists who is online.
+	Players struct {
+		Names []string
+		Max   int
+	}
+)
