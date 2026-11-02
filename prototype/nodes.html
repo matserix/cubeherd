@@ -1,0 +1,414 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cubeherd · Multi-node</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+/* Multi-node prototype: one dashboard, many agents. Same visual language as index.html; everything here is mock data. */
+:root {
+  --bg: #13161b; --surface: #1a1e25; --surface-2: #222731; --surface-3: #2a303b;
+  --line: #2d333e; --line-strong: #3b4350; --fg: #e3e6eb; --muted: #8a93a2; --faint: #626b79;
+  --accent: #d98a4e; --accent-2: #a9643a; --accent-3: #7a4429; --accent-fg: #1c1209; --accent-soft: rgba(217, 138, 78, .14);
+  --ok: #4ec98d; --ok-soft: rgba(78, 201, 141, .14); --warn: #e3b443; --warn-soft: rgba(227, 180, 67, .14);
+  --crit: #ea5a50; --crit-soft: rgba(234, 90, 80, .14); --info: #5fbcdb; --info-soft: rgba(95, 188, 219, .14);
+  --console-bg: #0e1014; --console-fg: #cdd3dc; --shadow: 0 18px 48px rgba(0, 0, 0, .45);
+  --font-display: "Chakra Petch", "Segoe UI", system-ui, sans-serif;
+  --font-body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  --r: 6px; color-scheme: dark;
+}
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    --bg: #eef0f3; --surface: #ffffff; --surface-2: #f3f4f7; --surface-3: #e7eaef;
+    --line: #dce0e6; --line-strong: #c6ccd5; --fg: #1a1e25; --muted: #5a6371; --faint: #848c99;
+    --accent: #b5622a; --accent-2: #d98a4e; --accent-3: #8a4a22; --accent-fg: #ffffff; --accent-soft: rgba(181, 98, 42, .1);
+    --ok: #1d8a57; --ok-soft: rgba(29, 138, 87, .1); --warn: #9c7209; --warn-soft: rgba(156, 114, 9, .1);
+    --crit: #c23a30; --crit-soft: rgba(194, 58, 48, .1); --info: #1b7a9c; --info-soft: rgba(27, 122, 156, .1);
+    --console-bg: #1a1e25; --console-fg: #dfe3e9; --shadow: 0 18px 48px rgba(20, 24, 32, .18); color-scheme: light;
+  }
+}
+[hidden] { display: none !important; }
+html, body { height: 100%; }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--fg); font: 14px/1.5 var(--font-body); }
+button, input, select { font: inherit; color: inherit; }
+h1, h2, h3 { font-family: var(--font-display); font-weight: 600; margin: 0; letter-spacing: .01em; text-wrap: balance; }
+h1 { font-size: 24px; line-height: 1.2; } h2 { font-size: 17px; } h3 { font-size: 14px; }
+p { margin: 0; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.muted { color: var(--muted); } .mono { font-family: var(--font-mono); } .num { font-variant-numeric: tabular-nums; }
+.label { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); font-weight: 600; }
+
+.app { display: grid; grid-template-columns: 252px minmax(0, 1fr); height: 100%; }
+.side { background: var(--surface); border-right: 1px solid var(--line); padding: 18px 14px; display: flex; flex-direction: column; gap: 20px; overflow-y: auto; }
+.brand { display: flex; align-items: center; gap: 10px; padding: 0 6px; }
+.brand svg { width: 26px; height: 26px; }
+.brand b { font-family: var(--font-display); font-size: 18px; font-weight: 700; letter-spacing: .02em; }
+.nav, .rack { display: flex; flex-direction: column; gap: 2px; }
+.nav button, .rack button { display: flex; align-items: center; justify-content: space-between; gap: 10px; width: 100%; text-align: left; background: none; border: 0; border-radius: var(--r); padding: 7px 10px; cursor: pointer; color: var(--muted); }
+.nav button:hover, .rack button:hover { background: var(--surface-2); color: var(--fg); }
+.nav button[aria-current="true"], .rack button[aria-current="true"] { background: var(--surface-3); color: var(--fg); }
+.nav .l { display: flex; align-items: center; gap: 10px; }
+.nav svg { width: 16px; height: 16px; }
+.rack-node { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 10px 10px 4px; }
+.rack-node b { font-size: 12px; font-weight: 600; display: flex; align-items: center; gap: 8px; min-width: 0; }
+.rack-node.off b { color: var(--faint); }
+.rack .nm { display: flex; align-items: center; gap: 9px; min-width: 0; padding-left: 8px; }
+.rack .nm span:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rack .meta { font-size: 12px; color: var(--faint); }
+.rack button.dim { opacity: .5; }
+.side-foot { margin-top: auto; }
+.proto-note { border: 1px dashed var(--line-strong); border-radius: var(--r); padding: 8px 10px; font-size: 12px; color: var(--muted); }
+.proto-note label { display: flex; gap: 8px; align-items: center; margin-top: 6px; cursor: pointer; color: var(--fg); }
+
+.main { overflow-y: auto; padding: 26px 32px 48px; min-width: 0; }
+.view { max-width: 1180px; margin: 0 auto; display: flex; flex-direction: column; gap: 22px; }
+.view-head { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 14px; }
+.view-head .sub { color: var(--muted); margin-top: 4px; }
+.actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 7px; white-space: nowrap; background: var(--surface-2); border: 1px solid var(--line-strong); border-radius: var(--r); padding: 7px 13px; cursor: pointer; font-weight: 500; line-height: 1.3; }
+.btn:hover { background: var(--surface-3); }
+.btn:disabled { opacity: .45; cursor: not-allowed; }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-fg); }
+.btn.primary:hover { filter: brightness(1.08); }
+.btn.ghost { background: transparent; border-color: transparent; color: var(--muted); }
+.btn.ghost:hover { background: var(--surface-2); color: var(--fg); }
+.btn.sm { padding: 4px 9px; font-size: 13px; }
+.btn svg { width: 15px; height: 15px; }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; }
+.panel-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 14px 18px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+
+.pill { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; border-radius: 20px; padding: 2px 9px 2px 8px; white-space: nowrap; }
+.pill::before { content: ""; width: 7px; height: 7px; border-radius: 2px; background: currentColor; }
+.s-running, .s-online { color: var(--ok); background: var(--ok-soft); }
+.s-starting, .s-outdated { color: var(--warn); background: var(--warn-soft); }
+.s-paused { color: var(--info); background: var(--info-soft); }
+.s-stopped { color: var(--muted); background: var(--surface-3); }
+.s-offline { color: var(--crit); background: var(--crit-soft); }
+.dot { width: 8px; height: 8px; border-radius: 2px; flex: none; background: var(--faint); }
+.dot.s-running, .dot.s-online { background: var(--ok); } .dot.s-paused { background: var(--info); } .dot.s-offline { background: var(--crit); }
+.dot.s-starting, .dot.s-outdated { background: var(--warn); } .dot.s-stopped { background: var(--faint); }
+.chip { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; border: 1px solid var(--line-strong); border-radius: 4px; padding: 1px 7px; color: var(--muted); white-space: nowrap; }
+.chip.node { color: var(--accent); border-color: var(--accent-3); background: var(--accent-soft); font-family: var(--font-mono); font-size: 11.5px; }
+
+.callout { display: flex; gap: 12px; align-items: flex-start; border-radius: 8px; padding: 12px 14px; border: 1px solid; flex-wrap: wrap; }
+.callout > div { flex: 1 1 260px; min-width: 0; }
+.callout.crit { border-color: var(--crit); background: var(--crit-soft); }
+.callout.warn { border-color: var(--warn); background: var(--warn-soft); }
+.callout.info { border-color: var(--info); background: var(--info-soft); }
+.callout b { display: block; margin-bottom: 2px; }
+
+.meter { height: 6px; border-radius: 3px; background: var(--surface-3); overflow: hidden; }
+.meter > i { display: block; height: 100%; background: var(--ok); border-radius: 3px; transition: width .4s; }
+.meter.warn > i { background: var(--warn); } .meter.crit > i { background: var(--crit); }
+
+.seg { display: inline-flex; background: var(--surface-2); border: 1px solid var(--line-strong); border-radius: var(--r); padding: 2px; gap: 2px; flex-wrap: wrap; }
+.seg button { background: none; border: 0; padding: 5px 12px; border-radius: 4px; cursor: pointer; color: var(--muted); font-weight: 500; }
+.seg button[aria-pressed="true"] { background: var(--surface-3); color: var(--fg); box-shadow: inset 0 0 0 1px var(--line-strong); }
+
+.input { width: 100%; background: var(--surface-2); border: 1px solid var(--line-strong); border-radius: var(--r); padding: 7px 10px; min-width: 0; }
+.input:focus { border-color: var(--accent); outline: none; box-shadow: 0 0 0 3px var(--accent-soft); }
+.field { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.field > span { font-size: 13px; font-weight: 500; } .field small { color: var(--muted); font-size: 12px; }
+.code { background: var(--console-bg); color: var(--console-fg); border-radius: 8px; padding: 14px 16px; font: 12px/1.6 var(--font-mono); overflow-x: auto; margin: 0; white-space: pre; position: relative; }
+.code .c { color: #6c7686; } .code .k { color: #d98a4e; } .code .s { color: #7fd1ae; }
+
+.tbl-wrap { overflow-x: auto; }
+.tbl { width: 100%; border-collapse: collapse; }
+.tbl th { text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); font-weight: 600; padding: 10px 18px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+.tbl td { padding: 12px 18px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+.tbl tr:last-child td { border-bottom: 0; }
+.tbl tbody tr.click { cursor: pointer; } .tbl tbody tr.click:hover td { background: var(--surface-2); }
+.tbl tr.dim td { opacity: .55; }
+.tbl .t-name b { display: block; font-weight: 600; } .tbl .t-name span { font-size: 12px; color: var(--muted); }
+.tbl .right { text-align: right; }
+
+/* Node cards */
+.nodes { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 14px; }
+.ncard { padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; cursor: pointer; text-align: left; width: 100%; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; }
+.ncard:hover { border-color: var(--faint); }
+.ncard[aria-pressed="true"] { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+.ncard.off { border-style: dashed; background: transparent; }
+.ncard .top { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.ncard .top b { font-family: var(--font-display); font-size: 16px; }
+.ncard .row { display: grid; grid-template-columns: 38px 1fr auto; gap: 10px; align-items: center; font-size: 12px; color: var(--muted); }
+.ncard .row output { font-variant-numeric: tabular-nums; }
+.ncard .foot { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; font-size: 12px; color: var(--muted); }
+.ncard.off .row { opacity: .4; }
+
+/* Modal */
+.scrim { position: fixed; inset: 0; background: rgba(5, 7, 10, .62); display: grid; place-items: center; padding: 20px; z-index: 50; }
+.modal { width: min(720px, 100%); max-height: calc(100vh - 40px); overflow: auto; background: var(--surface); border: 1px solid var(--line-strong); border-radius: 10px; box-shadow: var(--shadow); }
+.modal-head { padding: 16px 20px; border-bottom: 1px solid var(--line); display: flex; justify-content: space-between; align-items: center; }
+.modal-body { padding: 20px; display: flex; flex-direction: column; gap: 16px; }
+.modal-foot { padding: 14px 20px; border-top: 1px solid var(--line); display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.steps { display: flex; gap: 6px; font-size: 12px; color: var(--muted); }
+.steps span { padding: 2px 9px; border-radius: 4px; border: 1px solid var(--line-strong); }
+.steps span.cur { background: var(--accent); border-color: var(--accent); color: var(--accent-fg); font-weight: 600; }
+.steps span.done { color: var(--fg); background: var(--surface-3); }
+.checks { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.checks li { display: flex; gap: 10px; align-items: center; font-size: 13px; padding: 8px 12px; border: 1px solid var(--line); border-radius: var(--r); }
+.checks li .ic { width: 18px; height: 18px; border-radius: 4px; display: grid; place-items: center; font-size: 12px; flex: none; background: var(--surface-3); color: var(--faint); }
+.checks li.ok .ic { background: var(--ok-soft); color: var(--ok); }
+.checks li.run .ic { background: var(--warn-soft); color: var(--warn); animation: blink 1s infinite; }
+.checks li.bad .ic { background: var(--crit-soft); color: var(--crit); }
+.checks li small { margin-left: auto; color: var(--muted); font-family: var(--font-mono); font-size: 11.5px; }
+@keyframes blink { 50% { opacity: .35; } }
+
+/* Wizard placement + server detail */
+.choice-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 12px; }
+.choice { text-align: left; background: var(--surface-2); border: 1px solid var(--line-strong); border-radius: 8px; padding: 14px; cursor: pointer; display: flex; flex-direction: column; gap: 8px; }
+.choice:hover:not(:disabled) { border-color: var(--faint); }
+.choice:disabled { opacity: .45; cursor: not-allowed; }
+.choice[aria-pressed="true"] { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); background: var(--accent-soft); }
+.choice b { font-family: var(--font-display); font-size: 15px; } .choice small { color: var(--muted); font-size: 12px; }
+.crumbs { display: flex; gap: 8px; align-items: center; color: var(--muted); font-size: 13px; flex-wrap: wrap; }
+.crumbs button { background: none; border: 0; color: var(--muted); cursor: pointer; padding: 0; text-decoration: underline; text-decoration-color: var(--line-strong); }
+.urlbar { font-family: var(--font-mono); font-size: 12px; color: var(--muted); background: var(--surface-2); border: 1px solid var(--line); border-radius: var(--r); padding: 4px 10px; }
+.console { overflow: hidden; }
+.console-head { display: flex; justify-content: space-between; gap: 10px; padding: 10px 14px; border-bottom: 1px solid var(--line); font-size: 12px; flex-wrap: wrap; color: var(--muted); }
+.live { color: var(--ok); font-weight: 600; } .live::before { content: "● "; animation: blink 1.6s infinite; }
+.log { margin: 0; background: var(--console-bg); color: var(--console-fg); font: 12.5px/1.65 var(--font-mono); padding: 12px 14px; height: 260px; overflow: auto; white-space: pre-wrap; }
+.log .t { color: #6c7686; } .log .w { color: #e3b443; }
+.kvs { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 14px; padding: 16px 18px; }
+.kvs div b { display: block; font-family: var(--font-display); font-size: 18px; }
+.toast { position: fixed; bottom: 22px; left: 50%; transform: translateX(-50%); background: var(--surface-3); border: 1px solid var(--line-strong); border-radius: var(--r); padding: 9px 16px; box-shadow: var(--shadow); z-index: 60; }
+@media (max-width: 820px) { .app { grid-template-columns: 1fr; } .side { display: none; } .main { padding: 18px 16px 40px; } }
+</style>
+<body>
+<div class="app">
+  <aside class="side">
+    <div class="brand">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2 21 7 12 12 3 7Z" fill="var(--accent-2)"/><path d="M3 7 12 12V22L3 17Z" fill="var(--accent)"/><path d="M21 7 12 12V22L21 17Z" fill="var(--accent-3)"/></svg>
+      <b>Cubeherd</b>
+    </div>
+    <nav class="nav" id="nav"></nav>
+    <div class="rack" id="rack"></div>
+    <div class="side-foot proto-note">
+      Prototype · mock data only
+      <label><input type="checkbox" id="t-off" checked> garage-nuc is offline</label>
+    </div>
+  </aside>
+  <main class="main"><div class="view" id="view"></div></main>
+</div>
+<div id="modal"></div>
+
+<script>
+const $ = s => document.querySelector(s);
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const ICON = {
+  grid: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1.5" y="1.5" width="5.5" height="5.5" rx="1"/><rect x="9" y="1.5" width="5.5" height="5.5" rx="1"/><rect x="1.5" y="9" width="5.5" height="5.5" rx="1"/><rect x="9" y="9" width="5.5" height="5.5" rx="1"/></svg>',
+  nodes: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="5.5" y="1.5" width="5" height="4" rx="1"/><rect x="1.5" y="10.5" width="5" height="4" rx="1"/><rect x="9.5" y="10.5" width="5" height="4" rx="1"/><path d="M8 5.5v2.5M4 10.5V8h8v2.5"/></svg>',
+  plus: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M8 3v10M3 8h10"/></svg>',
+  gear: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="2.2"/><path d="M8 1.5v2M8 12.5v2M1.5 8h2M12.5 8h2"/></svg>',
+};
+
+/* ---- mock data ---- */
+const nodes = [
+  { id: 'home-lab', name: 'home-lab', kind: 'local', addr: 'embedded', ver: '0.9.2', ping: 0, cpu: 22, ramUsed: 14.2, ramTotal: 32, disk: 61, state: 'online' },
+  { id: 'vps-fra', name: 'vps-fra', kind: 'agent', addr: 'https://10.8.0.12:8421', ver: '0.9.2', ping: 18, cpu: 41, ramUsed: 9.6, ramTotal: 16, disk: 38, state: 'online' },
+  { id: 'eu-west-2', name: 'eu-west-2', kind: 'agent', addr: 'https://10.8.0.31:8421', ver: '0.9.0', ping: 64, cpu: 8, ramUsed: 2.1, ramTotal: 8, disk: 17, state: 'outdated' },
+  { id: 'garage-nuc', name: 'garage-nuc', kind: 'agent', addr: 'https://192.168.4.20:8421', ver: '0.9.2', ping: null, cpu: 0, ramUsed: 0, ramTotal: 16, disk: 0, state: 'offline', seen: '14 min ago' },
+];
+const servers = [
+  { id: 'survival', name: 'Survival SMP', node: 'home-lab', sw: 'Paper 1.21.4', st: 'running', pl: 6, max: 20, ram: 6, lim: 8, port: 25565 },
+  { id: 'atm10', name: 'All the Mods 10', node: 'home-lab', sw: 'NeoForge · CurseForge', st: 'running', pl: 2, max: 10, ram: 8.2, lim: 10, port: 25566 },
+  { id: 'creative', name: 'Creative Plots', node: 'home-lab', sw: 'Purpur 1.21.4', st: 'paused', pl: 0, max: 30, ram: 0.2, lim: 4, port: 25567 },
+  { id: 'skyblock', name: 'Skyblock', node: 'vps-fra', sw: 'Paper 1.21.4', st: 'running', pl: 11, max: 40, ram: 4.4, lim: 6, port: 25565 },
+  { id: 'bedwars', name: 'Bedwars Lobby', node: 'vps-fra', sw: 'Folia 1.21.4', st: 'running', pl: 24, max: 60, ram: 5.2, lim: 8, port: 25566 },
+  { id: 'vanilla', name: 'Vanilla Friends', node: 'eu-west-2', sw: 'Vanilla 1.21.4', st: 'running', pl: 3, max: 10, ram: 2.1, lim: 4, port: 25565 },
+  { id: 'hardcore', name: 'Hardcore', node: 'garage-nuc', sw: 'Fabric 1.21.1', st: 'running', pl: 0, max: 8, ram: 3.0, lim: 6, port: 25565 },
+  { id: 'build', name: 'Build Server', node: 'garage-nuc', sw: 'Paper 1.20.6', st: 'stopped', pl: 0, max: 10, ram: 0, lim: 4, port: 25566 },
+];
+const S = { view: 'overview', filter: 'all', server: null, wiz: { node: 'vps-fra' } };
+const node = id => nodes.find(n => n.id === id);
+const offline = n => n.state === 'offline';
+const label = { running: 'Running', paused: 'Paused', stopped: 'Stopped', starting: 'Starting' };
+const stateLabel = { online: 'Online', offline: 'Unreachable', outdated: 'Update agent' };
+const meterCls = v => v >= 90 ? 'crit' : v >= 75 ? 'warn' : '';
+
+function apply() {
+  const off = $('#t-off').checked;
+  const n = node('garage-nuc');
+  n.state = off ? 'offline' : 'online';
+  n.ping = off ? null : 9; n.cpu = off ? 0 : 12; n.ramUsed = off ? 0 : 3; n.disk = off ? 0 : 44;
+}
+
+/* ---- sidebar ---- */
+function renderSide() {
+  $('#nav').innerHTML = [['overview', 'Overview', ICON.grid], ['nodes', 'Nodes', ICON.nodes, nodes.length], ['new', 'New server', ICON.plus], ['settings', 'Settings', ICON.gear]]
+    .map(([k, t, i, c]) => `<button data-go="${k}" aria-current="${S.view === k}"><span class="l">${i}${t}</span>${c ? `<span class="meta mono">${c}</span>` : ''}</button>`).join('');
+  $('#rack').innerHTML = nodes.map(n => {
+    const list = servers.filter(s => s.node === n.id);
+    return `<div class="rack-node ${offline(n) ? 'off' : ''}"><b><span class="dot s-${n.state}"></span><span>${n.name}</span></b><span class="label">${list.length}</span></div>` +
+      list.map(s => `<button data-srv="${s.id}" class="${offline(n) ? 'dim' : ''}" aria-current="${S.view === 'server' && S.server === s.id}"><span class="nm"><span class="dot s-${offline(n) ? 'stopped' : s.st}"></span><span>${esc(s.name)}</span></span><span class="meta mono">${s.port}</span></button>`).join('');
+  }).join('');
+}
+
+/* ---- overview ---- */
+function nodeCard(n) {
+  const ramPct = Math.round(n.ramUsed / n.ramTotal * 100);
+  const cnt = servers.filter(s => s.node === n.id).length;
+  const row = (l, v, txt) => `<div class="row"><span>${l}</span><div class="meter ${meterCls(v)}"><i style="width:${v}%"></i></div><output>${txt}</output></div>`;
+  return `<button class="ncard ${offline(n) ? 'off' : ''}" data-filter="${n.id}" aria-pressed="${S.filter === n.id}">
+    <div class="top"><b>${n.name}</b><span class="pill s-${n.state}">${stateLabel[n.state]}</span></div>
+    ${row('CPU', n.cpu, offline(n) ? '–' : n.cpu + ' %')}${row('RAM', ramPct, offline(n) ? '–' : `${n.ramUsed.toFixed(1)} / ${n.ramTotal} GB`)}${row('Disk', n.disk, offline(n) ? '–' : n.disk + ' %')}
+    <div class="foot"><span class="chip">${n.kind === 'local' ? 'embedded' : 'agent'}</span><span class="chip mono">v${n.ver}</span>
+    <span>${cnt} server${cnt === 1 ? '' : 's'}</span><span style="margin-left:auto">${offline(n) ? 'last seen ' + n.seen : n.kind === 'local' ? 'local' : n.ping + ' ms'}</span></div></button>`;
+}
+function renderOverview() {
+  const list = servers.filter(s => S.filter === 'all' || s.node === S.filter);
+  const down = nodes.filter(offline);
+  const old = nodes.filter(n => n.state === 'outdated');
+  const players = servers.filter(s => !offline(node(s.node))).reduce((a, s) => a + s.pl, 0);
+  return `
+  <div class="view-head"><div><h1>Overview</h1><p class="sub">${nodes.length} nodes · ${servers.length} servers · ${players} players online</p></div>
+    <div class="actions"><button class="btn" data-go="nodes">${ICON.nodes}Manage nodes</button><button class="btn primary" data-go="new">${ICON.plus}Create server</button></div></div>
+  ${down.map(n => `<div class="callout crit"><div><b>${n.name} is unreachable</b>Last contact ${n.seen}. Its servers keep running on the host; the dashboard shows the last known state and disables actions until the agent answers again.</div><button class="btn sm" data-act="retry">Retry now</button></div>`).join('')}
+  ${old.map(n => `<div class="callout warn"><div><b>${n.name} runs agent v${n.ver}, the dashboard is v0.9.2</b>Still compatible (same API major). Pull the new image on that host to get all features.</div><button class="btn sm" data-go="nodes">How to update</button></div>`).join('')}
+  <section><div class="nodes">${nodes.map(nodeCard).join('')}</div></section>
+  <div class="panel">
+    <div class="panel-head"><h2>Servers</h2>
+      <div class="seg" role="group" aria-label="Filter by node"><button data-filter="all" aria-pressed="${S.filter === 'all'}">All nodes</button>${nodes.map(n => `<button data-filter="${n.id}" aria-pressed="${S.filter === n.id}">${n.name}</button>`).join('')}</div></div>
+    <div class="tbl-wrap"><table class="tbl"><thead><tr><th>Server</th><th>Node</th><th>Status</th><th>Players</th><th>RAM</th><th class="right">Port</th></tr></thead><tbody>
+    ${list.map(s => { const n = node(s.node), off = offline(n); return `<tr class="click ${off ? 'dim' : ''}" data-srv="${s.id}">
+      <td class="t-name"><b>${esc(s.name)}</b><span>${s.sw}</span></td>
+      <td><span class="chip node">${n.name}</span></td>
+      <td>${off ? '<span class="pill s-offline">Unknown</span>' : `<span class="pill s-${s.st}">${label[s.st]}</span>`}</td>
+      <td class="num">${off ? '–' : `${s.pl} / ${s.max}`}</td><td class="num">${off ? '–' : `${s.ram.toFixed(1)} / ${s.lim} GB`}</td><td class="right mono">${s.port}</td></tr>`; }).join('')}
+    </tbody></table></div></div>`;
+}
+
+/* ---- nodes ---- */
+function renderNodes() {
+  return `
+  <div class="view-head"><div><h1>Nodes</h1><p class="sub">Every host that runs an agent. The dashboard calls them; agents never call out.</p></div>
+    <div class="actions"><button class="btn primary" data-act="addnode">${ICON.plus}Add node</button></div></div>
+  <div class="panel"><div class="tbl-wrap"><table class="tbl"><thead><tr><th>Node</th><th>Address</th><th>Status</th><th>Agent</th><th>Latency</th><th>Servers</th><th></th></tr></thead><tbody>
+  ${nodes.map(n => `<tr>
+    <td class="t-name"><b>${n.name}</b><span>${n.kind === 'local' ? 'embedded agent in this dashboard' : 'remote agent'}</span></td>
+    <td class="mono">${n.addr}</td><td><span class="pill s-${n.state}">${stateLabel[n.state]}</span></td>
+    <td class="mono">v${n.ver}</td><td class="num">${n.ping == null ? '–' : n.kind === 'local' ? '–' : n.ping + ' ms'}</td><td class="num">${servers.filter(s => s.node === n.id).length}</td>
+    <td class="right">${n.kind === 'local' ? '<button class="btn ghost sm" data-act="toast" data-msg="The embedded agent can be switched off when the dashboard has no Docker socket.">Disable</button>' : '<button class="btn ghost sm" data-act="toast" data-msg="Rotates the token; the agent needs the new one.">Rotate token</button><button class="btn ghost sm" data-act="toast" data-msg="Removes the node from the dashboard. Servers keep running on the host.">Remove</button>'}</td></tr>`).join('')}
+  </tbody></table></div></div>
+  <div class="callout info"><div><b>Removing a node never touches its servers</b>Each server folder still holds its own cubeherd.json and compose.yml, so <span class="mono">docker compose</span> keeps working and you can re-add the node later.</div></div>`;
+}
+
+/* ---- add node dialog ---- */
+const add = { step: 1, name: 'rack-02', addr: 'https://10.8.0.40:8421', token: 'chag_' + Math.random().toString(36).slice(2, 10) + Math.random().toString(36).slice(2, 10), checks: [] };
+const CHECKS = [['Agent reachable', '12 ms'], ['Token accepted', 'scope: full'], ['API version compatible', 'v1 / v1'], ['Docker reachable on the agent', 'engine 29.0'], ['Data directory path matches host', '/srv/cubeherd']];
+function renderModal() {
+  if (!add.open) { $('#modal').innerHTML = ''; return; }
+  const dots = [1, 2, 3].map(i => `<span class="${add.step === i ? 'cur' : add.step > i ? 'done' : ''}">${i}</span>`).join('');
+  let body = '', foot = '';
+  if (add.step === 1) {
+    body = `<div class="field"><span>Node name</span><input class="input" id="a-name" value="${esc(add.name)}"><small>Shown in the sidebar and in URLs (<span class="mono">/n/${esc(add.name)}/…</span>).</small></div>
+      <div class="callout info"><div><b>Prepare the host</b>Docker and the Compose plugin are the only requirements. The agent is the same image as the dashboard, started with <span class="mono">agent</span>.</div></div>`;
+    foot = `<button class="btn ghost" data-act="close">Cancel</button><button class="btn primary" data-act="next">Next</button>`;
+  } else if (add.step === 2) {
+    body = `<p class="muted">Run this on <b class="mono">${esc(add.name)}</b>. The token is shown once and stored only as a hash on the agent.</p>
+      <pre class="code"><span class="c"># compose.yml on the new host</span>
+<span class="k">services:</span>
+  cubeherd-agent:
+    image: ghcr.io/matserix/cubeherd:latest
+    command: [<span class="s">"agent"</span>]
+    restart: unless-stopped
+    ports: [<span class="s">"8421:8421"</span>]     <span class="c"># LAN / VPN only</span>
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /srv/cubeherd:/srv/cubeherd
+    environment:
+      CUBEHERD_DATA: /srv/cubeherd
+      CUBEHERD_AGENT_TOKEN: <span class="s">${add.token}</span></pre>
+      <div class="actions"><button class="btn sm" data-act="toast" data-msg="Copied (mock)">Copy snippet</button><span class="muted">then <span class="mono">docker compose up -d</span></span></div>`;
+    foot = `<button class="btn ghost" data-act="back">Back</button><button class="btn primary" data-act="next">Agent is running</button>`;
+  } else {
+    const rows = CHECKS.map((c, i) => { const st = add.checks[i] || 'idle'; return `<li class="${st}"><span class="ic">${st === 'ok' ? '✓' : st === 'run' ? '…' : '·'}</span>${c[0]}${st === 'ok' ? `<small>${c[1]}</small>` : ''}</li>`; }).join('');
+    const done = add.checks.length === CHECKS.length && add.checks.every(x => x === 'ok');
+    body = `<div class="field"><span>Agent address</span><input class="input mono" id="a-addr" value="${esc(add.addr)}"></div><ul class="checks">${rows}</ul>`;
+    foot = `<button class="btn ghost" data-act="back">Back</button><div class="actions"><button class="btn" data-act="test">Test connection</button><button class="btn primary" data-act="save" ${done ? '' : 'disabled'}>Add node</button></div>`;
+  }
+  $('#modal').innerHTML = `<div class="scrim"><div class="modal" role="dialog" aria-modal="true" aria-label="Add node"><div class="modal-head"><h2>Add node</h2><div class="steps">${dots}</div></div><div class="modal-body">${body}</div><div class="modal-foot">${foot}</div></div></div>`;
+}
+function runChecks() {
+  add.checks = [];
+  CHECKS.forEach((_, i) => {
+    setTimeout(() => { add.checks[i] = 'run'; renderModal(); }, i * 450);
+    setTimeout(() => { add.checks[i] = 'ok'; renderModal(); }, i * 450 + 350);
+  });
+}
+
+/* ---- new server (placement step) ---- */
+function renderNew() {
+  const w = S.wiz;
+  const sel = node(w.node);
+  const free = n => (n.ramTotal - n.ramUsed).toFixed(1);
+  const usedPorts = servers.filter(s => s.node === w.node).map(s => s.port);
+  let port = 25565; while (usedPorts.includes(port)) port++;
+  return `
+  <div class="view-head"><div><h1>New server</h1><p class="sub">Step 1 of 4 · Placement. The remaining steps are unchanged from the single-host wizard.</p></div></div>
+  <div class="panel"><div class="panel-head"><h2>Where should it run?</h2><span class="muted">Free RAM and ports are read live from each agent</span></div>
+  <div class="modal-body"><div class="choice-grid">
+  ${nodes.map(n => `<button class="choice" data-pick="${n.id}" aria-pressed="${w.node === n.id}" ${offline(n) ? 'disabled' : ''}>
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><b>${n.name}</b><span class="pill s-${n.state}">${stateLabel[n.state]}</span></div>
+    <small>${offline(n) ? 'Unreachable, cannot create servers here' : `${free(n)} GB free of ${n.ramTotal} GB · ${servers.filter(s => s.node === n.id).length} servers`}</small>
+    <div class="meter ${meterCls(Math.round(n.ramUsed / n.ramTotal * 100))}"><i style="width:${Math.round(n.ramUsed / n.ramTotal * 100)}%"></i></div></button>`).join('')}
+  </div>
+  <div class="callout info"><div><b>Port ${port} is free on ${sel.name}</b>Ports only have to be unique per node, so two servers can both use 25565 on different nodes. Bind addresses (<span class="mono">bindIp</span>) are configured per node.</div></div>
+  <div class="actions" style="justify-content:flex-end"><button class="btn primary" data-act="toast" data-msg="Continues with software, version and settings (not part of this prototype).">Continue</button></div></div></div>`;
+}
+
+/* ---- server detail ---- */
+function renderServer() {
+  const s = servers.find(x => x.id === S.server), n = node(s.node), off = offline(n);
+  const log = [['12:04:11', 'Done (4.213s)! For help, type "help"'], ['12:09:02', 'Steve joined the game'], ['12:09:40', '<Steve> anyone up for the nether?'], ['12:15:27', 'Saved the game', 'w']];
+  return `
+  <div class="crumbs"><button data-go="overview">Overview</button>/<button data-filter-go="${n.id}">${n.name}</button>/<span>${esc(s.name)}</span></div>
+  <div class="view-head"><div><h1>${esc(s.name)}</h1><p class="sub">${s.sw} · port ${s.port}</p></div>
+    <div class="actions"><span class="chip node">${n.name}</span><span class="urlbar">/n/${n.id}/s/${s.id}</span>
+    <button class="btn" ${off ? 'disabled' : ''} data-act="toast" data-msg="Sent to agent ${n.name}">Restart</button><button class="btn" ${off ? 'disabled' : ''} data-act="toast" data-msg="Sent to agent ${n.name}">Stop</button></div></div>
+  ${off ? `<div class="callout crit"><div><b>${n.name} is unreachable</b>Showing the last known state from ${n.seen}. Console, files and backups need a live agent. Scheduled backups keep running on the agent itself.</div><button class="btn sm" data-act="retry">Retry now</button></div>` : ''}
+  <div class="panel"><div class="kvs">
+    <div><span class="label">Status</span><b>${off ? 'Unknown' : label[s.st]}</b></div><div><span class="label">Players</span><b>${off ? '–' : `${s.pl} / ${s.max}`}</b></div>
+    <div><span class="label">RAM</span><b>${off ? '–' : `${s.ram.toFixed(1)} / ${s.lim} GB`}</b></div><div><span class="label">Runs on</span><b>${n.name}</b></div></div></div>
+  <div class="panel console"><div class="console-head"><span class="${off ? '' : 'live'}">${off ? 'Offline' : 'Live'}</span><span class="mono">${off ? 'no stream' : `SSE · browser → dashboard → agent ${n.name} · ${n.ping || 0} ms`}</span></div>
+    <pre class="log">${off ? '<span class="t">The log stream resumes when the agent is reachable.</span>' : log.map(l => `<span class="t">[${l[0]}]</span> ${l[2] ? `<span class="${l[2]}">${l[1]}</span>` : esc(l[1])}`).join('\n')}</pre></div>`;
+}
+
+function render() {
+  renderSide();
+  $('#view').innerHTML = { overview: renderOverview, nodes: renderNodes, new: renderNew, server: renderServer, settings: () => `<div class="view-head"><h1>Settings</h1></div><div class="callout info"><div><b>Global settings stay in the dashboard</b>S3 backup target, CurseForge key, time zone and language are pushed to every agent. Per-node settings (bind addresses, default port range) live on the Nodes page.</div></div>` }[S.view]();
+  renderModal();
+}
+function toast(m) { const t = document.createElement('div'); t.className = 'toast'; t.textContent = m; document.body.append(t); setTimeout(() => t.remove(), 2200); }
+
+document.addEventListener('click', e => {
+  const t = e.target.closest('[data-go],[data-srv],[data-filter],[data-filter-go],[data-pick],[data-act]');
+  if (!t) return;
+  const d = t.dataset;
+  if (d.go) { S.view = d.go; }
+  else if (d.srv) { S.view = 'server'; S.server = d.srv; }
+  else if (d.filter) { S.filter = d.filter; S.view = 'overview'; }
+  else if (d.filterGo) { S.filter = d.filterGo; S.view = 'overview'; }
+  else if (d.pick) { S.wiz.node = d.pick; }
+  else if (d.act === 'toast') { toast(d.msg); return; }
+  else if (d.act === 'retry') { toast('Probing agent… still no answer (mock)'); return; }
+  else if (d.act === 'addnode') { Object.assign(add, { open: true, step: 1, checks: [] }); }
+  else if (d.act === 'close') { add.open = false; }
+  else if (d.act === 'next') { add.name = $('#a-name') ? $('#a-name').value.trim() || add.name : add.name; add.step++; }
+  else if (d.act === 'back') { add.step--; }
+  else if (d.act === 'test') { add.addr = $('#a-addr').value; runChecks(); return; }
+  else if (d.act === 'save') {
+    nodes.push({ id: add.name, name: add.name, kind: 'agent', addr: add.addr, ver: '0.9.2', ping: 12, cpu: 3, ramUsed: 0.4, ramTotal: 16, disk: 9, state: 'online' });
+    add.open = false; S.view = 'nodes'; toast(`Node ${add.name} added`);
+  }
+  render();
+});
+$('#t-off').addEventListener('change', () => { apply(); render(); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && add.open) { add.open = false; render(); } });
+apply(); render();
+</script>

@@ -130,7 +130,7 @@ type overviewData struct {
 }
 
 func (a *App) overviewData(ctx context.Context, discover bool) overviewData {
-	d := overviewData{Host: a.Host.Read(ctx), SelfMB: selfMB(), Goroutines: runtime.NumGoroutine()}
+	d := overviewData{Host: a.M.HostStats(ctx), SelfMB: selfMB(), Goroutines: runtime.NumGoroutine()}
 	d.Views, _ = a.M.Views(ctx, true)
 	for _, v := range d.Views {
 		if v.Status.Up() {
@@ -186,7 +186,7 @@ type wizardData struct {
 }
 
 func (a *App) maxRAM(ctx context.Context) int {
-	h := a.Host.Read(ctx)
+	h := a.M.HostStats(ctx)
 	if gbTotal := int(h.MemTotal >> 30); gbTotal > 2 {
 		return min(gbTotal, 64)
 	}
@@ -194,7 +194,7 @@ func (a *App) maxRAM(ctx context.Context) int {
 }
 
 func (a *App) releases(ctx context.Context) []string {
-	rel, err := a.M.Sources.Releases(ctx)
+	rel, err := a.Sources.Releases(ctx)
 	if err != nil || len(rel) == 0 {
 		return []string{"1.21.11", "1.21.10", "1.21.8", "1.21.4", "1.21.1", "1.20.6", "1.20.4", "1.20.1", "1.19.4", "1.18.2", "1.16.5", "1.12.2"}
 	}
@@ -208,16 +208,16 @@ func (a *App) wizardPage(w http.ResponseWriter, r *http.Request) {
 	cfg := a.Cfg.Get()
 	rel := a.releases(r.Context())
 	d := wizardData{
-		Releases: rel, Java: a.M.Sources.JavaTag(r.Context(), rel[0]), Port: a.M.NextPort(""),
+		Releases: rel, Java: a.Sources.JavaTag(r.Context(), rel[0]), Port: a.M.NextPort(""),
 		BindIPs: cfg.BindIPs, BindIP: cfg.DefaultBindIP,
 		PortRange: fmt.Sprintf("%d–%d", cfg.PortMin, cfg.PortMax), RAM: cfg.DefaultMemoryGB, MaxRAM: a.maxRAM(r.Context()),
-		Autopause: cfg.DefaultAutopause, HasCFKey: cfg.CFAPIKey != "", HostRAM: decimal(a.lang(), float64(a.Host.Read(r.Context()).MemTotal)/(1<<30)),
+		Autopause: cfg.DefaultAutopause, HasCFKey: cfg.CFAPIKey != "", HostRAM: decimal(a.lang(), float64(a.M.HostStats(r.Context()).MemTotal)/(1<<30)),
 	}
 	a.render(w, r, "wizard", Page{Title: a.t("Neuer Server"), Nav: "wizard", Data: d})
 }
 
 func (a *App) wizardJava(w http.ResponseWriter, r *http.Request) {
-	a.partial(w, "wizard", "javaTag", a.M.Sources.JavaTag(r.Context(), r.FormValue("version")))
+	a.partial(w, "wizard", "javaTag", a.Sources.JavaTag(r.Context(), r.FormValue("version")))
 }
 
 func (a *App) wizardPacks(w http.ResponseWriter, r *http.Request) {
@@ -227,9 +227,9 @@ func (a *App) wizardPacks(w http.ResponseWriter, r *http.Request) {
 	var err error
 	switch src {
 	case server.KindModrinth:
-		packs, err = a.M.Sources.ModrinthSearch(r.Context(), q)
+		packs, err = a.Sources.ModrinthSearch(r.Context(), q)
 	case server.KindCurseForge:
-		packs, err = a.M.Sources.CurseForgeSearch(r.Context(), q)
+		packs, err = a.Sources.CurseForgeSearch(r.Context(), q)
 	default:
 		err = errors.New(a.t("unbekannte Quelle"))
 	}
@@ -244,9 +244,9 @@ func (a *App) wizardPacks(w http.ResponseWriter, r *http.Request) {
 
 func (a *App) packVersions(ctx context.Context, src, slug, id string) ([]sources.PackVersion, error) {
 	if src == server.KindCurseForge {
-		return a.M.Sources.CurseForgeVersions(ctx, id)
+		return a.Sources.CurseForgeVersions(ctx, id)
 	}
-	return a.M.Sources.ModrinthVersions(ctx, slug)
+	return a.Sources.ModrinthVersions(ctx, slug)
 }
 
 func (a *App) wizardPackVersions(w http.ResponseWriter, r *http.Request) {
@@ -261,9 +261,9 @@ func (a *App) wizardPackVersions(w http.ResponseWriter, r *http.Request) {
 	// Name and icon come from the (cached) search result, not from the client.
 	var packs []sources.Pack
 	if src == server.KindCurseForge {
-		packs, _ = a.M.Sources.CurseForgeSearch(r.Context(), strings.TrimSpace(r.FormValue("q_"+src)))
+		packs, _ = a.Sources.CurseForgeSearch(r.Context(), strings.TrimSpace(r.FormValue("q_"+src)))
 	} else {
-		packs, _ = a.M.Sources.ModrinthSearch(r.Context(), strings.TrimSpace(r.FormValue("q_"+src)))
+		packs, _ = a.Sources.ModrinthSearch(r.Context(), strings.TrimSpace(r.FormValue("q_"+src)))
 	}
 	d["Name"], d["Icon"] = slug, ""
 	for _, p := range packs {
@@ -310,7 +310,7 @@ func (a *App) serverFromWizard(r *http.Request) (*server.Server, error) {
 	if name == "" || s.ID == "" {
 		return nil, errors.New(a.t("Bitte einen Namen mit Buchstaben oder Ziffern angeben."))
 	}
-	if a.M.Store.Exists(s.ID) {
+	if a.M.ServerExists(s.ID) {
 		return nil, fmt.Errorf(a.t("Die ID „%s“ ist schon vergeben. Bitte einen anderen Namen wählen."), s.ID)
 	}
 	if s.Port == 0 {
@@ -357,7 +357,7 @@ func (a *App) serverFromWizard(r *http.Request) (*server.Server, error) {
 	default:
 		return nil, errors.New(a.t("Bitte eine Grundlage wählen."))
 	}
-	s.JavaTag = a.M.Sources.JavaTag(ctx, s.Version)
+	s.JavaTag = a.Sources.JavaTag(ctx, s.Version)
 	return s, nil
 }
 
@@ -372,7 +372,7 @@ func (a *App) wizardPreview(w http.ResponseWriter, r *http.Request) {
 		g.CFKey = "••••••"
 	}
 	compose := server.Compose(s, g)
-	a.partial(w, "wizard", "preview", map[string]any{"S": s, "Compose": compose, "Dir": a.M.Store.Dir(s.ID)})
+	a.partial(w, "wizard", "preview", map[string]any{"S": s, "Compose": compose, "Dir": a.M.ServerDir(s.ID)})
 }
 
 func (a *App) createServer(w http.ResponseWriter, r *http.Request) {
@@ -438,7 +438,7 @@ type playersData struct {
 }
 
 func (a *App) loadServer(w http.ResponseWriter, r *http.Request) (*server.Server, bool) {
-	s, err := a.M.Store.Get(r.PathValue("id"))
+	s, err := a.M.Server(r.PathValue("id"))
 	if err != nil {
 		if isHX(r) {
 			a.fail(w, "Server nicht gefunden.")
@@ -461,7 +461,7 @@ func (a *App) updateHint(ctx context.Context, s *server.Server) string {
 		}
 		return ""
 	}
-	rel, err := a.M.Sources.Releases(ctx)
+	rel, err := a.Sources.Releases(ctx)
 	if err == nil && len(rel) > 0 && sources.IsVersion(s.Version) && sources.CompareMC(rel[0], s.Version) > 0 {
 		return fmt.Sprintf("Minecraft %s → %s", s.Version, rel[0])
 	}
@@ -469,7 +469,7 @@ func (a *App) updateHint(ctx context.Context, s *server.Server) string {
 }
 
 func (a *App) serverPageData(ctx context.Context, s *server.Server, tabKey string) serverPage {
-	d := serverPage{V: a.M.View(ctx, s, true), Tab: tabKey, Tabs: tabs, Disk: a.M.DiskUsage(s), MaxRAM: a.maxRAM(ctx), HostRAM: decimal(a.lang(), float64(a.Host.Read(ctx).MemTotal)/(1<<30)), DataDir: a.M.Store.DataDir(s)}
+	d := serverPage{V: a.M.View(ctx, s, true), Tab: tabKey, Tabs: tabs, Disk: a.M.DiskUsage(s), MaxRAM: a.maxRAM(ctx), HostRAM: decimal(a.lang(), float64(a.M.HostStats(ctx).MemTotal)/(1<<30)), DataDir: a.M.DataDir(s)}
 	if !d.V.Status.Busy() {
 		d.Update = a.updateHint(ctx, s)
 	}
@@ -508,7 +508,7 @@ type cpuOption struct{ Value, Label string }
 func cpuValue(f float64) string { return strconv.FormatFloat(f, 'f', -1, 64) }
 
 func (a *App) cpuOptions(ctx context.Context, s *server.Server) ([]cpuOption, string) {
-	cores := a.Host.Read(ctx).Cores
+	cores := a.M.HostStats(ctx).Cores
 	if cores <= 0 {
 		cores = 8
 	}
@@ -841,7 +841,7 @@ func (a *App) updatePost(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		s.Version, s.Type = v, t
-		s.JavaTag = a.M.Sources.JavaTag(ctx, v)
+		s.JavaTag = a.Sources.JavaTag(ctx, v)
 		msg = a.t("Update auf %s %s gestartet.", server.TypeName(t), v)
 	case "pack":
 		if s.Pack == nil {
@@ -869,7 +869,7 @@ func (a *App) updatePost(w http.ResponseWriter, r *http.Request) {
 		}
 		if pv.MC != "" {
 			s.Version = pv.MC
-			s.JavaTag = a.M.Sources.JavaTag(ctx, pv.MC)
+			s.JavaTag = a.Sources.JavaTag(ctx, pv.MC)
 		}
 		msg = a.t("Update auf %s %s gestartet.", s.Pack.Name, pv.Name)
 	default:
@@ -888,7 +888,7 @@ func (a *App) uninstallModal(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	a.partial(w, "server", "uninstallModal", map[string]any{"S": s, "Dir": a.M.Store.Dir(s.ID), "Archive": a.M.ArchiveDir()})
+	a.partial(w, "server", "uninstallModal", map[string]any{"S": s, "Dir": a.M.ServerDir(s.ID), "Archive": a.M.ArchiveDir()})
 }
 
 func (a *App) uninstallPost(w http.ResponseWriter, r *http.Request) {
@@ -934,9 +934,9 @@ type settingsData struct {
 
 func (a *App) settingsPage(w http.ResponseWriter, r *http.Request) {
 	d := settingsData{Cfg: a.Cfg.Get(), RAMOptions: []int{2, 3, 4, 6, 8, 10, 12, 16}, DataDir: a.DataDir, Listen: a.Listen,
-		DockerHost: a.M.Docker.Host, Version: Version, SelfMB: selfMB(), Started: a.start,
+		DockerHost: a.M.DockerHost(), Version: Version, SelfMB: selfMB(), Started: a.start,
 		Zones: commonZones, SystemZone: time.Local.String(), ZoneNow: time.Now().In(a.M.Loc()).Format("02.01.2006 15:04 MST")}
-	info, err := a.M.Docker.Info(r.Context())
+	info, err := a.M.DockerInfo(r.Context())
 	if err != nil {
 		d.DockerErr = err.Error()
 	}
@@ -1062,7 +1062,7 @@ func (a *App) cfCheck(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprint(w, `<span style="color:var(--crit)">Kein Key eingetragen.</span>`)
 		return
 	}
-	if err := a.M.Sources.CurseForgeCheck(r.Context(), key); err != nil {
+	if err := a.Sources.CurseForgeCheck(r.Context(), key); err != nil {
 		fmt.Fprintf(w, `<span style="color:var(--crit)">%s</span>`, template.HTMLEscapeString(err.Error()))
 		return
 	}

@@ -20,9 +20,10 @@ import (
 
 	"cubeherd/internal/auth"
 	"cubeherd/internal/config"
-	"cubeherd/internal/host"
 	"cubeherd/internal/i18n"
 	"cubeherd/internal/manager"
+	"cubeherd/internal/node"
+	"cubeherd/internal/sources"
 	"cubeherd/internal/update"
 )
 
@@ -36,9 +37,9 @@ var staticFS embed.FS
 var Version = "dev"
 
 type App struct {
-	M       *manager.Manager
+	M       node.Node
+	Sources *sources.Client
 	Cfg     *config.Store
-	Host    *host.Reader
 	DataDir string
 	Listen  string
 	Updates *update.Checker
@@ -49,8 +50,8 @@ type App struct {
 	start time.Time
 }
 
-func New(m *manager.Manager, cfg *config.Store, h *host.Reader, dataDir, listen string) (*App, error) {
-	a := &App{M: m, Cfg: cfg, Host: h, DataDir: dataDir, Listen: listen, lim: auth.NewLimiter(), start: time.Now(), Updates: update.New()}
+func New(m node.Node, src *sources.Client, cfg *config.Store, dataDir, listen string) (*App, error) {
+	a := &App{M: m, Sources: src, Cfg: cfg, DataDir: dataDir, Listen: listen, lim: auth.NewLimiter(), start: time.Now(), Updates: update.New()}
 	a.sess = auth.Sessions{
 		Secret: func() (string, string) {
 			s := cfg.Get()

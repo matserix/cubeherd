@@ -68,7 +68,7 @@ func (a *App) serverEvents(w http.ResponseWriter, r *http.Request) {
 	var lastStatus server.Status
 	var lastRender time.Time
 	pushStatus := func(force bool) {
-		cur, _ := a.M.Store.Get(s.ID)
+		cur, _ := a.M.Server(s.ID)
 		if cur == nil {
 			emit("status", `<div class="callout crit"><div><b>Server wurde entfernt</b><span class="muted"><a href="/">Zur Übersicht</a></span></div></div>`)
 			return
@@ -135,7 +135,7 @@ func (a *App) streamLogs(ctx context.Context, s *server.Server, out chan<- strin
 	shown := false
 	var since int64
 	for ctx.Err() == nil {
-		c, err := a.M.Docker.Inspect(ctx, s.Container())
+		c, err := a.M.Inspect(ctx, s.Container())
 		if err != nil {
 			sleep(ctx, 2*time.Second)
 			continue
@@ -152,13 +152,13 @@ func (a *App) streamLogs(ctx context.Context, s *server.Server, out chan<- strin
 		}
 		if !c.State.Running {
 			if !shown {
-				_ = a.M.Docker.LogsSince(ctx, s.Container(), false, tail, 0, c.Config.Tty, send)
+				_ = a.M.LogsSince(ctx, s.Container(), false, tail, 0, c.Config.Tty, send)
 				shown, since = true, time.Now().Unix()
 			}
 			sleep(ctx, 2*time.Second)
 			continue
 		}
-		_ = a.M.Docker.LogsSince(ctx, s.Container(), true, tail, since, c.Config.Tty, send)
+		_ = a.M.LogsSince(ctx, s.Container(), true, tail, since, c.Config.Tty, send)
 		shown, since = true, time.Now().Unix()
 		sleep(ctx, time.Second)
 	}
@@ -242,13 +242,13 @@ func batchLines(ctx context.Context, in <-chan string, emit func(string)) {
 func (a *App) streamStats(ctx context.Context, s *server.Server, emit func(string, string)) {
 	hist := make([]float64, 0, 40)
 	for ctx.Err() == nil {
-		c, err := a.M.Docker.Inspect(ctx, s.Container())
+		c, err := a.M.Inspect(ctx, s.Container())
 		if err != nil || !c.State.Running {
 			sleep(ctx, 3*time.Second)
 			continue
 		}
 		n := 0
-		_ = a.M.Docker.StatsStream(ctx, s.Container(), func(st dockerStats) {
+		_ = a.M.StatsStream(ctx, s.Container(), func(st dockerStats) {
 			if n++; n%2 == 1 {
 				return // one update every ~2 s is plenty
 			}

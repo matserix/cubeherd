@@ -61,12 +61,12 @@ func (a *App) addonSearch(w http.ResponseWriter, r *http.Request) {
 	src := r.FormValue("src")
 	switch src {
 	case server.AddonCurseForge:
-		hits, err = a.M.Sources.CurseForgeAddons(r.Context(), q)
+		hits, err = a.Sources.CurseForgeAddons(r.Context(), q)
 	case server.AddonSpiget:
-		hits, err = a.M.Sources.SpigetAddons(r.Context(), q)
+		hits, err = a.Sources.SpigetAddons(r.Context(), q)
 	default:
 		src = server.AddonModrinth
-		hits, err = a.M.Sources.ModrinthAddons(r.Context(), q)
+		hits, err = a.Sources.ModrinthAddons(r.Context(), q)
 	}
 	msg := ""
 	switch {

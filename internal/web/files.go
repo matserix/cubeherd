@@ -6,7 +6,6 @@ import (
 	"io"
 	"mime"
 	"net/http"
-	"os"
 	"path"
 	"path/filepath"
 	"strings"
@@ -237,8 +236,8 @@ func (a *App) worldUpload(w http.ResponseWriter, r *http.Request) {
 		a.fail(w, "Upload fehlgeschlagen: %s", err.Error())
 		return
 	}
-	// Stream the ZIP to disk next to the server (not into /data) without buffering it in memory.
-	tmp := filepath.Join(a.M.Store.Dir(s.ID), ".world-upload.zip")
+	// The ZIP is streamed to disk next to the server (not into /data) without buffering it in memory.
+	var tmp string
 	for {
 		part, err := mr.NextPart()
 		if errors.Is(err, io.EOF) {
@@ -252,15 +251,7 @@ func (a *App) worldUpload(w http.ResponseWriter, r *http.Request) {
 		if part.FormName() != "world" {
 			continue
 		}
-		f, err := os.Create(tmp)
-		if err != nil {
-			fail(w, a.t(err.Error()))
-			return
-		}
-		_, err = io.Copy(f, part)
-		f.Close()
-		if err != nil {
-			os.Remove(tmp)
+		if tmp, err = a.M.StageWorld(s, part); err != nil {
 			a.fail(w, "Upload abgebrochen: %s", err.Error())
 			return
 		}

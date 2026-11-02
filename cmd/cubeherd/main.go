@@ -64,6 +64,7 @@ func main() {
 
 	src := sources.New(func() string { return cfg.Get().CFAPIKey })
 	m := manager.New(dc, store, cfg, src)
+	m.Hoster = &host.Reader{Docker: dc, DataDir: dataDir}
 	m.Lang = func() string {
 		if l := cfg.Get().Language; i18n.Valid(l) {
 			return l
@@ -73,7 +74,7 @@ func main() {
 	schedCtx, stopSched := context.WithCancel(context.Background())
 	defer stopSched()
 	go m.RunScheduler(schedCtx)
-	app, err := web.New(m, cfg, &host.Reader{Docker: dc, DataDir: dataDir}, dataDir, listen)
+	app, err := web.New(m, src, cfg, dataDir, listen)
 	if err != nil {
 		log.Fatalf("Templates: %v", err)
 	}

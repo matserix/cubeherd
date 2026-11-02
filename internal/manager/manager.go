@@ -20,6 +20,7 @@ import (
 
 	"cubeherd/internal/config"
 	"cubeherd/internal/docker"
+	"cubeherd/internal/host"
 	"cubeherd/internal/i18n"
 	"cubeherd/internal/server"
 	"cubeherd/internal/sources"
@@ -32,6 +33,7 @@ type Manager struct {
 	Store   *server.Store
 	Config  *config.Store
 	Sources *sources.Client
+	Hoster  *host.Reader // host CPU, memory and disk (set by main)
 
 	mu    sync.Mutex
 	ops   map[string]*Op

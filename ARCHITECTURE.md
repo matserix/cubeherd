@@ -52,6 +52,7 @@ cmd/cubeherd        main: read configuration from env, start the HTTP server
 internal/config       global settings (JSON, written atomically)
 internal/auth         password, session cookie, login throttling
 internal/docker       minimal Engine API client (list, inspect, start/stop, logs, stats, exec, info)
+internal/node         the Node interface: everything the web layer needs from one host (implemented by manager)
 internal/server       server definition, on-disk store, Compose generation, status derivation
 internal/s3           minimal S3 client (SigV4, multipart upload) for external backups, standard library only
 internal/update       newest GitHub release (cached, looked up lazily on page views)

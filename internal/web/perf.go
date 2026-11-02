@@ -157,13 +157,13 @@ func (a *App) streamPerf(ctx context.Context, s *server.Server, emit func(string
 	)
 	go func() {
 		for ctx.Err() == nil {
-			c, err := a.M.Docker.Inspect(ctx, s.Container())
+			c, err := a.M.Inspect(ctx, s.Container())
 			if err != nil || !c.State.Running {
 				sleep(ctx, 3*time.Second)
 				continue
 			}
 			n := 0
-			_ = a.M.Docker.StatsStream(ctx, s.Container(), func(st dockerStats) {
+			_ = a.M.StatsStream(ctx, s.Container(), func(st dockerStats) {
 				if n++; n%2 == 1 {
 					return
 				}
@@ -177,7 +177,7 @@ func (a *App) streamPerf(ctx context.Context, s *server.Server, emit func(string
 
 	var samples []server.PerfSample
 	for ctx.Err() == nil {
-		cur, _ := a.M.Store.Get(s.ID)
+		cur, _ := a.M.Server(s.ID)
 		if cur == nil {
 			return
 		}
