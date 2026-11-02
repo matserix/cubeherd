@@ -70,8 +70,8 @@ type Live interface {
 
 // Files covers the file browser and worlds.
 type Files interface {
-	DataDir(s *server.Server) string
-	ServerDir(id string) string
+	// Paths says where the server lives on its host; it also works for a definition that is not saved yet.
+	Paths(s *server.Server) api.Paths
 	ArchiveDir() string
 	List(ctx context.Context, s *server.Server, rel string) ([]api.Entry, bool, error)
 	Stat(ctx context.Context, s *server.Server, rel string) (api.Entry, error)
@@ -97,13 +97,13 @@ type Addons interface {
 type Backups interface {
 	BackupsAll(ctx context.Context, s *server.Server) ([]manager.Backup, error)
 	BackupNow(id, reason string) error
-	BackupPath(s *server.Server, name string) (string, error)
 	BackupHealth(s *server.Server, running bool) api.Health
 	DeleteBackupEverywhere(ctx context.Context, s *server.Server, name string) error
 	VerifyBackup(id, name string) error
 	UploadBackup(id, name string) error
 	Restore(id, name string) error
-	OpenRemote(ctx context.Context, s *server.Server, name string) (io.ReadCloser, int64, error)
+	// OpenBackup opens an archive for download. A local file is an io.ReadSeeker, so it can be served with ranges.
+	OpenBackup(ctx context.Context, s *server.Server, name string) (body io.ReadCloser, size int64, mod time.Time, err error)
 	HasRemote() bool
 	InvalidateRemote()
 	NextBackupFor(s *server.Server) time.Time

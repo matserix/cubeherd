@@ -5,6 +5,7 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"errors"
+	"io/fs"
 	"net/http"
 	"os"
 	"strings"
@@ -23,7 +24,13 @@ type Backend interface {
 	node.Servers
 	node.Console
 	node.Live
+	node.Files
+	node.Addons
+	node.Backups
 	node.Host
+
+	// ApplyConfig takes over the global settings the dashboard pushes.
+	ApplyConfig(c api.Config) error
 }
 
 var _ Backend = (*manager.Manager)(nil)
@@ -88,7 +95,7 @@ func (a *Agent) guard(next http.Handler) http.Handler {
 
 func (a *Agent) info(w http.ResponseWriter, r *http.Request) {
 	hn, _ := os.Hostname()
-	in := api.Info{Version: a.Version, API: api.Version, Hostname: hn, DockerHost: a.B.DockerHost(), DataDir: a.DataDir, Timezone: a.B.Loc().String()}
+	in := api.Info{Version: a.Version, API: api.Version, Hostname: hn, DockerHost: a.B.DockerHost(), DataDir: a.DataDir, Timezone: a.B.Loc().String(), ArchiveDir: a.B.ArchiveDir()}
 	if _, err := a.B.DockerInfo(r.Context()); err != nil {
 		in.DockerErr = err.Error()
 	} else {
@@ -120,6 +127,12 @@ func fail(w http.ResponseWriter, err error) {
 		writeErr(w, http.StatusNotFound, "notfound", err.Error())
 	case errors.Is(err, docker.ErrNotFound):
 		writeErr(w, http.StatusNotFound, "dockernotfound", err.Error())
+	case errors.Is(err, manager.ErrOutside):
+		writeErr(w, http.StatusBadRequest, "outside", err.Error())
+	case errors.Is(err, manager.ErrNoWorld):
+		writeErr(w, http.StatusUnprocessableEntity, "noworld", err.Error())
+	case errors.Is(err, fs.ErrNotExist):
+		writeErr(w, http.StatusNotFound, "notexist", err.Error())
 	default:
 		writeErr(w, http.StatusInternalServerError, "", err.Error())
 	}

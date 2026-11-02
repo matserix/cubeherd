@@ -122,9 +122,17 @@ func (c *Client) PortTaken(port int, excludeID string) bool {
 	return c.quick(http.MethodGet, "/v1/ports/taken?"+q, nil, &r) == nil && r.Taken
 }
 
-func (c *Client) Create(s *server.Server) error {
-	return c.slow(http.MethodPost, "/v1/servers", s, nil)
+// store sends a definition and replaces *s with what the agent saved, as the local manager does in place.
+func (c *Client) store(method, path string, s *server.Server) error {
+	var got server.Server
+	if err := c.slow(method, path, s, &got); err != nil {
+		return err
+	}
+	*s = got
+	return nil
 }
+
+func (c *Client) Create(s *server.Server) error { return c.store(http.MethodPost, "/v1/servers", s) }
 
 func (c *Client) Start(id string) error {
 	return c.quick(http.MethodPost, "/v1/servers/"+esc(id)+"/start", nil, nil)
@@ -137,12 +145,12 @@ func (c *Client) Restart(id string) error {
 }
 
 func (c *Client) Apply(s *server.Server, pull, restart bool) error {
-	return c.slow(http.MethodPut, "/v1/servers/"+esc(s.ID)+"?"+flag("pull", pull)+"&"+flag("restart", restart), s, nil)
+	return c.store(http.MethodPut, "/v1/servers/"+esc(s.ID)+"?"+flag("pull", pull)+"&"+flag("restart", restart), s)
 }
 
 func (c *Client) ApplyUpdate(s *server.Server, pull, restart, backupFirst bool) error {
 	q := flag("pull", pull) + "&" + flag("restart", restart) + "&" + flag("backup", backupFirst)
-	return c.slow(http.MethodPost, "/v1/servers/"+esc(s.ID)+"/update?"+q, s, nil)
+	return c.store(http.MethodPost, "/v1/servers/"+esc(s.ID)+"/update?"+q, s)
 }
 
 func (c *Client) Uninstall(id, mode string) error {
@@ -197,19 +205,11 @@ func (c *Client) Inspect(ctx context.Context, s *server.Server) (*docker.Contain
 // stream follows a newline-delimited JSON response until it ends or ctx is cancelled. It has no
 // overall timeout: only ctx ends it. Values that fail to decode end the stream with an error.
 func (c *Client) stream(ctx context.Context, path string, each func(dec *json.Decoder) error) error {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.base+path, nil)
-	if err != nil {
-		return err
-	}
-	c.sign(req)
-	resp, err := c.hc.Do(req)
+	resp, err := c.raw(ctx, http.MethodGet, path, nil)
 	if err != nil {
 		return err
 	}
 	defer resp.Body.Close()
-	if resp.StatusCode >= 300 {
-		return decodeErr(resp)
-	}
 	dec := json.NewDecoder(bufio.NewReader(resp.Body))
 	for dec.More() {
 		if err := each(dec); err != nil {

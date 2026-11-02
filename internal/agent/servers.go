@@ -14,6 +14,8 @@ import (
 const maxBody = 4 << 20 // definitions and commands are small
 
 func (a *Agent) routes(mux *http.ServeMux) {
+	a.fileRoutes(mux)
+	a.backupRoutes(mux)
 	mux.HandleFunc("GET /v1/docker", a.dockerInfo)
 	mux.HandleFunc("GET /v1/servers", a.servers)
 	mux.HandleFunc("POST /v1/servers", a.create)
@@ -111,7 +113,7 @@ func (a *Agent) create(w http.ResponseWriter, r *http.Request) {
 		fail(w, err)
 		return
 	}
-	w.WriteHeader(http.StatusCreated)
+	writeJSON(w, http.StatusCreated, &s)
 }
 
 func flag(r *http.Request, name string) bool { return r.URL.Query().Get(name) == "1" }
@@ -129,7 +131,7 @@ func (a *Agent) apply(w http.ResponseWriter, r *http.Request) {
 		fail(w, err)
 		return
 	}
-	w.WriteHeader(http.StatusAccepted)
+	writeJSON(w, http.StatusAccepted, &s)
 }
 
 func (a *Agent) update(w http.ResponseWriter, r *http.Request) {
@@ -145,7 +147,7 @@ func (a *Agent) update(w http.ResponseWriter, r *http.Request) {
 		fail(w, err)
 		return
 	}
-	w.WriteHeader(http.StatusAccepted)
+	writeJSON(w, http.StatusAccepted, &s)
 }
 
 func (a *Agent) uninstall(w http.ResponseWriter, r *http.Request) {

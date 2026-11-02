@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"os"
 	"regexp"
 	"strings"
 	"time"
@@ -126,33 +125,19 @@ func (a *App) backupDownload(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	p, err := a.M.BackupPath(s, r.PathValue("name"))
-	if err != nil {
-		a.remoteDownload(w, r, s)
-		return
-	}
-	f, err := os.Open(p)
-	if err != nil {
-		http.NotFound(w, r)
-		return
-	}
-	defer f.Close()
-	info, _ := f.Stat()
-	w.Header().Set("Content-Type", "application/zstd")
-	w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="%s-%s"`, s.ID, r.PathValue("name")))
-	http.ServeContent(w, r, "", info.ModTime(), f)
-}
-
-// remoteDownload streams an archive that only exists in the external storage.
-func (a *App) remoteDownload(w http.ResponseWriter, r *http.Request, s *server.Server) {
-	body, size, err := a.M.OpenRemote(r.Context(), s, r.PathValue("name"))
+	name := r.PathValue("name")
+	body, size, mod, err := a.M.OpenBackup(r.Context(), s, name)
 	if err != nil {
 		http.NotFound(w, r)
 		return
 	}
 	defer body.Close()
 	w.Header().Set("Content-Type", "application/zstd")
-	w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="%s-%s"`, s.ID, r.PathValue("name")))
+	w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="%s-%s"`, s.ID, name))
+	if rs, ok := body.(io.ReadSeeker); ok {
+		http.ServeContent(w, r, "", mod, rs) // local file: ranges and conditional requests
+		return
+	}
 	if size > 0 {
 		w.Header().Set("Content-Length", fmt.Sprint(size))
 	}

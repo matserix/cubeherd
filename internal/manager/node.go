@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 	"time"
 
+	"cubeherd/internal/api"
+	"cubeherd/internal/config"
 	"cubeherd/internal/docker"
 	"cubeherd/internal/host"
 	"cubeherd/internal/server"
@@ -118,3 +120,42 @@ func (m *Manager) StageWorld(s *server.Server, r io.Reader) (string, error) {
 	}
 	return tmp, nil
 }
+
+// OpenBackup opens an archive for download: the local file when there is one (an *os.File, so callers
+// can serve ranges), otherwise the copy in the external storage. size is -1 when unknown.
+func (m *Manager) OpenBackup(ctx context.Context, s *server.Server, name string) (body io.ReadCloser, size int64, mod time.Time, err error) {
+	p, perr := m.BackupPath(s, name)
+	if perr != nil {
+		body, size, err = m.OpenRemote(ctx, s, name)
+		return body, size, time.Time{}, err
+	}
+	f, err := os.Open(p)
+	if err != nil {
+		return nil, 0, time.Time{}, err
+	}
+	st, err := f.Stat()
+	if err != nil {
+		f.Close()
+		return nil, 0, time.Time{}, err
+	}
+	return f, st.Size(), st.ModTime(), nil
+}
+
+// ApplyConfig takes over the settings an agent needs from the dashboard and wakes what depends on them.
+func (m *Manager) ApplyConfig(c api.Config) error {
+	if err := m.Config.Update(func(s *config.Settings) {
+		s.Timezone, s.Language, s.CFAPIKey, s.Remote = c.Timezone, c.Language, c.CFAPIKey, c.Remote
+	}); err != nil {
+		return err
+	}
+	m.InvalidateRemote()
+	m.WakeScheduler()
+	return nil
+}
+
+func (m *Manager) paths(id string, s *server.Server) api.Paths {
+	return api.Paths{Dir: m.Store.Dir(id), DataDir: m.Store.DataDir(s)}
+}
+
+// Paths reports where the server lives on this host.
+func (m *Manager) Paths(s *server.Server) api.Paths { return m.paths(s.ID, s) }

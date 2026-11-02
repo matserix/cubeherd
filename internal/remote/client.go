@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"net"
 	"net/http"
 	"net/url"
@@ -110,28 +111,40 @@ func Probe(ctx context.Context, addr string) (string, error) {
 	return api.Fingerprint(certs[0].Raw), nil
 }
 
+// raw sends a signed request and returns the response without applying a default timeout, so it can
+// carry large uploads and downloads that only the caller's context may end. Error statuses are decoded.
+func (c *Client) raw(ctx context.Context, method, path string, body io.Reader) (*http.Response, error) {
+	req, err := http.NewRequestWithContext(ctx, method, c.base+path, body)
+	if err != nil {
+		return nil, err
+	}
+	c.sign(req)
+	resp, err := c.hc.Do(req)
+	if err != nil {
+		if errors.Is(err, ErrFingerprint) {
+			return nil, ErrFingerprint
+		}
+		return nil, err
+	}
+	if resp.StatusCode >= 300 {
+		defer resp.Body.Close()
+		return nil, decodeErr(resp)
+	}
+	return resp, nil
+}
+
+// do performs a request with a default timeout and decodes an optional JSON reply.
 func (c *Client) do(ctx context.Context, method, path string, body io.Reader, out any) error {
 	if _, ok := ctx.Deadline(); !ok && c.Timeout > 0 {
 		var cancel context.CancelFunc
 		ctx, cancel = context.WithTimeout(ctx, c.Timeout)
 		defer cancel()
 	}
-	req, err := http.NewRequestWithContext(ctx, method, c.base+path, body)
+	resp, err := c.raw(ctx, method, path, body)
 	if err != nil {
-		return err
-	}
-	c.sign(req)
-	resp, err := c.hc.Do(req)
-	if err != nil {
-		if errors.Is(err, ErrFingerprint) {
-			return ErrFingerprint
-		}
 		return err
 	}
 	defer resp.Body.Close()
-	if resp.StatusCode >= 300 {
-		return decodeErr(resp)
-	}
 	if out == nil {
 		_, _ = io.Copy(io.Discard, resp.Body)
 		return nil
@@ -160,6 +173,12 @@ func decodeErr(resp *http.Response) error {
 		return server.ErrNotFound
 	case e.Code == "dockernotfound":
 		return docker.ErrNotFound
+	case e.Code == "outside":
+		return manager.ErrOutside
+	case e.Code == "noworld":
+		return manager.ErrNoWorld
+	case e.Code == "notexist":
+		return fs.ErrNotExist
 	case e.Error != "":
 		return errors.New(e.Error)
 	}
@@ -180,3 +199,5 @@ func (c *Client) HostStats(ctx context.Context) host.Stats {
 	}
 	return s
 }
+
+func decodeJSON(r io.Reader, out any) error { return json.NewDecoder(r).Decode(out) }

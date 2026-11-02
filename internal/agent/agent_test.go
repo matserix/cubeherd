@@ -1,9 +1,11 @@
 package agent_test
 
 import (
+	"bytes"
 	"context"
 	"crypto/tls"
 	"errors"
+	"io"
 	"net"
 	"net/http"
 	"strings"
@@ -25,13 +27,17 @@ type fake struct {
 	node.Servers
 	node.Console
 	node.Live
+	node.Files
+	node.Addons
+	node.Backups
 	node.Host
-	started []string
-	err     error
-	logs    []string
-	created *server.Server
-	forgot  []string
-	opsGone chan struct{}
+	started  []string
+	err      error
+	logs     []string
+	created  *server.Server
+	forgot   []string
+	opsGone  chan struct{}
+	zipFirst bool
 }
 
 func (f *fake) Views(context.Context, bool) ([]api.View, error) {
@@ -52,8 +58,17 @@ func (f *fake) Create(s *server.Server) error   { f.created = s; return f.err }
 func (f *fake) NextPort(ex string) int          { return 25570 }
 func (f *fake) PortTaken(p int, ex string) bool { return p == 25565 && ex != "survival" }
 func (f *fake) Busy(string) bool                { return true }
-func (f *fake) DockerHost() string              { return "unix:///fake.sock" }
-func (f *fake) Loc() *time.Location             { return time.UTC }
+func (f *fake) WorldZip(_ context.Context, _ *server.Server, w io.Writer) error {
+	if f.zipFirst {
+		return manager.ErrNoWorld // fails before the first byte
+	}
+	w.Write([]byte("PK-partial"))
+	return errors.New("disk vanished") // fails after data was sent
+}
+func (f *fake) ApplyConfig(api.Config) error { return nil }
+func (f *fake) ArchiveDir() string           { return "/srv/cubeherd/archive" }
+func (f *fake) DockerHost() string           { return "unix:///fake.sock" }
+func (f *fake) Loc() *time.Location          { return time.UTC }
 func (f *fake) HostStats(context.Context) host.Stats {
 	return host.Stats{Cores: 8, MemTotal: 16 << 30}
 }
@@ -350,5 +365,22 @@ func TestStreams(t *testing.T) {
 	}
 	if _, err := c.Inspect(context.Background(), s); !errors.Is(err, docker.ErrNotFound) {
 		t.Fatalf("Inspect missing = %v", err)
+	}
+}
+
+func TestDownloadFailuresAreVisible(t *testing.T) {
+	f := &fake{zipFirst: true}
+	c := connect(t, f)
+	s := &server.Server{ID: "survival"}
+	var buf bytes.Buffer
+	// Before the first byte: a clean error that keeps its meaning.
+	if err := c.WorldZip(context.Background(), s, &buf); !errors.Is(err, manager.ErrNoWorld) {
+		t.Fatalf("early failure = %v", err)
+	}
+	// After data was sent: the connection is aborted, so the dashboard cannot mistake it for a complete ZIP.
+	f.zipFirst = false
+	buf.Reset()
+	if err := c.WorldZip(context.Background(), s, &buf); err == nil {
+		t.Fatalf("a truncated download looked complete (%q)", buf.String())
 	}
 }

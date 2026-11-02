@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"cubeherd/internal/docker"
+	"cubeherd/internal/s3"
 	"cubeherd/internal/server"
 )
 
@@ -30,6 +31,7 @@ type Info struct {
 	DockerErr  string
 	DataDir    string
 	Timezone   string // IANA name of the agent's display time zone
+	ArchiveDir string // where uninstalled servers' data is archived
 }
 
 // View is everything the UI shows for one server.
@@ -83,7 +85,7 @@ type Health struct {
 // Error is the JSON body of a failed request.
 type Error struct {
 	Error string
-	Code  string // busy | notfound | dockernotfound | "" for anything else
+	Code  string // busy | notfound | dockernotfound | outside | noworld | notexist | "" for anything else
 }
 
 // Fingerprint is the SHA-256 of a certificate's DER bytes as lower-case hex pairs joined by colons.
@@ -111,3 +113,44 @@ type (
 		Max   int
 	}
 )
+
+// Config is the part of the dashboard's global settings an agent needs to do its own work
+// (scheduled backups, uploads, container time zone, messages). The admin password and session
+// secret are never part of it.
+type Config struct {
+	Timezone string
+	Language string
+	CFAPIKey string
+	Remote   *s3.Config // external backup storage; nil = local backups only
+}
+
+// Paths are where a server lives on its host (shown in the UI, never used by the dashboard itself).
+type Paths struct {
+	Dir     string // servers/<id>
+	DataDir string // host path of /data; "" for a Docker volume
+}
+
+// Listing is one directory of a server's /data.
+type Listing struct {
+	Entries   []Entry
+	Truncated bool
+}
+
+// Text is a file's content when it is small UTF-8 text.
+type Text struct {
+	Content string
+	IsText  bool
+}
+
+// Backup is an archive as it crosses the wire (errors become strings).
+type Backup struct {
+	Name      string
+	Time      time.Time
+	Reason    string
+	Size      int64
+	Local     bool
+	Remote    bool
+	UploadErr string
+	Check     string
+	CheckErr  string
+}

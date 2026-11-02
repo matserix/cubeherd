@@ -372,7 +372,7 @@ func (a *App) wizardPreview(w http.ResponseWriter, r *http.Request) {
 		g.CFKey = "••••••"
 	}
 	compose := server.Compose(s, g)
-	a.partial(w, "wizard", "preview", map[string]any{"S": s, "Compose": compose, "Dir": a.M.ServerDir(s.ID)})
+	a.partial(w, "wizard", "preview", map[string]any{"S": s, "Compose": compose, "Dir": a.M.Paths(s).Dir})
 }
 
 func (a *App) createServer(w http.ResponseWriter, r *http.Request) {
@@ -469,7 +469,7 @@ func (a *App) updateHint(ctx context.Context, s *server.Server) string {
 }
 
 func (a *App) serverPageData(ctx context.Context, s *server.Server, tabKey string) serverPage {
-	d := serverPage{V: a.M.View(ctx, s, true), Tab: tabKey, Tabs: tabs, Disk: a.M.DiskUsage(s), MaxRAM: a.maxRAM(ctx), HostRAM: decimal(a.lang(), float64(a.M.HostStats(ctx).MemTotal)/(1<<30)), DataDir: a.M.DataDir(s)}
+	d := serverPage{V: a.M.View(ctx, s, true), Tab: tabKey, Tabs: tabs, Disk: a.M.DiskUsage(s), MaxRAM: a.maxRAM(ctx), HostRAM: decimal(a.lang(), float64(a.M.HostStats(ctx).MemTotal)/(1<<30)), DataDir: a.M.Paths(s).DataDir}
 	if !d.V.Status.Busy() {
 		d.Update = a.updateHint(ctx, s)
 	}
@@ -888,7 +888,7 @@ func (a *App) uninstallModal(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	a.partial(w, "server", "uninstallModal", map[string]any{"S": s, "Dir": a.M.ServerDir(s.ID), "Archive": a.M.ArchiveDir()})
+	a.partial(w, "server", "uninstallModal", map[string]any{"S": s, "Dir": a.M.Paths(s).Dir, "Archive": a.M.ArchiveDir()})
 }
 
 func (a *App) uninstallPost(w http.ResponseWriter, r *http.Request) {

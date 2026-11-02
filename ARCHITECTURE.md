@@ -34,16 +34,34 @@ $CUBEHERD_DATA/               # default: /srv/cubeherd (root) or ./cubeherd-data
 If Cubeherd itself runs in a container, `$CUBEHERD_DATA` must be mounted at **the same path**,
 because Compose resolves relative paths on the client side and the Docker daemon interprets them on the host.
 
-## Agent (work in progress)
+## Agent
 
-`cubeherd agent` serves a node API and runs the scheduler. Done so far: identity and host (`/v1/info`, `/v1/host`, `/v1/docker`), server definitions and lifecycle
-(`/v1/servers[/{id}]`, `start|stop|restart|update|forget`, ports, discover/import), console (`rcon`, `players`, `perf`) and live data. Live data are
-newline-delimited JSON streams (`stats`, `logs`, `ops`) that are flushed per value and end when the caller disconnects. Still missing: files, worlds, mods and backups.
-The dashboard opens every connection. Transport is HTTPS (TLS 1.3 only): the agent creates a self-signed ECDSA certificate in `$CUBEHERD_DATA/agent/` on
-first start and prints its SHA-256 fingerprint; the client pins that fingerprint instead of trusting a CA (`remote.Probe` fetches it for trust on first use).
-Each request carries `Authorization: Bearer <token>` and `X-Cubeherd-API: <major>`. The token comes from `CUBEHERD_AGENT_TOKEN` or is generated on the first
-start (printed once, only its SHA-256 is stored in `agent/token.sha256`); failed attempts are throttled per client IP like the dashboard login.
+`cubeherd agent` serves the node API of its host and runs the scheduler, so backups never depend on the dashboard being up. `remote.Client` implements the whole
+`node.Node` interface against it (checked at compile time), which makes a remote host interchangeable with the in-process manager.
+
+**Transport and trust.** The dashboard opens every connection. HTTPS with TLS 1.3 only: the agent creates a self-signed ECDSA certificate in
+`$CUBEHERD_DATA/agent/` on first start and prints its SHA-256 fingerprint; the client pins that fingerprint instead of trusting a CA (`remote.Probe` fetches it
+for trust on first use). Each request carries `Authorization: Bearer <token>` and `X-Cubeherd-API: <major>`. The token comes from `CUBEHERD_AGENT_TOKEN` or is
+generated on the first start (printed once, only its SHA-256 is stored in `agent/token.sha256`); failed attempts are throttled per client IP like the dashboard login.
 Listen address: `CUBEHERD_AGENT_LISTEN` (default `:8421`).
+
+**Endpoints.** Identity and host (`/v1/info`, `/v1/host`, `/v1/docker`); server definitions and lifecycle (`/v1/servers[/{id}]`, `start|stop|restart|update|forget`, ports,
+discover/import, `/v1/paths`); console (`rcon`, `players`, `perf`); live data (`container`, `stats`, `logs`, `ops`); files (`files`, `files/stat|text|content`, `data`,
+`world.zip`, `world/stage|import`); mods (`addons`); backups (`backups`, `…/{name}/download|verify|upload|restore`, `backups/health|next`, `/v1/backups/remote`,
+`/v1/scheduler/wake`); settings (`PUT /v1/config`).
+
+**Streams.** Logs, stats and action output are newline-delimited JSON that is flushed per value and ends when the caller disconnects. File, world and archive
+bodies are proxied byte for byte with no temp file. A download that fails before the first byte is a normal error response; after that the agent aborts the
+connection and the client also compares the received length, so a truncated ZIP or archive is never mistaken for a complete one.
+
+**What crosses the wire carefully.**
+- The dashboard never names a host path. World import unpacks only the ZIP the agent staged itself, file paths are cleaned and resolved on the agent, and
+  `Paths` reports locations for display only.
+- Calls that change a definition (create, apply, update, addon upload and delete) return the saved definition, and the client replaces the caller's copy, as
+  the in-process manager does by mutating it.
+- Errors keep their meaning through a code (`busy`, `notfound`, `dockernotfound`, `outside`, `noworld`, `notexist`), so callers can still use `errors.Is`.
+- `PUT /v1/config` carries only what an agent needs for its own work (time zone, language, CurseForge key, external backup storage). The admin password
+  and session secret never leave the dashboard.
 
 ## Status model
 
@@ -66,7 +84,7 @@ internal/docker       minimal Engine API client (list, inspect, start/stop, logs
 internal/api          wire types shared by dashboard and agent (View, Info, fingerprint helper)
 internal/agent        `cubeherd agent`: HTTPS node API with self-signed certificate and bearer token
 internal/remote       agent client: pinned certificate fingerprint, Probe for trust on first use
-internal/node         the Node interface, split by feature (Servers, Console, Live, Files, Addons, Backups, Host); the manager implements all of it, remote so far Servers, Console, Live and Host
+internal/node         the Node interface, split by feature (Servers, Console, Live, Files, Addons, Backups, Host); implemented by the manager (in process) and by remote (over the agent API)
 internal/server       server definition, on-disk store, Compose generation, status derivation
 internal/s3           minimal S3 client (SigV4, multipart upload) for external backups, standard library only
 internal/update       newest GitHub release (cached, looked up lazily on page views)
