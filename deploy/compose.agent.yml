@@ -1,7 +1,8 @@
 # Cubeherd agent: runs next to the Minecraft servers of this host and is managed by a dashboard.
 # The data directory must have the SAME path inside the container as on the host,
 # because Docker resolves the Minecraft servers' bind mounts on the host.
-# On first start the agent prints its certificate fingerprint and, unless CUBEHERD_AGENT_TOKEN is set, a token.
+# On first start the agent creates its certificate and prints the fingerprint to pin in the dashboard (docker logs).
+# Start with:  CUBEHERD_AGENT_TOKEN=<long random token> docker compose -f compose.agent.yml up -d
 services:
   cubeherd-agent:
     image: ghcr.io/matserix/cubeherd:latest
@@ -15,6 +16,7 @@ services:
       - /srv/cubeherd:/srv/cubeherd
     environment:
       CUBEHERD_DATA: /srv/cubeherd
-      CUBEHERD_AGENT_TOKEN: change-me   # a long random string; the dashboard's "Add node" dialog can generate one
+      # A long random string; compose refuses to start without it. The dashboard's "Add node" dialog can generate one.
+      CUBEHERD_AGENT_TOKEN: ${CUBEHERD_AGENT_TOKEN:?set CUBEHERD_AGENT_TOKEN to a long random token}
       TZ: Europe/Berlin
     mem_limit: 96m

@@ -116,6 +116,9 @@ internal/web          handlers, templates, SSE, static assets
 |---|---|---|
 | `CUBEHERD_DATA` | `/srv/cubeherd` as root, otherwise `./cubeherd-data` | Data directory |
 | `CUBEHERD_LISTEN` | `:8420` | Web server address |
+| `CUBEHERD_LOCAL` | `true` | `false`: no embedded local node, the dashboard needs no Docker socket |
+| `CUBEHERD_AGENT_TOKEN` | generated on first start | Agent mode: the bearer token (only its hash is stored when generated) |
+| `CUBEHERD_AGENT_LISTEN` | `:8421` | Agent mode: address of the node API |
 | `DOCKER_HOST` | `unix:///var/run/docker.sock`, falling back to `~/.docker/run/docker.sock` | Docker socket |
 
 ## Scope
@@ -124,6 +127,7 @@ internal/web          handlers, templates, SSE, static assets
   settings, players (whitelist/ops/bans), updates (MC version, modpack version, image), uninstall,
   adopting existing itzg containers, global settings.
 - **v2:** backups, mods/plugins, file browser, CPU limit and autostop – all done.
+- **v3:** several hosts (dashboard plus agents) – done, see Agent and Nodes below.
 
 ## Idle & limits
 
