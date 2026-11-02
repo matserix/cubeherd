@@ -177,13 +177,13 @@ func (a *App) streamPerf(ctx context.Context, s *server.Server, emit func(string
 
 	var samples []server.PerfSample
 	for ctx.Err() == nil {
-		cur, _ := a.M.Server(s.ID)
+		cur, _ := a.server(s.ID)
 		if cur == nil {
 			return
 		}
 		s = cur
 		reason, errText := "", ""
-		switch st := a.M.View(ctx, s, false).Status; {
+		switch st := a.view(ctx, s, false).Status; {
 		case st == server.StatusPaused:
 			reason = "paused"
 		case st == server.StatusStarting || st == server.StatusPreparing || st == server.StatusInstalling:

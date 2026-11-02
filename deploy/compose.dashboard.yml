@@ -1,0 +1,18 @@
+# Cubeherd dashboard that only manages remote agents: no Docker socket, no Minecraft servers on this host.
+# Add the nodes on the Nodes page after the first login.
+services:
+  cubeherd:
+    image: ghcr.io/matserix/cubeherd:latest
+    container_name: cubeherd
+    restart: unless-stopped
+    ports:
+      - "8420:8420"          # only expose on the LAN/VPN
+    volumes:
+      - cubeherd-data:/srv/cubeherd
+    environment:
+      CUBEHERD_DATA: /srv/cubeherd
+      CUBEHERD_LOCAL: "false"  # no embedded local node
+      TZ: Europe/Berlin
+    mem_limit: 64m
+volumes:
+  cubeherd-data:

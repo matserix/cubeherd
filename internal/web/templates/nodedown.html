@@ -1,0 +1,6 @@
+{{define "content"}}
+<section class="view">
+  <div class="view-head"><div><h1>{{.Data.Name}}</h1><p class="sub">{{t "Dieser Node ist nicht erreichbar."}}</p></div><div class="actions"><a class="btn" href="/nodes" style="text-decoration:none">{{t "Nodes ansehen"}}</a></div></div>
+  <div class="callout crit"><div><b>{{nodeReason .Data.Status}}</b><span class="muted">{{t "Die Server laufen auf dem Host weiter, auch ihre geplanten Backups. Sobald der Agent wieder antwortet, ist hier alles wieder verfügbar."}}{{if not .Data.Status.LastSeen.IsZero}} {{t "Zuletzt gesehen: %s." (ago .Data.Status.LastSeen)}}{{end}}</span></div></div>
+</section>
+{{end}}

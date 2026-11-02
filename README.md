@@ -59,7 +59,24 @@ sudo CUBEHERD_DATA=/srv/cubeherd ./cubeherd
 | `CUBEHERD_DATA` | `/srv/cubeherd` as root, otherwise `./cubeherd-data` | Data directory |
 | `CUBEHERD_LISTEN` | `:8420` | Web server address |
 | `DOCKER_HOST` | `/var/run/docker.sock`, falling back to `~/.docker/run/docker.sock` | Docker socket |
+| `CUBEHERD_LOCAL` | `true` | Set to `false` for a dashboard that only manages remote agents (needs no Docker socket) |
+| `CUBEHERD_AGENT_TOKEN`, `CUBEHERD_AGENT_LISTEN` | – / `:8421` | Agent mode only, see below |
 | `TZ` | `UTC` | Default time zone, as long as none is chosen in the settings |
+
+## Several hosts
+
+One dashboard can manage Minecraft servers on any number of hosts. The same image runs in two roles:
+the **dashboard** (web UI, login, settings) and one **agent** per host (`cubeherd agent`: Docker access, server folders, backups and the scheduler).
+A dashboard that also has the Docker socket keeps managing its own host as the embedded local node, so a single-host setup looks and works as before.
+
+1. On the host that runs the servers, start an agent: `docker compose -f deploy/compose.agent.yml up -d` (set a long random `CUBEHERD_AGENT_TOKEN`).
+2. In the dashboard open **Nodes → Add node**. The dialog can generate the token and shows the compose snippet for the other host.
+3. Enter the agent's address (`host:8421`), confirm the certificate fingerprint the agent printed at startup, done.
+
+The connection is HTTPS with a certificate the agent makes up for itself; the dashboard pins its fingerprint, so no certificate authority is involved.
+Servers are addressed as `/n/<node>/s/<id>`; the old `/servers/<id>` links keep working for the local node.
+A node that stops answering is shown as unreachable with its last known servers; its servers and scheduled backups keep running on the host.
+Removing a node never touches its servers. Keep agents on a LAN or VPN, like the dashboard: whoever holds an agent's token controls Docker on that host.
 
 ## Security
 

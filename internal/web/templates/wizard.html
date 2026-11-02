@@ -2,7 +2,7 @@
 {{$d := .Data}}
 <section class="view">
   <div class="view-head">
-    <div><h1>{{t "Neuer Server"}}</h1><p class="sub">{{t "Cubeherd erzeugt daraus eine Compose-Datei und startet den Container."}}</p></div>
+    <div><h1>{{t "Neuer Server"}}</h1><p class="sub">{{t "Cubeherd erzeugt daraus eine Compose-Datei und startet den Container."}}{{if .Data.Node}} · {{t "Läuft auf %s" .Data.Node}}{{end}}</p></div>
   </div>
   <form class="wiz" id="wizard" hx-post="/servers" autocomplete="off">
     <ol class="stepper" id="stepper"><li>{{t "Grundlage"}}</li><li>{{t "Software"}}</li><li>{{t "Ressourcen"}}</li><li>{{t "Spielwelt"}}</li><li>{{t "Prüfen"}}</li></ol>

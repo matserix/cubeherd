@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"strings"
 	"syscall"
 	"time"
 	_ "time/tzdata" // TZ works in minimal images without zoneinfo
@@ -20,10 +21,23 @@ import (
 	"cubeherd/internal/host"
 	"cubeherd/internal/i18n"
 	"cubeherd/internal/manager"
+	"cubeherd/internal/node"
+	"cubeherd/internal/nodes"
 	"cubeherd/internal/server"
 	"cubeherd/internal/sources"
 	"cubeherd/internal/web"
 )
+
+// envBool reads a switch such as CUBEHERD_LOCAL; unset or unrecognised keeps def.
+func envBool(key string, def bool) bool {
+	switch strings.ToLower(os.Getenv(key)) {
+	case "1", "true", "yes", "on":
+		return true
+	case "0", "false", "no", "off":
+		return false
+	}
+	return def
+}
 
 func env(key, def string) string {
 	if v := os.Getenv(key); v != "" {
@@ -54,33 +68,42 @@ func main() {
 	if err != nil {
 		log.Fatalf("loading settings: %v", err)
 	}
-	store, err := server.NewStore(dataDir)
-	if err != nil {
-		log.Fatalf("data directory: %v", err)
-	}
-	dc, err := docker.New()
-	if err != nil {
-		log.Fatal(err)
-	}
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	if err := dc.Ping(ctx); err != nil {
-		log.Printf("warning: Docker not reachable via %s: %v", dc.Host, err)
-	}
-	cancel()
-
 	src := sources.New(func() string { return cfg.Get().CFAPIKey })
-	m := manager.New(dc, store, cfg, src)
-	m.Hoster = &host.Reader{Docker: dc, DataDir: dataDir}
-	m.Lang = func() string {
-		if l := cfg.Get().Language; i18n.Valid(l) {
-			return l
+
+	// The embedded local node manages the Docker host this process runs on. CUBEHERD_LOCAL=false turns it off
+	// for a dashboard that only manages remote agents and needs no Docker socket.
+	var local node.Node
+	dockerHost := "none (local node off)"
+	if envBool("CUBEHERD_LOCAL", true) {
+		store, err := server.NewStore(dataDir)
+		if err != nil {
+			log.Fatalf("data directory: %v", err)
 		}
-		return i18n.Source
+		dc, err := docker.New()
+		if err != nil {
+			log.Fatal(err)
+		}
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		if err := dc.Ping(ctx); err != nil {
+			log.Printf("warning: Docker not reachable via %s: %v", dc.Host, err)
+		}
+		cancel()
+		m := manager.New(dc, store, cfg, src)
+		m.Hoster = &host.Reader{Docker: dc, DataDir: dataDir}
+		m.Lang = func() string {
+			if l := cfg.Get().Language; i18n.Valid(l) {
+				return l
+			}
+			return i18n.Source
+		}
+		schedCtx, stopSched := context.WithCancel(context.Background())
+		defer stopSched()
+		go m.RunScheduler(schedCtx)
+		local, dockerHost = m, dc.Host
 	}
-	schedCtx, stopSched := context.WithCancel(context.Background())
-	defer stopSched()
-	go m.RunScheduler(schedCtx)
-	app, err := web.New(m, src, cfg, dataDir, listen)
+	reg := nodes.New(cfg, local, web.Version)
+	go reg.Refresh(context.Background(), false, 0) // hands the settings to the agents right away
+	app, err := web.New(reg, src, cfg, dataDir, listen)
 	if err != nil {
 		log.Fatalf("Templates: %v", err)
 	}
@@ -93,7 +116,7 @@ func main() {
 		IdleTimeout:       90 * time.Second,
 	}
 	go func() {
-		log.Printf("dashboard on %s · data in %s · Docker via %s", listen, dataDir, dc.Host)
+		log.Printf("dashboard on %s · data in %s · Docker via %s · %d remote node(s)", listen, dataDir, dockerHost, len(cfg.Get().Nodes))
 		if cfg.Get().PasswordHash == "" {
 			log.Printf("first start: set the password in the browser at /setup")
 		}
@@ -105,7 +128,7 @@ func main() {
 	stop := make(chan os.Signal, 1)
 	signal.Notify(stop, syscall.SIGINT, syscall.SIGTERM)
 	<-stop
-	ctx, cancel = context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	_ = srv.Shutdown(ctx)
 }

@@ -6,11 +6,13 @@ import (
 	"hash/fnv"
 	"html/template"
 	"math"
+	"net/url"
 	"strconv"
 	"strings"
 	"time"
 
 	"cubeherd/internal/i18n"
+	"cubeherd/internal/nodes"
 	"cubeherd/internal/server"
 	"cubeherd/internal/sources"
 )
@@ -42,6 +44,7 @@ func newFuncs(lang string) template.FuncMap {
 	return template.FuncMap{
 		"t":         t,
 		"lang":      func() string { return lang },
+		"version":   func() string { return Version },
 		"languages": func() []i18n.Lang { return i18n.Languages },
 		"decimal":   func() string { return decimalSep(lang) },
 		"static":    staticURL,
@@ -59,22 +62,52 @@ func newFuncs(lang string) template.FuncMap {
 			}
 			return m
 		},
-		"list":     func(v ...string) []string { return v },
+		"list": func(v ...string) []string { return v },
+		// nodeCSS maps a node's state onto the status pill colours.
+		"nodeCSS": func(st nodes.State) string {
+			return map[nodes.State]string{nodes.Online: "running", nodes.Outdated: "starting", nodes.Offline: "crashed"}[st]
+		},
+		"nodeState": func(st nodes.State) string {
+			return map[nodes.State]string{nodes.Online: t("Online"), nodes.Outdated: t("Agent veraltet"), nodes.Offline: t("Nicht erreichbar")}[st]
+		},
+		"nodeReason": func(s nodes.Status) string {
+			switch s.Reason {
+			case nodes.ReasonToken:
+				return t("Der Agent hat das Token abgelehnt.")
+			case nodes.ReasonFingerprint:
+				return t("Das Zertifikat des Agents stimmt nicht mehr mit dem gespeicherten Fingerabdruck überein.")
+			case nodes.ReasonAPI:
+				return t("Der Agent spricht eine andere API-Version als das Dashboard.")
+			}
+			return t("Keine Antwort vom Agent.")
+		},
+		// srv is the address of a server page; links that mix nodes (overview, sidebar) must name the node.
+		"srv": func(s *server.Server) string {
+			return "/n/" + url.PathEscape(s.Node) + "/s/" + url.PathEscape(s.ID)
+		},
+		"sub": func(a, b uint64) uint64 {
+			if b > a {
+				return 0
+			}
+			return a - b
+		},
+		// ago reads "just now" or "5 min ago" and fits behind "last seen: ".
+		"ago": func(tm time.Time) string {
+			if time.Since(tm) < time.Minute {
+				return t("gerade eben")
+			}
+			return t("vor %s", fnSince(t, tm))
+		},
+		"latency":  func(d time.Duration) string { return fmt.Sprintf("%d ms", d.Milliseconds()) },
 		"joinPath": joinRel,
 		"since": func(tm time.Time) string {
 			if tm.IsZero() {
 				return ""
 			}
-			d := time.Since(tm)
-			switch {
-			case d < time.Minute:
+			if time.Since(tm) < time.Minute {
 				return t("gerade eben")
-			case d < time.Hour:
-				return fmt.Sprintf("%d min", int(d.Minutes()))
-			case d < 24*time.Hour:
-				return t("%d Std %d min", int(d.Hours()), int(d.Minutes())%60)
 			}
-			return t("%d T %d Std", int(d.Hours())/24, int(d.Hours())%24)
+			return fnSince(t, tm)
 		},
 		// num formats large counts like downloads ("9,8 Mio" / "9.8M").
 		"num": func(n int64) string {
@@ -241,4 +274,16 @@ func spark(vals []float64) template.HTML {
 	p := strings.TrimSpace(pts.String())
 	return template.HTML(fmt.Sprintf(`<svg class="spark" viewBox="0 0 %g %g" preserveAspectRatio="none" aria-hidden="true"><line class="grid" x1="0" y1="%g" x2="%g" y2="%g"/><polygon class="area" points="0,%g %s %g,%g"/><polyline class="ln" points="%s"/><circle class="end" cx="%.1f" cy="%.1f" r="2.5"/></svg>`,
 		w, h, h/2, w, h/2, h, p, w, h, p, lx, ly))
+}
+
+// fnSince is a duration since tm for 1 minute and longer ("5 min", "2 Std 3 min").
+func fnSince(t func(string, ...any) string, tm time.Time) string {
+	d := time.Since(tm)
+	switch {
+	case d < time.Hour:
+		return fmt.Sprintf("%d min", int(d.Minutes()))
+	case d < 24*time.Hour:
+		return t("%d Std %d min", int(d.Hours()), int(d.Minutes())%60)
+	}
+	return t("%d T %d Std", int(d.Hours())/24, int(d.Hours())%24)
 }

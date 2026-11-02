@@ -19,16 +19,34 @@
 <div class="panel self"><span class="label">{{t "Cubeherd selbst"}}</span><div class="val"><b>{{.SelfMB}} MB</b><span>{{t "%d Goroutinen" .Goroutines}}</span></div><span class="muted" style="font-size:12px">{{t "Werte werden nur abgefragt, solange diese Seite offen ist."}}</span></div>
 {{end}}
 
+{{define "ovHost"}}{{if not .Cards}}<div class="callout accent" style="grid-column:1/-1"><div><b>{{t "Es gibt noch keinen Node."}}</b><span class="muted">{{t "Füge einen Node hinzu, auf dem die Server laufen sollen."}}</span></div><a class="btn primary" href="/nodes" style="text-decoration:none">{{t "Nodes verwalten"}}</a></div>
+{{else if .Multi}}{{range .Cards}}{{template "nodeCard" (dict "C" . "Filter" $.Filter)}}{{end}}
+{{else}}{{with index .Cards 0}}{{template "hostTiles" .}}{{end}}{{end}}{{end}}
+
+{{define "nodeCard"}}{{$c := .C}}
+<a class="ncard{{if eq $c.Status.State "offline"}} off{{end}}" href="/?node={{$c.ID}}" aria-current="{{eq .Filter $c.ID}}">
+  <div class="top"><b>{{$c.Name}}</b><span class="pill s-{{nodeCSS $c.Status.State}}">{{nodeState $c.Status.State}}</span></div>
+  {{if eq $c.Status.State "offline"}}<div class="muted" style="font-size:12px">{{nodeReason $c.Status}}{{if not $c.Status.LastSeen.IsZero}} · {{t "zuletzt gesehen: %s" (ago $c.Status.LastSeen)}}{{end}}</div>{{end}}
+  <div class="row"><span>CPU</span><div class="meter {{if ge $c.Host.CPUPercent 0.0}}{{level $c.Host.CPUPercent}}{{end}}"><i style="width:{{if ge $c.Host.CPUPercent 0.0}}{{printf "%.0f" $c.Host.CPUPercent}}{{else}}0{{end}}%"></i></div><output>{{if and (ge $c.Host.CPUPercent 0.0) (ne $c.Status.State "offline")}}{{printf "%.0f" $c.Host.CPUPercent}} %{{else}}–{{end}}</output></div>
+  {{$p := pct $c.Host.MemUsed $c.Host.MemTotal}}{{if not $c.Host.MemUsed}}{{$p = pct $c.Alloc $c.Host.MemTotal}}{{end}}
+  <div class="row"><span>RAM</span><div class="meter {{level $p}}"><i style="width:{{printf "%.0f" $p}}%"></i></div><output>{{if $c.Host.MemTotal}}{{if $c.Host.MemUsed}}{{gb $c.Host.MemUsed}}{{else}}{{gb $c.Alloc}}{{end}} / {{gb $c.Host.MemTotal}} GB{{else}}–{{end}}</output></div>
+  {{$d := pct $c.Host.DiskUsed $c.Host.DiskTotal}}
+  <div class="row"><span>{{t "Disk"}}</span><div class="meter {{level $d}}"><i style="width:{{printf "%.0f" $d}}%"></i></div><output>{{if $c.Host.DiskTotal}}{{printf "%.0f" $d}} %{{else}}–{{end}}</output></div>
+  <div class="foot"><span class="chip">{{if $c.Local}}{{t "eingebettet"}}{{else}}Agent{{end}}</span>{{with $c.Status.Version}}<span class="chip mono">v{{.}}</span>{{end}}<span>{{t "Server: %d" (len $c.Views)}}</span><span style="margin-left:auto">{{if $c.Local}}{{t "lokal"}}{{else if eq $c.Status.State "offline"}}{{else}}{{latency $c.Status.Latency}}{{end}}</span></div>
+</a>
+{{end}}
+
 {{define "serverRows"}}
 {{range .}}{{template "serverRow" .}}{{else}}
-<tr><td colspan="6" class="muted" style="padding:28px 18px">{{t "Noch keine Server."}} <a href="/servers/new">{{t "Den ersten Server anlegen"}}</a></td></tr>
+<tr><td colspan="7" class="muted" style="padding:28px 18px">{{t "Noch keine Server."}} <a href="/servers/new">{{t "Den ersten Server anlegen"}}</a></td></tr>
 {{end}}
 {{end}}
 
 {{define "serverRow"}}
-<tr id="row-{{.S.ID}}">
-  <td class="t-name"><a href="/servers/{{.S.ID}}" style="color:inherit;text-decoration:none"><b>{{.S.Name}}</b></a><span>{{.S.SoftwareLabel}}</span>
+<tr id="row-{{.S.Node}}-{{.S.ID}}">
+  <td class="t-name"><a href="{{srv .S}}" style="color:inherit;text-decoration:none"><b>{{.S.Name}}</b></a><span>{{.S.SoftwareLabel}}</span>
     {{with .S.Pack}} <span class="chip src-{{$.S.Kind}}">{{.Name}} {{.VersionLabel}}</span>{{end}}</td>
+  <td class="node-col"><span class="chip node">{{.S.NodeName}}</span></td>
   <td>{{template "pill" .Status}}</td>
   <td class="hide-sm num">{{if .Status.Live}}{{len .Online}} / {{.MaxPlayers}}{{else}}<span class="muted">–</span>{{end}}</td>
   <td class="hide-sm">{{if .MemUsed}}{{$p := pct .MemUsed (mulGB .S.MemoryGB)}}<div class="ram-cell"><span class="num">{{gb .MemUsed}} / {{.S.MemoryGB}} GB</span><div class="meter {{level $p}}"><i style="width:{{printf "%.0f" $p}}%"></i></div></div>{{else}}<span class="muted num">{{t "%d GB zugewiesen" .S.MemoryGB}}</span>{{end}}</td>
@@ -38,9 +56,10 @@
 {{end}}
 
 {{define "rowAction"}}
-{{if .Status.Busy}}<button class="btn sm" disabled>{{t .Status.Label}} …</button>
-{{else if .Status.Up}}<button class="btn sm" hx-post="/servers/{{.S.ID}}/action/stop" hx-vals='{"ctx":"row"}' hx-target="#row-{{.S.ID}}" hx-swap="outerHTML">{{t "Stoppen"}}</button>
-{{else}}<button class="btn sm" hx-post="/servers/{{.S.ID}}/action/start" hx-vals='{"ctx":"row"}' hx-target="#row-{{.S.ID}}" hx-swap="outerHTML">{{t "Starten"}}</button>{{end}}
+{{if .Status.Unknown}}<button class="btn sm" disabled title="{{t "Der Node ist nicht erreichbar."}}">{{t "Starten"}}</button>
+{{else if .Status.Busy}}<button class="btn sm" disabled>{{t .Status.Label}} …</button>
+{{else if .Status.Up}}<button class="btn sm" hx-post="{{srv .S}}/action/stop" hx-vals='{"ctx":"row"}' hx-target="#row-{{.S.Node}}-{{.S.ID}}" hx-swap="outerHTML">{{t "Stoppen"}}</button>
+{{else}}<button class="btn sm" hx-post="{{srv .S}}/action/start" hx-vals='{"ctx":"row"}' hx-target="#row-{{.S.Node}}-{{.S.ID}}" hx-swap="outerHTML">{{t "Starten"}}</button>{{end}}
 {{end}}
 
 {{/* ---------- Server-Kopf (live per SSE) ---------- */}}

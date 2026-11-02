@@ -242,7 +242,7 @@ func TestUpdateBannerAndNetworkSettings(t *testing.T) {
 		t.Fatal(err)
 	}
 	var buf strings.Builder
-	p := Page{Title: "x", Nav: "settings", Version: "0.5.1", Data: settingsData{Cfg: a.Cfg.Get()},
+	p := Page{Title: "x", Nav: "settings", Version: "0.5.1", Data: settingsData{Cfg: a.Cfg.Get(), HasLocal: true},
 		Update: &update.Release{Tag: "v0.6.0", URL: "https://example.test/r", Notes: "- <b>new</b> thing"}}
 	var b strings.Builder
 	if err := a.pages["en"]["settings"].ExecuteTemplate(&b, "layout", p); err != nil {

@@ -26,13 +26,14 @@ const (
 	StatusBackingUp  Status = "backingup"
 	StatusRestoring  Status = "restoring"
 	StatusImporting  Status = "importing"
+	StatusUnknown    Status = "unknown" // the node is unreachable, so the real state is not known
 )
 
 var statusLabel = map[Status]string{
 	StatusRunning: "Läuft", StatusStarting: "Startet", StatusPaused: "Pausiert", StatusStopped: "Gestoppt",
 	StatusCrashed: "Abgestürzt", StatusMissing: "Nicht erstellt", StatusUnhealthy: "Reagiert nicht",
 	StatusStopping: "Stoppt", StatusUpdating: "Aktualisiert", StatusInstalling: "Wird eingerichtet",
-	StatusPreparing: "Wird eingerichtet", StatusBackingUp: "Sichert", StatusRestoring: "Stellt wieder her", StatusImporting: "Welt wird eingespielt",
+	StatusPreparing: "Wird eingerichtet", StatusBackingUp: "Sichert", StatusRestoring: "Stellt wieder her", StatusImporting: "Welt wird eingespielt", StatusUnknown: "Unbekannt",
 }
 
 func (s Status) Label() string { return statusLabel[s] }
@@ -62,11 +63,14 @@ func (s Status) CSS() string {
 	switch s {
 	case StatusStopping, StatusUpdating, StatusInstalling, StatusUnhealthy, StatusPreparing, StatusBackingUp, StatusRestoring, StatusImporting:
 		return "starting"
-	case StatusMissing:
+	case StatusMissing, StatusUnknown:
 		return "stopped"
 	}
 	return string(s)
 }
+
+// Unknown reports a server whose node cannot be reached.
+func (s Status) Unknown() bool { return s == StatusUnknown }
 
 // Live reports whether the server process accepts commands.
 func (s Status) Live() bool { return s == StatusRunning || s == StatusUnhealthy }

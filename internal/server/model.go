@@ -217,6 +217,11 @@ type Server struct {
 	Imported     bool      `json:"imported,omitempty"`
 	EULAPending  bool      `json:"eulaPending,omitempty"` // adopted container never accepted the EULA; Cubeherd must not accept it for the user
 	CreatedAt    time.Time `json:"createdAt"`
+
+	// Node is the host the dashboard found this server on. It is set by the dashboard after loading,
+	// never stored and never sent between dashboard and agent.
+	Node     string `json:"-"`
+	NodeName string `json:"-"` // display name of Node
 }
 
 // PortMapping is the compose "ports" entry; IPv6 addresses need brackets.

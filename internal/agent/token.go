@@ -24,6 +24,15 @@ func (t Token) Check(plain string) bool {
 	return subtle.ConstantTimeCompare(h[:], t.hash[:]) == 1
 }
 
+// GenerateToken returns a new random bearer token.
+func GenerateToken() (string, error) {
+	buf := make([]byte, 32)
+	if _, err := rand.Read(buf); err != nil {
+		return "", err
+	}
+	return "chag_" + base64.RawURLEncoding.EncodeToString(buf), nil
+}
+
 // LoadOrCreateToken resolves the agent's token. A configured value wins. Otherwise the hash stored in
 // dir/token.sha256 is used; on the very first start a random token is generated, only its hash is
 // written, and the plain value is returned once so the operator can copy it into the dashboard.
@@ -42,11 +51,9 @@ func LoadOrCreateToken(dir, configured string) (t Token, generated string, err e
 	} else if !errors.Is(err, os.ErrNotExist) {
 		return Token{}, "", err
 	}
-	buf := make([]byte, 32)
-	if _, err := rand.Read(buf); err != nil {
+	if generated, err = GenerateToken(); err != nil {
 		return Token{}, "", err
 	}
-	generated = "chag_" + base64.RawURLEncoding.EncodeToString(buf)
 	t = NewToken(generated)
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return Token{}, "", err

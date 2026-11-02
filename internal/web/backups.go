@@ -48,7 +48,7 @@ func (a *App) backupList(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	v := a.M.View(r.Context(), s, false)
+	v := a.view(r.Context(), s, false)
 	d := a.backupsData(r.Context(), s, v.Status)
 	d.OOB = true
 	a.partial(w, "server", "backupList", d)
@@ -59,7 +59,7 @@ func (a *App) backupCreate(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	live := a.M.View(r.Context(), s, false).Status.Live()
+	live := a.view(r.Context(), s, false).Status.Live()
 	if err := a.M.BackupNow(s.ID, manager.ReasonManual); err != nil {
 		fail(w, a.t(err.Error()))
 		return
@@ -115,7 +115,7 @@ func (a *App) backupPlan(w http.ResponseWriter, r *http.Request) {
 	} else {
 		a.toast(w, "ok", "Zeitplan gespeichert.")
 	}
-	d := a.backupsData(r.Context(), s, a.M.View(r.Context(), s, false).Status)
+	d := a.backupsData(r.Context(), s, a.view(r.Context(), s, false).Status)
 	d.OOB = true
 	a.partial(w, "server", "backupList", d)
 }
@@ -210,5 +210,5 @@ func (a *App) restorePost(w http.ResponseWriter, r *http.Request) {
 		fail(w, a.t(err.Error()))
 		return
 	}
-	redirect(w, r, "/servers/"+s.ID+"?tab=console")
+	redirect(w, r, a.srvURL(s.ID)+"?tab=console")
 }

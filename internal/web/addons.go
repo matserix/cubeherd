@@ -37,7 +37,7 @@ func (a *App) addonsData(r *http.Request, s *server.Server) addonsData {
 			d.Others++
 		}
 	}
-	d.Up = a.M.View(r.Context(), s, false).Status.Up()
+	d.Up = a.view(r.Context(), s, false).Status.Up()
 	d.Pending = d.Up && a.M.AddonsPending(r.Context(), s)
 	d.Sources = []tab{{Key: server.AddonModrinth, Label: "Modrinth"}, {Key: server.AddonCurseForge, Label: "CurseForge"}}
 	if server.IsPluginType(s.Type) {

@@ -68,13 +68,13 @@ func (a *App) serverEvents(w http.ResponseWriter, r *http.Request) {
 	var lastStatus server.Status
 	var lastRender time.Time
 	pushStatus := func(force bool) {
-		cur, _ := a.M.Server(s.ID)
+		cur, _ := a.server(s.ID)
 		if cur == nil {
 			emit("status", `<div class="callout crit"><div><b>Server wurde entfernt</b><span class="muted"><a href="/">Zur Übersicht</a></span></div></div>`)
 			return
 		}
 		s = cur
-		v := a.M.View(ctx, s, false)
+		v := a.view(ctx, s, false)
 		if !force && v.Status == lastStatus && time.Since(lastRender) < 30*time.Second {
 			return // unchanged; the uptime text is refreshed every 30 s
 		}
@@ -107,7 +107,7 @@ func (a *App) serverEvents(w http.ResponseWriter, r *http.Request) {
 			pushStatus(false)
 		case <-playersTick.C:
 			if console {
-				a.pushPlayers(ctx, s, a.M.View(ctx, s, false), &lastPlayers, emit)
+				a.pushPlayers(ctx, s, a.view(ctx, s, false), &lastPlayers, emit)
 			}
 		case <-keepAlive.C:
 			fmt.Fprint(w, ": ping\n\n")

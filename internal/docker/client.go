@@ -198,6 +198,7 @@ func (c *ContainerJSON) EnvMap() map[string]string {
 }
 
 type Info struct {
+	Name            string // the Docker host's name, not the container's
 	NCPU            int
 	MemTotal        uint64
 	ServerVersion   string

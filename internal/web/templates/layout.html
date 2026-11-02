@@ -18,12 +18,13 @@
     <a class="brand" href="/" style="text-decoration:none;color:inherit">{{template "logo"}}<b>Cubeherd</b></a>
     <nav class="nav" aria-label="{{t "Hauptnavigation"}}">
       <a href="/" class="navlink" aria-current="{{eq .Nav "overview"}}" title="{{t "Übersicht"}}"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1.5" y="1.5" width="5.5" height="5.5" rx="1"/><rect x="9" y="1.5" width="5.5" height="5.5" rx="1"/><rect x="1.5" y="9" width="5.5" height="5.5" rx="1"/><rect x="9" y="9" width="5.5" height="5.5" rx="1"/></svg><span class="nav-txt">{{t "Übersicht"}}</span></a>
+      <a href="/nodes" class="navlink" aria-current="{{eq .Nav "nodes"}}" title="{{t "Nodes"}}"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="5.5" y="1.5" width="5" height="4" rx="1"/><rect x="1.5" y="10.5" width="5" height="4" rx="1"/><rect x="9.5" y="10.5" width="5" height="4" rx="1"/><path d="M8 5.5v2.5M4 10.5V8h8v2.5"/></svg><span class="nav-txt">{{t "Nodes"}}</span></a>
       <a href="/servers/new" class="navlink" aria-current="{{eq .Nav "wizard"}}" title="{{t "Neuer Server"}}"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 3v10M3 8h10"/></svg><span class="nav-txt">{{t "Neuer Server"}}</span></a>
       <a href="/settings" class="navlink" aria-current="{{eq .Nav "settings"}}" title="{{t "Einstellungen"}}"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="2.2"/><path d="M8 1.5v2M8 12.5v2M1.5 8h2M12.5 8h2M3.4 3.4l1.4 1.4M11.2 11.2l1.4 1.4M3.4 12.6l1.4-1.4M11.2 4.8l1.4-1.4"/></svg><span class="nav-txt">{{t "Einstellungen"}}</span></a>
     </nav>
     <div class="rack-wrap">
-      <div class="rack-head"><span class="label">Server</span><span class="label num">{{len .Rack}}</span></div>
-      <div class="rack" hx-get="/partials/rack?current={{.Current}}" hx-trigger="rack-refresh from:body" hx-swap="innerHTML">{{template "rackList" .}}</div>
+      <div class="rack-head"><span class="label">Server</span><span class="label num">{{.RackCount}}</span></div>
+      <div class="rack" hx-get="/partials/rack?current={{.Current}}&node={{.CurrentNode}}" hx-trigger="rack-refresh from:body" hx-swap="innerHTML">{{template "rackList" .}}</div>
     </div>
     <div class="side-foot">
       <div class="row"><span>Cubeherd</span><span class="num">{{.Version}}</span></div>
@@ -43,7 +44,13 @@
 </body>
 </html>{{end}}
 
-{{define "rackList"}}{{range .Rack}}<a href="/servers/{{.S.ID}}" aria-current="{{eq $.Current .S.ID}}"><span class="nm"><i class="dot s-{{.Status.CSS}}"></i><span>{{.S.Name}}</span></span><span class="meta">{{t .Status.Label}}</span></a>
-{{else}}<p class="muted" style="padding:0 10px;font-size:13px">{{t "Noch keine Server."}}</p>{{end}}{{end}}
+{{define "rackList"}}{{$multi := gt (len .Nodes) 1}}
+{{range .Nodes}}{{$n := .}}
+{{if $multi}}<div class="rack-node{{if eq .Status.State "offline"}} off{{end}}" title="{{.Name}}"><b><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><rect x="2" y="2.5" width="12" height="4.5" rx="1"/><rect x="2" y="9" width="12" height="4.5" rx="1"/><path d="M5 4.75h.01M5 11.25h.01"/></svg><span>{{.Name}}</span><i class="dot s-{{nodeCSS .Status.State}}" aria-label="{{nodeState .Status.State}}"></i></b><span class="label num">{{len .Views}}</span></div>
+<div class="rack-group">{{end}}
+{{range .Views}}<a href="{{srv .S}}" class="{{if $n.Stale}}dim{{end}}" aria-current="{{and (eq $.Current .S.ID) (eq $.CurrentNode .S.Node)}}"><span class="nm"><i class="dot s-{{.Status.CSS}}"></i><span>{{.S.Name}}</span></span><span class="meta">{{t .Status.Label}}</span></a>
+{{else}}{{if $multi}}<p class="rack-empty">{{t "Noch keine Server."}}</p>{{end}}{{end}}
+{{if $multi}}</div>{{end}}{{end}}
+{{if and (not .RackCount) (not $multi)}}<p class="muted" style="padding:0 10px;font-size:13px">{{t "Noch keine Server."}}</p>{{end}}{{end}}
 
 {{define "logo"}}<svg viewBox="0 0 24 24" aria-hidden="true" width="26" height="26"><path d="M12 2 21 7 12 12 3 7Z" fill="var(--accent-2)"/><path d="M3 7 12 12V22L3 17Z" fill="var(--accent)"/><path d="M21 7 12 12V22L21 17Z" fill="var(--accent-3)"/></svg>{{end}}

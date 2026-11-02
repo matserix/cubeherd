@@ -32,6 +32,25 @@ type Settings struct {
 	DismissedUpdate string `json:"dismissedUpdate,omitempty"` // release tag whose banner was dismissed
 	// Remote is the optional S3 bucket that backups are uploaded to (nil = local backups only).
 	Remote *s3.Config `json:"remote,omitempty"`
+
+	// Nodes are the remote hosts (agents) this dashboard manages, next to the embedded local one.
+	Nodes []Node `json:"nodes,omitempty"`
+	// LocalName is the display name of the embedded local node; "" = the host name.
+	LocalName string `json:"localName,omitempty"`
+}
+
+// Node is one remote agent. The token is stored like the CurseForge key (file mode 0600).
+type Node struct {
+	ID          string `json:"id"`
+	Name        string `json:"name"`
+	Addr        string `json:"addr"`        // https://host:port
+	Token       string `json:"token"`       // bearer token of the agent
+	Fingerprint string `json:"fingerprint"` // pinned SHA-256 of the agent's certificate
+	// Per-node defaults, since host addresses and free ports differ between machines.
+	PortMin       int      `json:"portMin,omitempty"`
+	PortMax       int      `json:"portMax,omitempty"`
+	BindIPs       []string `json:"bindIps,omitempty"`
+	DefaultBindIP string   `json:"defaultBindIp,omitempty"`
 }
 
 type Store struct {

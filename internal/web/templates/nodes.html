@@ -1,0 +1,119 @@
+{{define "content"}}
+<section class="view">
+  <div class="view-head">
+    <div><h1>{{t "Nodes"}}</h1><p class="sub">{{t "Jeder Host, auf dem ein Agent läuft. Das Dashboard ruft die Agents auf, nie umgekehrt."}}</p></div>
+    <div class="actions"><button class="btn primary" hx-get="/nodes/new" hx-target="#modal-card"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M8 3v10M3 8h10"/></svg>{{t "Node hinzufügen"}}</button></div>
+  </div>
+  <div class="panel">
+    <div class="tbl-wrap">
+      <table class="tbl" id="nodes-table">
+        <thead><tr><th>Node</th><th>{{t "Adresse"}}</th><th>{{t "Status"}}</th><th class="hide-sm">Agent</th><th class="hide-sm">{{t "Latenz"}}</th><th class="hide-sm">Server</th><th class="right"></th></tr></thead>
+        <tbody>
+        {{range .Data.Rows}}
+        <tr data-node="{{.ID}}">
+          <td class="t-name"><b>{{.Name}}</b><span>{{if .Local}}{{t "eingebetteter Agent in diesem Dashboard"}}{{else}}{{t "Agent auf einem anderen Host"}}{{end}}</span></td>
+          <td class="mono">{{if .Local}}{{t "eingebettet"}}{{else}}{{.Addr}}{{end}}</td>
+          <td><span class="pill s-{{nodeCSS .Status.State}}">{{nodeState .Status.State}}</span>
+            {{if eq .Status.State "offline"}}<div class="muted" style="font-size:12px;margin-top:4px">{{nodeReason .Status}}{{if not .Status.LastSeen.IsZero}} · {{t "zuletzt gesehen: %s" (ago .Status.LastSeen)}}{{end}}</div>{{end}}</td>
+          <td class="hide-sm mono">{{with .Status.Version}}v{{.}}{{else}}–{{end}}</td>
+          <td class="hide-sm num">{{if or .Local (eq .Status.State "offline")}}–{{else}}{{latency .Status.Latency}}{{end}}</td>
+          <td class="hide-sm num">{{len .Views}}</td>
+          <td class="right"><button class="btn sm ghost" hx-get="/nodes/{{.ID}}/edit" hx-target="#modal-card">{{t "Bearbeiten"}}</button>{{if not .Local}}<button class="btn sm ghost" hx-get="/nodes/{{.ID}}/remove" hx-target="#modal-card">{{t "Entfernen"}}</button>{{end}}</td>
+        </tr>
+        {{else}}
+        <tr><td colspan="7" class="muted" style="padding:28px 18px">{{t "Noch keine Nodes."}}</td></tr>
+        {{end}}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  <div class="callout info"><div><b>{{t "Ein Node lässt sich jederzeit entfernen"}}</b><span class="muted">{{t "Seine Server laufen auf dem Host weiter. Jeder Server-Ordner enthält seine eigene cubeherd.json und compose.yml, sodass docker compose weiter funktioniert und der Node später wieder hinzugefügt werden kann."}}</span></div></div>
+</section>
+{{end}}
+
+{{define "nodeStep1"}}
+<div class="modal-head"><h2>{{t "Node hinzufügen"}}</h2><span class="nsteps"><span class="cur">1</span><span>2</span></span><button class="btn sm ghost" data-close aria-label="{{t "Schließen"}}">✕</button></div>
+<form hx-post="/nodes/probe" hx-target="#modal-card">
+<div class="modal-body">
+  {{with .Error}}<div class="callout crit"><div>{{.}}</div></div>{{end}}
+  <div class="grid-2">
+    <label class="field"><span>{{t "Name"}}</span><input class="input" name="name" value="{{.Name}}" placeholder="vps-fra" required autofocus autocomplete="off"></label>
+    <label class="field"><span>{{t "Adresse des Agents"}}</span><input class="input mono" name="addr" value="{{.Addr}}" placeholder="10.8.0.12:8421" required autocomplete="off" spellcheck="false"></label>
+  </div>
+  <label class="field"><span>{{t "Token des Agents"}}</span><input class="input mono" name="token" value="{{.Token}}" required autocomplete="off" spellcheck="false"><small>{{t "Für einen neuen Agent gilt das erzeugte Token. Läuft der Agent schon, trage hier sein Token ein."}}</small></label>
+  <p class="muted">{{t "Starte den Agent auf dem anderen Host. Das erzeugte Token steht schon im Snippet."}}</p>
+  <pre class="code" id="agent-snippet">services:
+  cubeherd-agent:
+    image: ghcr.io/matserix/cubeherd:latest
+    command: ["agent"]
+    restart: unless-stopped
+    ports: ["8421:8421"]        # only on a LAN or VPN
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /srv/cubeherd:/srv/cubeherd
+    environment:
+      CUBEHERD_DATA: /srv/cubeherd
+      CUBEHERD_AGENT_TOKEN: {{.Token}}</pre>
+</div>
+<div class="modal-foot"><button class="btn ghost" type="button" data-close>{{t "Abbrechen"}}</button><button class="btn primary">{{t "Verbinden"}} <span class="spin-on-req"></span></button></div>
+</form>
+{{end}}
+
+{{define "nodeStep2"}}
+<div class="modal-head"><h2>{{t "Node hinzufügen"}}</h2><span class="nsteps"><span class="done">1</span><span class="cur">2</span></span><button class="btn sm ghost" data-close aria-label="{{t "Schließen"}}">✕</button></div>
+<form hx-post="/nodes">
+<div class="modal-body">
+  <ul class="checks">
+    <li class="ok"><span class="ic">✓</span>{{t "Agent erreichbar"}}<small>{{.Addr}}</small></li>
+    <li class="ok"><span class="ic">✓</span>{{t "Token akzeptiert"}}</li>
+    <li class="ok"><span class="ic">✓</span>{{t "Agent %s auf %s" .Version .Hostname}}</li>
+  </ul>
+  <div class="callout accent"><div><b>{{t "Fingerabdruck des Zertifikats"}}</b><span class="muted">{{t "Der Agent hat ihn beim Start ausgegeben. Stimmt er überein, ist die Verbindung sicher, auch ohne Zertifizierungsstelle."}}</span><div class="mono fp">{{.Fingerprint}}</div></div></div>
+  <label class="switch"><input type="checkbox" name="confirm" required><span class="txt">{{t "Der Fingerabdruck stimmt mit dem des Agents überein."}}</span></label>
+  <input type="hidden" name="name" value="{{.Name}}"><input type="hidden" name="addr" value="{{.Addr}}"><input type="hidden" name="token" value="{{.Token}}"><input type="hidden" name="fingerprint" value="{{.Fingerprint}}">
+</div>
+<div class="modal-foot"><button class="btn ghost" type="button" data-close>{{t "Abbrechen"}}</button><button class="btn primary" id="node-add">{{t "Node hinzufügen"}} <span class="spin-on-req"></span></button></div>
+</form>
+{{end}}
+
+{{define "fpInput"}}<input class="input mono" id="fp-input" name="fingerprint" value="{{.}}" required autocomplete="off" spellcheck="false">{{end}}
+
+{{define "nodeEdit"}}
+<div class="modal-head"><h2>{{t "%s bearbeiten" .Name}}</h2><button class="btn sm ghost" data-close aria-label="{{t "Schließen"}}">✕</button></div>
+<form hx-post="/nodes/{{.ID}}">
+<div class="modal-body">
+  <div class="grid-2">
+    <label class="field"><span>{{t "Name"}}</span><input class="input" name="name" value="{{.Name}}" required></label>
+    <label class="field"><span>{{t "Adresse des Agents"}}</span><input class="input mono" name="addr" value="{{.Addr}}" required spellcheck="false"></label>
+  </div>
+  <label class="field"><span>{{t "Neues Token (leer lassen, um das gespeicherte zu behalten)"}}</span><input class="input mono" name="token" type="password" autocomplete="new-password"></label>
+  <label class="field"><span>{{t "Fingerabdruck des Zertifikats"}}</span>
+    <div class="add-row">{{template "fpInput" .Fingerprint}}<button class="btn" type="button" hx-post="/nodes/{{.ID}}/probe" hx-include="[name=addr]" hx-target="#fp-input" hx-swap="outerHTML">{{t "Vom Agent holen"}}</button></div>
+    <small>{{t "Nur ändern, wenn du das Zertifikat des Agents bewusst ersetzt hast."}}</small></label>
+  <div class="grid-2">
+    <label class="field"><span>{{t "Port-Bereich für neue Server"}}</span><div class="add-row"><input class="input mono" name="portMin" type="number" value="{{if .PortMin}}{{.PortMin}}{{end}}" placeholder="25565"><input class="input mono" name="portMax" type="number" value="{{if .PortMax}}{{.PortMax}}{{end}}" placeholder="25600"></div><small>{{t "Leer lassen für den Bereich des Agents."}}</small></label>
+    <label class="field"><span>{{t "Standard-IP"}}</span><input class="input mono" name="defaultBindIp" value="{{.DefaultBindIP}}" placeholder="{{t "alle Schnittstellen"}}" spellcheck="false"></label>
+  </div>
+  <label class="field"><span>{{t "IP-Adressen dieses Hosts"}}</span><textarea class="input mono" name="bindIps" rows="3" spellcheck="false">{{.BindIPs}}</textarea><small>{{t "Eine Adresse pro Zeile. Auf diesen Adressen darf ein Server seinen Port veröffentlichen."}}</small></label>
+</div>
+<div class="modal-foot"><button class="btn ghost" type="button" data-close>{{t "Abbrechen"}}</button><button class="btn primary">{{t "Speichern"}} <span class="spin-on-req"></span></button></div>
+</form>
+{{end}}
+
+{{define "nodeRemove"}}
+<div class="modal-head"><h2>{{t "%s entfernen" .Name}}</h2><button class="btn sm ghost" data-close aria-label="{{t "Schließen"}}">✕</button></div>
+<form hx-post="/nodes/{{.ID}}/remove">
+<div class="modal-body"><p>{{t "Der Node wird aus dem Dashboard entfernt. Seine Server laufen auf dem Host weiter und werden nicht verändert. Du kannst ihn später wieder hinzufügen."}}</p></div>
+<div class="modal-foot"><button class="btn ghost" type="button" data-close>{{t "Abbrechen"}}</button><button class="btn danger-solid">{{t "Entfernen"}} <span class="spin-on-req"></span></button></div>
+</form>
+{{end}}
+
+{{define "nodeEditLocal"}}
+<div class="modal-head"><h2>{{t "%s bearbeiten" .Name}}</h2><button class="btn sm ghost" data-close aria-label="{{t "Schließen"}}">✕</button></div>
+<form hx-post="/nodes/{{.ID}}">
+<div class="modal-body">
+  <label class="field"><span>{{t "Name"}}</span><input class="input" name="name" value="{{.Name}}" placeholder="{{t "Name des Hosts"}}" autofocus autocomplete="off"><small>{{t "Leer lassen, um den Namen des Docker-Hosts zu verwenden. Port-Bereich, IP-Adressen und Zeitzone dieses Nodes stehen in den Einstellungen."}}</small></label>
+</div>
+<div class="modal-foot"><button class="btn ghost" type="button" data-close>{{t "Abbrechen"}}</button><button class="btn primary">{{t "Speichern"}} <span class="spin-on-req"></span></button></div>
+</form>
+{{end}}

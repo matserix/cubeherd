@@ -13,14 +13,16 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
+	"cubeherd/internal/api"
 	"cubeherd/internal/auth"
 	"cubeherd/internal/config"
 	"cubeherd/internal/docker"
-	"cubeherd/internal/host"
 	"cubeherd/internal/i18n"
 	"cubeherd/internal/manager"
+	"cubeherd/internal/nodes"
 	"cubeherd/internal/s3"
 	"cubeherd/internal/server"
 	"cubeherd/internal/sources"
@@ -118,45 +120,101 @@ func (a *App) logout(w http.ResponseWriter, r *http.Request) {
 
 // ---------------- Übersicht ----------------
 
+// nodeCard is a node's resource tiles on the overview.
+type nodeCard struct {
+	nodes.View
+	Alloc      uint64 // RAM promised to the servers that are up
+	Running    int
+	Players    int
+	SelfMB     uint64
+	Goroutines int
+}
+
+type unmanaged struct {
+	api.Unmanaged
+	Node string
+}
+
 type overviewData struct {
-	Host       host.Stats
-	Alloc      uint64
+	Cards      []nodeCard
+	Multi      bool   // more than one node: show node cards, chips and the filter
+	Filter     string // node id shown, "" = all
 	SelfMB     uint64
 	Goroutines int
 	Views      []manager.View
 	Running    int
 	Players    int
-	Unmanaged  []manager.Unmanaged
+	Offline    []nodes.View // nodes that did not answer
+	Outdated   []nodes.View
+	Unmanaged  []unmanaged
 }
 
-func (a *App) overviewData(ctx context.Context, discover bool) overviewData {
-	d := overviewData{Host: a.M.HostStats(ctx), SelfMB: selfMB(), Goroutines: runtime.NumGoroutine()}
-	d.Views, _ = a.M.Views(ctx, true)
-	for _, v := range d.Views {
-		if v.Status.Up() {
-			d.Running++
-			d.Alloc += uint64(v.S.MemoryGB) << 30
+func (a *App) overviewData(ctx context.Context, filter string, discover bool, maxAge time.Duration) overviewData {
+	all := a.Reg.Refresh(ctx, true, maxAge)
+	d := overviewData{Multi: len(all) > 1, Filter: filter, SelfMB: selfMB(), Goroutines: runtime.NumGoroutine()}
+	if filter != "" && !slices.ContainsFunc(all, func(n nodes.View) bool { return n.ID == filter }) {
+		d.Filter = ""
+	}
+	for _, n := range all {
+		c := nodeCard{View: n, SelfMB: d.SelfMB, Goroutines: d.Goroutines}
+		for _, v := range n.Views {
+			if v.Status.Up() {
+				c.Running++
+				c.Alloc += uint64(v.S.MemoryGB) << 30
+			}
+			c.Players += len(v.Online)
 		}
-		d.Players += len(v.Online)
+		d.Cards = append(d.Cards, c)
+		if n.Status.State == nodes.Offline {
+			d.Offline = append(d.Offline, n)
+		} else if n.Status.State == nodes.Outdated {
+			d.Outdated = append(d.Outdated, n)
+		}
+		if d.Filter == "" || d.Filter == n.ID {
+			d.Views = append(d.Views, n.Views...)
+			d.Running += c.Running
+			d.Players += c.Players
+		}
 	}
 	if discover {
-		d.Unmanaged = a.M.Discover(ctx)
+		var mu sync.Mutex
+		var wg sync.WaitGroup
+		for _, n := range all {
+			if n.Status.State == nodes.Offline {
+				continue
+			}
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				found := n.Node.Discover(ctx)
+				mu.Lock()
+				defer mu.Unlock()
+				for _, u := range found {
+					d.Unmanaged = append(d.Unmanaged, unmanaged{Unmanaged: u, Node: n.ID})
+				}
+			}()
+		}
+		wg.Wait()
 	}
 	return d
 }
 
 func (a *App) overview(w http.ResponseWriter, r *http.Request) {
-	a.render(w, r, "overview", Page{Title: a.t("Übersicht"), Nav: "overview", Data: a.overviewData(r.Context(), true)})
+	a.render(w, r, "overview", Page{Title: a.t("Übersicht"), Nav: "overview", Data: a.overviewData(r.Context(), r.FormValue("node"), true, 0)})
 }
 
 func (a *App) overviewPartial(w http.ResponseWriter, r *http.Request) {
-	a.partial(w, "overview", "ovLive", a.overviewData(r.Context(), false))
+	a.partial(w, "overview", "ovLive", a.overviewData(r.Context(), r.FormValue("node"), false, 2*time.Second))
 }
 
 // rackPartial re-renders the sidebar server list, so it follows status changes without a reload.
 func (a *App) rackPartial(w http.ResponseWriter, r *http.Request) {
-	rack, _ := a.M.Views(r.Context(), false)
-	a.partial(w, "overview", "rackList", Page{Rack: rack, Current: r.FormValue("current")})
+	p := Page{Current: r.FormValue("current"), CurrentNode: r.FormValue("node")}
+	p.Nodes = a.Reg.Refresh(r.Context(), false, rackMaxAge)
+	for _, n := range p.Nodes {
+		p.RackCount += len(n.Views)
+	}
+	a.partial(w, "overview", "rackList", p)
 }
 
 func (a *App) importPost(w http.ResponseWriter, r *http.Request) {
@@ -166,12 +224,13 @@ func (a *App) importPost(w http.ResponseWriter, r *http.Request) {
 		a.fail(w, "Übernahme nicht möglich: %s", err.Error())
 		return
 	}
-	redirect(w, r, "/servers/"+s.ID)
+	redirect(w, r, a.srvURL(s.ID))
 }
 
 // ---------------- Wizard ----------------
 
 type wizardData struct {
+	Node      string // name of the node the server will run on
 	HostRAM   string
 	Releases  []string
 	Java      string
@@ -207,10 +266,11 @@ func (a *App) releases(ctx context.Context) []string {
 func (a *App) wizardPage(w http.ResponseWriter, r *http.Request) {
 	cfg := a.Cfg.Get()
 	rel := a.releases(r.Context())
+	pmin, pmax := a.portRange()
 	d := wizardData{
-		Releases: rel, Java: a.Sources.JavaTag(r.Context(), rel[0]), Port: a.M.NextPort(""),
-		BindIPs: cfg.BindIPs, BindIP: cfg.DefaultBindIP,
-		PortRange: fmt.Sprintf("%d–%d", cfg.PortMin, cfg.PortMax), RAM: cfg.DefaultMemoryGB, MaxRAM: a.maxRAM(r.Context()),
+		Node: a.NodeName, Releases: rel, Java: a.Sources.JavaTag(r.Context(), rel[0]), Port: a.M.NextPort(""),
+		BindIPs: a.bindIPs(), BindIP: a.defaultBindIP(),
+		PortRange: fmt.Sprintf("%d–%d", pmin, pmax), RAM: cfg.DefaultMemoryGB, MaxRAM: a.maxRAM(r.Context()),
 		Autopause: cfg.DefaultAutopause, HasCFKey: cfg.CFAPIKey != "", HostRAM: decimal(a.lang(), float64(a.M.HostStats(r.Context()).MemTotal)/(1<<30)),
 	}
 	a.render(w, r, "wizard", Page{Title: a.t("Neuer Server"), Nav: "wizard", Data: d})
@@ -287,7 +347,7 @@ func (a *App) bindIPAllowed(ip, current string) bool {
 	if ip == "" || ip == current {
 		return true
 	}
-	return slices.Contains(a.Cfg.Get().BindIPs, ip)
+	return slices.Contains(a.bindIPs(), ip)
 }
 
 func checked(r *http.Request, key string) bool { return r.FormValue(key) == "on" }
@@ -388,7 +448,7 @@ func (a *App) createServer(w http.ResponseWriter, r *http.Request) {
 		fail(w, a.t(err.Error()))
 		return
 	}
-	redirect(w, r, "/servers/"+s.ID)
+	redirect(w, r, a.srvURL(s.ID))
 }
 
 // ---------------- Server-Detail ----------------
@@ -438,7 +498,7 @@ type playersData struct {
 }
 
 func (a *App) loadServer(w http.ResponseWriter, r *http.Request) (*server.Server, bool) {
-	s, err := a.M.Server(r.PathValue("id"))
+	s, err := a.server(r.PathValue("id"))
 	if err != nil {
 		if isHX(r) {
 			a.fail(w, "Server nicht gefunden.")
@@ -469,7 +529,7 @@ func (a *App) updateHint(ctx context.Context, s *server.Server) string {
 }
 
 func (a *App) serverPageData(ctx context.Context, s *server.Server, tabKey string) serverPage {
-	d := serverPage{V: a.M.View(ctx, s, true), Tab: tabKey, Tabs: tabs, Disk: a.M.DiskUsage(s), MaxRAM: a.maxRAM(ctx), HostRAM: decimal(a.lang(), float64(a.M.HostStats(ctx).MemTotal)/(1<<30)), DataDir: a.M.Paths(s).DataDir}
+	d := serverPage{V: a.view(ctx, s, true), Tab: tabKey, Tabs: tabs, Disk: a.M.DiskUsage(s), MaxRAM: a.maxRAM(ctx), HostRAM: decimal(a.lang(), float64(a.M.HostStats(ctx).MemTotal)/(1<<30)), DataDir: a.M.Paths(s).DataDir}
 	if !d.V.Status.Busy() {
 		d.Update = a.updateHint(ctx, s)
 	}
@@ -477,7 +537,7 @@ func (a *App) serverPageData(ctx context.Context, s *server.Server, tabKey strin
 	d.Players = playersData{ID: s.ID, Online: d.V.Online, Max: d.V.MaxPlayers, Live: d.V.Status.Live()}
 	switch tabKey {
 	case "settings":
-		d.BindIPs = a.Cfg.Get().BindIPs
+		d.BindIPs = a.bindIPs()
 		d.CPUOptions, d.CPUValue = a.cpuOptions(ctx, s)
 		d.ExtraEnv = server.FormatEnv(s.ExtraEnv)
 		env := s.Env(server.Globals{CFKey: a.Cfg.Get().CFAPIKey, TZ: a.Cfg.Get().Timezone})
@@ -564,7 +624,7 @@ func (a *App) serverPage(w http.ResponseWriter, r *http.Request) {
 	}
 	d := a.serverPageData(r.Context(), s, t)
 	a.serverTabData(r, &d, s)
-	a.render(w, r, "server", Page{Title: s.Name, Nav: "server", Current: s.ID, Data: d})
+	a.render(w, r, "server", Page{Title: s.Name, Nav: "server", Current: s.ID, CurrentNode: a.NodeID, Data: d})
 }
 
 func (a *App) serverAction(w http.ResponseWriter, r *http.Request) {
@@ -590,7 +650,7 @@ func (a *App) serverAction(w http.ResponseWriter, r *http.Request) {
 	}
 	toast(w, msg, "")
 	time.Sleep(150 * time.Millisecond) // let the op register before rendering
-	v := a.M.View(r.Context(), s, false)
+	v := a.view(r.Context(), s, false)
 	if r.FormValue("ctx") == "row" {
 		a.partial(w, "overview", "serverRow", v)
 		return
@@ -608,7 +668,7 @@ func (a *App) serverCommand(w http.ResponseWriter, r *http.Request) {
 		a.fail(w, "Ungültiger Befehl.")
 		return
 	}
-	switch st := a.M.View(r.Context(), s, false).Status; {
+	switch st := a.view(r.Context(), s, false).Status; {
 	case st == server.StatusPaused:
 		a.fail(w, "Der Server ist pausiert. Er wacht auf, sobald sich ein Spieler verbindet; RCON-Befehle wecken ihn nicht.")
 		return
@@ -704,7 +764,7 @@ func (a *App) serverSettings(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if restart {
-		redirect(w, r, "/servers/"+s.ID+"?tab=console")
+		redirect(w, r, a.srvURL(s.ID)+"?tab=console")
 		return
 	}
 	a.toast(w, "ok", "Gespeichert. Greift beim nächsten Neustart.")
@@ -722,7 +782,7 @@ func (a *App) serverPlayers(w http.ResponseWriter, r *http.Request) {
 		a.fail(w, "Spielernamen bestehen aus 2–16 Buchstaben, Ziffern oder Unterstrichen.")
 		return
 	}
-	v := a.M.View(r.Context(), s, false)
+	v := a.view(r.Context(), s, false)
 	cmds := map[string][2]string{"whitelist": {"whitelist add ", "whitelist remove "}, "ops": {"op ", "deop "}, "bans": {"ban ", "pardon "}}
 	c, ok := cmds[list]
 	if !ok || (op != "add" && op != "remove") {
@@ -880,7 +940,7 @@ func (a *App) updatePost(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	toast(w, msg, "", "fc-close-modal")
-	redirect(w, r, "/servers/"+s.ID+"?tab=console")
+	redirect(w, r, a.srvURL(s.ID)+"?tab=console")
 }
 
 func (a *App) uninstallModal(w http.ResponseWriter, r *http.Request) {
@@ -917,6 +977,9 @@ func (a *App) uninstallPost(w http.ResponseWriter, r *http.Request) {
 // ---------------- Einstellungen ----------------
 
 type settingsData struct {
+	HasLocal   bool   // the dashboard has its own Docker access
+	Multi      bool   // remote nodes exist, so each setting says which nodes it applies to
+	LocalName  string // display name of the embedded node
 	Cfg        config.Settings
 	RAMOptions []int
 	DataDir    string
@@ -934,13 +997,20 @@ type settingsData struct {
 
 func (a *App) settingsPage(w http.ResponseWriter, r *http.Request) {
 	d := settingsData{Cfg: a.Cfg.Get(), RAMOptions: []int{2, 3, 4, 6, 8, 10, 12, 16}, DataDir: a.DataDir, Listen: a.Listen,
-		DockerHost: a.M.DockerHost(), Version: Version, SelfMB: selfMB(), Started: a.start,
-		Zones: commonZones, SystemZone: time.Local.String(), ZoneNow: time.Now().In(a.M.Loc()).Format("02.01.2006 15:04 MST")}
-	info, err := a.M.DockerInfo(r.Context())
-	if err != nil {
-		d.DockerErr = err.Error()
+		Version: Version, SelfMB: selfMB(), Started: a.start,
+		Zones: commonZones, SystemZone: time.Local.String(), ZoneNow: time.Now().In(displayLoc()).Format("02.01.2006 15:04 MST")}
+	d.Multi = len(a.Cfg.Get().Nodes) > 0
+	if info, ok := a.Reg.Get(nodes.LocalID); ok {
+		d.LocalName = info.Name
 	}
-	d.Docker = info
+	if local := a.Reg.Local(); local != nil {
+		d.HasLocal, d.DockerHost = true, local.DockerHost()
+		info, err := local.DockerInfo(r.Context())
+		if err != nil {
+			d.DockerErr = err.Error()
+		}
+		d.Docker = info
+	}
 	a.render(w, r, "settings", Page{Title: a.t("Einstellungen"), Nav: "settings", Data: d})
 }
 
@@ -994,10 +1064,15 @@ func (a *App) settingsPost(w http.ResponseWriter, r *http.Request) {
 		fail(w, a.t(err.Error()))
 		return
 	}
-	a.M.InvalidateRemote()
-	if tzChanged {
-		a.M.WakeScheduler()
+	if local := a.Reg.Local(); local != nil {
+		local.InvalidateRemote()
+		if tzChanged {
+			local.WakeScheduler()
+		}
 	}
+	// The agents get the new settings with their next refresh; start it now so a change shows up at once.
+	a.Reg.ForgetPushed()
+	go a.Reg.Refresh(context.Background(), false, 0)
 	if tzChanged || langChanged {
 		redirect(w, r, "/settings") // full reload so texts, numbers and dates use the new setting
 		return

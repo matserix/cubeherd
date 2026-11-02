@@ -99,7 +99,7 @@ func (a *App) filesView(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	a.partial(w, "server", "fileEditor", map[string]any{"ID": s.ID, "Path": rel, "Entry": st, "Text": text, "IsText": isText,
-		"Hint": fileHints[rel], "Live": a.M.View(r.Context(), s, false).Status.Up()})
+		"Hint": fileHints[rel], "Live": a.view(r.Context(), s, false).Status.Up()})
 }
 
 func (a *App) filesSave(w http.ResponseWriter, r *http.Request) {
@@ -261,5 +261,5 @@ func (a *App) worldUpload(w http.ResponseWriter, r *http.Request) {
 		fail(w, a.t(err.Error()))
 		return
 	}
-	redirect(w, r, "/servers/"+s.ID+"?tab=console")
+	redirect(w, r, a.srvURL(s.ID)+"?tab=console")
 }

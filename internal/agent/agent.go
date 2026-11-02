@@ -96,10 +96,13 @@ func (a *Agent) guard(next http.Handler) http.Handler {
 func (a *Agent) info(w http.ResponseWriter, r *http.Request) {
 	hn, _ := os.Hostname()
 	in := api.Info{Version: a.Version, API: api.Version, Hostname: hn, DockerHost: a.B.DockerHost(), DataDir: a.DataDir, Timezone: a.B.Loc().String(), ArchiveDir: a.B.ArchiveDir()}
-	if _, err := a.B.DockerInfo(r.Context()); err != nil {
+	if di, err := a.B.DockerInfo(r.Context()); err != nil {
 		in.DockerErr = err.Error()
 	} else {
 		in.DockerOK = true
+		if di.Name != "" {
+			in.Hostname = di.Name // inside a container os.Hostname is the container id; Docker knows the host's name
+		}
 	}
 	writeJSON(w, http.StatusOK, in)
 }

@@ -491,3 +491,55 @@ details summary::marker { color: var(--faint); }
 .app-update details { margin-top: 6px; }
 .app-update summary { cursor: pointer; }
 .release-notes { margin: 8px 0 0; padding: 10px 12px; max-height: 280px; overflow: auto; white-space: pre-wrap; word-break: break-word; font: 12.5px/1.6 var(--font-mono); background: var(--surface-2); border-radius: 6px; }
+
+/* ---------- Nodes ---------- */
+.nodes-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 14px; }
+.ncard { display: flex; flex-direction: column; gap: 10px; padding: 14px 16px; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; color: inherit; text-decoration: none; }
+.ncard:hover { border-color: var(--faint); }
+.ncard[aria-current="true"] { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+.ncard.off { border-style: dashed; background: transparent; }
+.ncard .top { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.ncard .top b { font-family: var(--font-display); font-size: 16px; }
+.ncard .row { display: grid; grid-template-columns: 38px 1fr auto; gap: 10px; align-items: center; font-size: 12px; color: var(--muted); }
+.ncard .row output { font-variant-numeric: tabular-nums; }
+.ncard.off .row { opacity: .4; }
+.ncard .foot { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; font-size: 12px; color: var(--muted); }
+.chip.node { color: var(--accent); border-color: var(--accent-3); background: var(--accent-soft); font-family: var(--font-mono); font-size: 11.5px; }
+.tbl:not(.multi) .node-col { display: none; }
+.seg a { padding: 5px 12px; border-radius: 4px; color: var(--muted); font-weight: 500; text-decoration: none; }
+.seg a[aria-pressed="true"] { background: var(--surface-3); color: var(--fg); box-shadow: inset 0 0 0 1px var(--line-strong); }
+.rack a.dim { opacity: .5; }
+.nsteps { display: flex; gap: 6px; font-size: 12px; color: var(--muted); }
+.nsteps span { padding: 2px 9px; border-radius: 4px; border: 1px solid var(--line-strong); }
+.nsteps span.cur { background: var(--accent); border-color: var(--accent); color: var(--accent-fg); font-weight: 600; }
+.nsteps span.done { color: var(--fg); background: var(--surface-3); }
+.checks { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.checks li { display: flex; gap: 10px; align-items: center; font-size: 13px; padding: 8px 12px; border: 1px solid var(--line); border-radius: var(--r); }
+.checks li .ic { width: 18px; height: 18px; border-radius: 4px; display: grid; place-items: center; font-size: 12px; flex: none; background: var(--surface-3); color: var(--faint); }
+.checks li.ok .ic { background: var(--ok-soft); color: var(--ok); }
+.checks li small { margin-left: auto; color: var(--muted); font-family: var(--font-mono); font-size: 11.5px; }
+.fp { margin-top: 8px; word-break: break-all; font-size: 12.5px; color: var(--fg); }
+.node-pick .choice { text-decoration: none; }
+.node-pick .choice.disabled { opacity: .5; cursor: not-allowed; }
+.callout.warn { border-color: var(--warn); background: var(--warn-soft); }
+.node-pick .choice .pill { align-self: flex-start; }
+#nodes-table td.right { white-space: nowrap; }
+#nodes-table .t-name { min-width: 120px; }
+/* The overview's banners share one wrapper (so they update together); space them like siblings of .view. */
+#ov-banners { display: flex; flex-direction: column; gap: 12px; }
+#ov-banners:not(:has(.callout)) { display: none; }
+/* Sidebar: a node is a group header, its servers hang below it on a guide line. */
+.rack-node { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 16px; padding: 6px 10px 5px; border-radius: var(--r); background: var(--surface-2); }
+.rack-node:first-child { margin-top: 2px; }
+.rack-node b { display: flex; align-items: center; gap: 8px; min-width: 0; font-size: 12.5px; font-weight: 600; color: var(--fg); }
+.rack-node b svg { width: 14px; height: 14px; flex: none; color: var(--muted); }
+.rack-node b span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rack-node.off b, .rack-node.off b svg { color: var(--faint); }
+.rack-group { display: flex; flex-direction: column; gap: 1px; margin: 3px 0 0 17px; padding-left: 8px; border-left: 1px solid var(--line-strong); }
+.rack-group a { padding-left: 10px; }
+.rack-empty { margin: 0; padding: 4px 10px; font-size: 12.5px; color: var(--faint); }
+.node-pick .choice { gap: 8px; padding: 14px 16px; border-radius: 8px; }
+/* Settings: which nodes a setting applies to. */
+.intro .scope { display: inline-block; margin: 4px 0 6px; padding: 1px 8px; border-radius: 10px; font-size: 11.5px; font-weight: 600; border: 1px solid var(--line-strong); color: var(--muted); }
+.intro .scope-all { color: var(--ok); border-color: var(--ok); background: var(--ok-soft); }
+.intro .scope-local { color: var(--accent); border-color: var(--accent-3); background: var(--accent-soft); }

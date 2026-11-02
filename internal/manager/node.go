@@ -145,6 +145,9 @@ func (m *Manager) OpenBackup(ctx context.Context, s *server.Server, name string)
 func (m *Manager) ApplyConfig(c api.Config) error {
 	if err := m.Config.Update(func(s *config.Settings) {
 		s.Timezone, s.Language, s.CFAPIKey, s.Remote = c.Timezone, c.Language, c.CFAPIKey, c.Remote
+		if c.PortMin >= 1024 && c.PortMax >= c.PortMin && c.PortMax <= 65535 {
+			s.PortMin, s.PortMax = c.PortMin, c.PortMax
+		}
 	}); err != nil {
 		return err
 	}

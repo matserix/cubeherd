@@ -11,7 +11,7 @@ Guiding principle: the dashboard runs alongside the Minecraft servers and must n
 | Frontend | Server-side HTML (`html/template`) + htmx + SSE extension, vendored | No build step, a few KB of JS |
 | Dialogs | One custom confirm dialog (`cubeConfirm` in `app.js`) | Never `window.confirm`: `hx-confirm` is intercepted via `htmx:confirm`; title, button, tone and note come from `data-dlg-*` attributes |
 | Dependencies | Standard library + `golang.org/x/crypto/bcrypt` | The Docker Engine API is called directly over the socket |
-| State | One folder per server, no database | Servers keep working with `docker compose` without the dashboard |
+| State | One folder per server, no database | Servers keep working with `docker compose` without the dashboard; the dashboard only stores settings and the node list |
 | Writing (create, change, update) | Generated `compose.yml` + `docker compose up -d` | Compose remains the source of truth for the container |
 | Reading (status, logs, stats) | Docker Engine API (`/containers/...`) | No CLI process per query |
 | RCON | `docker exec <ctr> rcon-cli <cmd>` | No RCON port exposed, the image manages the password |
@@ -62,6 +62,23 @@ connection and the client also compares the received length, so a truncated ZIP 
 - Errors keep their meaning through a code (`busy`, `notfound`, `dockernotfound`, `outside`, `noworld`, `notexist`), so callers can still use `errors.Is`.
 - `PUT /v1/config` carries only what an agent needs for its own work (time zone, language, CurseForge key, external backup storage). The admin password
   and session secret never leave the dashboard.
+
+## Nodes
+
+The dashboard manages any number of hosts. `internal/nodes.Registry` knows the embedded local node (the in-process manager, off with `CUBEHERD_LOCAL=false`) and the
+remote agents from the settings (`nodes` in `cubeherd.json`, token and pinned fingerprint included, file mode 0600).
+
+- **Bounded waits.** `Refresh` asks all nodes in parallel with a 2 s limit and returns for each one its status, host resources and servers. A node that does not answer keeps its
+  last known servers, marked `unknown`, so one dead host never stalls a page. Results younger than a few seconds are reused (sidebar, live overview).
+  Remote answers are only fetched while a page is open, as before.
+- **Status.** online, outdated (reachable, other version than the dashboard, never for `dev` builds) or offline with a reason (unreachable, token rejected, certificate changed,
+  API version). Requests to a node that is known to be offline are refused at once instead of timing out per call.
+- **Settings.** What an agent needs for its own work (time zone, language, CurseForge key, external backup storage, port range) is pushed on connect and after every change; the admin password never is.
+  Port range, bind addresses and default bind address are per node (Nodes page); the local node uses the global settings.
+- **URLs.** `/n/<node>/s/<id>/...` is the canonical form. A middleware maps `/n/<node>/...` onto the plain routes (`/n/x/s/...` = `/servers/...`) and remembers the node; handlers registered with `h` run on a
+  per-request copy of `App` whose `M` is that node (the default node for old URLs), `p` handlers are node-agnostic. Templates keep writing `/servers/...`; `scopeLinks` rewrites those attributes on node pages
+  in one place. Pages that mix nodes (overview, sidebar) name the node per link (`srv`), and table rows get unique ids (`row-<node>-<id>`).
+- **Wizard.** `/servers/new` is the placement step: pick a node (skipped when there is only one), then the usual wizard on `/n/<node>/s/new`.
 
 ## Status model
 

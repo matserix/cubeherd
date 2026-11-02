@@ -1,0 +1,17 @@
+{{define "content"}}
+<section class="view">
+  <div class="view-head"><div><h1>{{t "Neuer Server"}}</h1><p class="sub">{{t "Schritt 1 · Wo soll der Server laufen?"}}</p></div></div>
+  {{if .Data.Rows}}
+  <div class="nodes-grid node-pick">
+    {{range .Data.Rows}}
+      {{if eq .Status.State "offline"}}<div class="choice disabled" aria-disabled="true"><b>{{.Name}}</b><span class="pill s-crashed">{{nodeState .Status.State}}</span><span class="muted">{{t "Nicht erreichbar, hier lassen sich keine Server anlegen."}}</span></div>
+      {{else}}<a class="choice" href="/n/{{.ID}}/s/new" style="text-decoration:none;color:inherit"><b>{{.Name}}</b><span class="pill s-{{nodeCSS .Status.State}}">{{nodeState .Status.State}}</span>
+        <span class="muted">{{t "%s GB frei von %s GB · Server: %d" (gb (sub .Host.MemTotal .Host.MemUsed)) (gb .Host.MemTotal) (len .Views)}}</span>
+        <div class="meter {{level (pct .Host.MemUsed .Host.MemTotal)}}"><i style="width:{{printf "%.0f" (pct .Host.MemUsed .Host.MemTotal)}}%"></i></div></a>{{end}}
+    {{end}}
+  </div>
+  {{else}}
+  <div class="callout accent"><div><b>{{t "Es gibt noch keinen Node."}}</b><span class="muted">{{t "Füge einen Node hinzu, auf dem die Server laufen sollen."}}</span></div><a class="btn primary" href="/nodes" style="text-decoration:none">{{t "Nodes verwalten"}}</a></div>
+  {{end}}
+</section>
+{{end}}

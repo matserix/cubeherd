@@ -122,6 +122,8 @@ type Config struct {
 	Language string
 	CFAPIKey string
 	Remote   *s3.Config // external backup storage; nil = local backups only
+	// PortMin and PortMax bound the ports the agent hands out for new servers (0 = keep the agent's own range).
+	PortMin, PortMax int
 }
 
 // Paths are where a server lives on its host (shown in the UI, never used by the dashboard itself).

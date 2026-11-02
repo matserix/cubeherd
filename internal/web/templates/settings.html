@@ -1,11 +1,11 @@
 {{define "content"}}
 {{$d := .Data}}{{$c := $d.Cfg}}
 <section class="view">
-  <div class="view-head"><div><h1>{{t "Einstellungen"}}</h1><p class="sub">{{t "Gilt für alle Server und das Dashboard selbst."}}</p></div></div>
+  <div class="view-head"><div><h1>{{t "Einstellungen"}}</h1><p class="sub">{{if $d.Multi}}{{t "Die Markierung zeigt, für welche Nodes eine Einstellung gilt."}}{{else}}{{t "Gilt für alle Server und das Dashboard selbst."}}{{end}}</p></div></div>
   <form class="stack" hx-post="/settings">
   <div class="panel form-sections">
     <div class="form-sec">
-      <div class="intro"><h2>{{t "Sprache & Region"}}</h2><p>{{t "Sprache der Oberfläche. Die Zeitzone gilt für Backup-Zeitpläne, Datumsangaben und die Zeitstempel in den Server-Logs."}}</p></div>
+      <div class="intro"><h2>{{t "Sprache & Region"}}</h2>{{template "scope" (dict "D" $d "Kind" "all")}}<p>{{t "Sprache der Oberfläche. Die Zeitzone gilt für Backup-Zeitpläne, Datumsangaben und die Zeitstempel in den Server-Logs."}}</p></div>
       <div class="body">
         <div class="grid-2">
           <label class="field"><span>{{t "Sprache"}}</span><select class="input" name="language">{{range languages}}<option value="{{.Code}}" {{if eq .Code lang}}selected{{end}}>{{.Name}}</option>{{end}}</select></label>
@@ -18,7 +18,7 @@
       </div>
     </div>
     <div class="form-sec">
-      <div class="intro"><h2>{{t "Modpack-Quellen"}}</h2><p>{{t "Modrinth funktioniert ohne Schlüssel. Für die CurseForge-Suche brauchst du einen eigenen API-Key."}}</p></div>
+      <div class="intro"><h2>{{t "Modpack-Quellen"}}</h2>{{template "scope" (dict "D" $d "Kind" "all")}}<p>{{t "Modrinth funktioniert ohne Schlüssel. Für die CurseForge-Suche brauchst du einen eigenen API-Key."}}</p></div>
       <div class="body">
         <label class="field"><span>{{t "CurseForge-API-Key"}}</span>
           <div class="add-row"><input class="input mono" name="cfApiKey" type="password" value="{{$c.CFAPIKey}}" autocomplete="off" placeholder="$2a$10$…"><button class="btn" type="button" hx-post="/settings/cf-check" hx-include="[name=cfApiKey]" hx-target="#cf-state">{{t "Prüfen"}}</button></div>
@@ -28,7 +28,7 @@
       </div>
     </div>
     <div class="form-sec">
-      <div class="intro"><h2>{{t "Externer Backup-Speicher"}}</h2><p>{{t "Optional: Backups zusätzlich in einen S3-kompatiblen Speicher hochladen (AWS S3, Backblaze B2, Hetzner, Wasabi, Cloudflare R2, MinIO). Pro Server schaltest du den Upload im Backup-Reiter ein."}}</p></div>
+      <div class="intro"><h2>{{t "Externer Backup-Speicher"}}</h2>{{template "scope" (dict "D" $d "Kind" "all")}}<p>{{t "Optional: Backups zusätzlich in einen S3-kompatiblen Speicher hochladen (AWS S3, Backblaze B2, Hetzner, Wasabi, Cloudflare R2, MinIO). Pro Server schaltest du den Upload im Backup-Reiter ein."}}</p></div>
       <div class="body">
         {{$r := $c.Remote}}
         <div class="grid-2">
@@ -45,42 +45,52 @@
       </div>
     </div>
     <div class="form-sec">
-      <div class="intro"><h2>{{t "Netzwerk-Schnittstellen"}}</h2><p>{{t "IP-Adressen des Hosts, auf denen Server-Ports freigegeben werden dürfen, etwa eine LAN- und eine VPN-Adresse. „Alle (*)“ ist immer möglich."}}</p></div>
+      <div class="intro"><h2>{{t "Netzwerk-Schnittstellen"}}</h2>{{template "scope" (dict "D" $d "Kind" "local")}}<p>{{t "IP-Adressen des Hosts, auf denen Server-Ports freigegeben werden dürfen, etwa eine LAN- und eine VPN-Adresse. „Alle (*)“ ist immer möglich."}}</p></div>
       <div class="body">
+        {{if $d.HasLocal}}
+        {{if $d.Multi}}<div class="callout info"><div>{{t "Diese Angaben gelten nur für %s. Jeder andere Node hat seine eigenen unter Nodes → Bearbeiten, weil Adressen und freie Ports auf jedem Host anders sind." $d.LocalName}}</div></div>{{end}}
         <label class="field"><span>{{t "IP-Adressen (eine pro Zeile)"}}</span><textarea class="input mono" name="bindIps" rows="3" placeholder="192.168.1.10&#10;10.8.0.1" autocomplete="off" spellcheck="false">{{range $c.BindIPs}}{{.}}
 {{end}}</textarea>
           <small>{{t "Die Adresse muss auf dem Docker-Host vorhanden sein, sonst startet der Server nicht. Gilt für einen Server ab seinem nächsten Start."}}</small></label>
-      </div>
-    </div>
-    <div class="form-sec">
-      <div class="intro"><h2>{{t "Standards für neue Server"}}</h2><p>{{t "Vorbelegung im Assistenten."}}</p></div>
-      <div class="body">
-        <div class="grid-2">
-          <label class="field"><span>{{t "Port-Bereich von"}}</span><input class="input mono" name="portMin" value="{{$c.PortMin}}" inputmode="numeric"></label>
-          <label class="field"><span>{{t "bis"}}</span><input class="input mono" name="portMax" value="{{$c.PortMax}}" inputmode="numeric"></label>
-          <label class="field"><span>{{t "Standard-RAM"}}</span><select class="input" name="defaultMemoryGb">{{range $d.RAMOptions}}<option value="{{.}}" {{if eq . $c.DefaultMemoryGB}}selected{{end}}>{{.}} GB</option>{{end}}</select></label>
-          <label class="field"><span>{{t "Sitzung gültig für"}}</span><select class="input" name="sessionDays">{{range list "1" "7" "30"}}<option value="{{.}}" {{if eq . (print $c.SessionDays)}}selected{{end}}>{{if eq . "1"}}{{t "1 Tag"}}{{else}}{{t "%s Tage" .}}{{end}}</option>{{end}}</select></label>
-        </div>
         <label class="field"><span>{{t "Standard-IP für Server-Ports"}}</span>
           <select class="input mono" name="defaultBindIp"><option value="" {{if not $c.DefaultBindIP}}selected{{end}}>{{t "Alle (*)"}}</option>{{range $c.BindIPs}}<option value="{{.}}" {{if eq . $c.DefaultBindIP}}selected{{end}}>{{.}}</option>{{end}}</select>
           <small>{{t "Auswahl aus den IP-Adressen oben. Neue IP-Adressen erscheinen hier nach dem Speichern."}}</small></label>
+        <div class="grid-2">
+          <label class="field"><span>{{t "Port-Bereich von"}}</span><input class="input mono" name="portMin" value="{{$c.PortMin}}" inputmode="numeric"></label>
+          <label class="field"><span>{{t "bis"}}</span><input class="input mono" name="portMax" value="{{$c.PortMax}}" inputmode="numeric"></label>
+        </div>
+        {{else}}
+        <div class="callout info"><div>{{t "Dieses Dashboard verwaltet keinen eigenen Host. IP-Adressen und Port-Bereich stellst du pro Node unter Nodes → Bearbeiten ein."}}</div><a class="btn sm" href="/nodes" style="text-decoration:none">{{t "Nodes verwalten"}}</a></div>
+        {{end}}
+      </div>
+    </div>
+    <div class="form-sec">
+      <div class="intro"><h2>{{t "Standards für neue Server"}}</h2>{{template "scope" (dict "D" $d "Kind" "all")}}<p>{{t "Vorbelegung im Assistenten."}}</p></div>
+      <div class="body">
+        <label class="field"><span>{{t "Standard-RAM"}}</span><select class="input" name="defaultMemoryGb">{{range $d.RAMOptions}}<option value="{{.}}" {{if eq . $c.DefaultMemoryGB}}selected{{end}}>{{.}} GB</option>{{end}}</select></label>
         <label class="switch"><input type="checkbox" name="defaultAutopause" {{if $c.DefaultAutopause}}checked{{end}}><span class="txt">{{t "Autopause standardmäßig an"}}<small>{{t "Server frieren ein, solange niemand verbunden ist."}}</small></span></label>
       </div>
     </div>
     <div class="form-sec">
-      <div class="intro"><h2>{{t "Updates"}}</h2><p>{{t "Cubeherd fragt GitHub nach neuen Versionen, solange du das Dashboard benutzt."}}</p></div>
+      <div class="intro"><h2>{{t "Anmeldung"}}</h2>{{template "scope" (dict "D" $d "Kind" "dash")}}<p>{{t "Wie lange eine Sitzung im Browser gültig bleibt."}}</p></div>
+      <div class="body">
+        <label class="field"><span>{{t "Sitzung gültig für"}}</span><select class="input" name="sessionDays">{{range list "1" "7" "30"}}<option value="{{.}}" {{if eq . (print $c.SessionDays)}}selected{{end}}>{{if eq . "1"}}{{t "1 Tag"}}{{else}}{{t "%s Tage" .}}{{end}}</option>{{end}}</select></label>
+      </div>
+    </div>
+    <div class="form-sec">
+      <div class="intro"><h2>{{t "Updates"}}</h2>{{template "scope" (dict "D" $d "Kind" "dash")}}<p>{{t "Cubeherd fragt GitHub nach neuen Versionen, solange du das Dashboard benutzt."}}</p></div>
       <div class="body">
         <label class="switch"><input type="checkbox" name="updateCheck" {{if not $c.NoUpdateCheck}}checked{{end}}><span class="txt">{{t "Auf neue Versionen prüfen"}}<small>{{t "Zeigt einen Hinweis mit den Release Notes, wenn es eine neuere Version gibt. Dafür geht eine Anfrage an api.github.com; es werden keine Daten über deine Server gesendet."}}</small></span></label>
       </div>
     </div>
     <div class="form-sec">
-      <div class="intro"><h2>{{t "System"}}</h2><p>{{t "Wird über Umgebungsvariablen beim Start festgelegt."}}</p></div>
+      <div class="intro"><h2>{{t "System"}}</h2>{{template "scope" (dict "D" $d "Kind" "dash")}}<p>{{t "Wird über Umgebungsvariablen beim Start festgelegt."}}</p></div>
       <div class="body">
         <dl class="kv">
           <dt>{{t "Datenverzeichnis"}}</dt><dd class="mono">{{$d.DataDir}}</dd>
           <dt>{{t "Lauscht auf"}}</dt><dd class="mono">{{$d.Listen}}</dd>
-          <dt>Docker</dt><dd>{{if $d.DockerErr}}<span style="color:var(--crit)">{{$d.DockerErr}}</span>{{else}}{{$d.Docker.ServerVersion}} · {{$d.Docker.OperatingSystem}} · {{$d.Docker.Architecture}}{{end}}</dd>
-          <dt>Socket</dt><dd class="mono">{{$d.DockerHost}}</dd>
+          {{if $d.HasLocal}}<dt>Docker</dt><dd>{{if $d.DockerErr}}<span style="color:var(--crit)">{{$d.DockerErr}}</span>{{else}}{{$d.Docker.ServerVersion}} · {{$d.Docker.OperatingSystem}} · {{$d.Docker.Architecture}}{{end}}</dd>
+          <dt>Socket</dt><dd class="mono">{{$d.DockerHost}}</dd>{{else}}<dt>Docker</dt><dd class="muted">{{t "Dieses Dashboard hat keinen eigenen Docker-Zugriff. Die Server laufen auf den Nodes."}}</dd>{{end}}
           <dt>Cubeherd</dt><dd class="num">{{t "%s · %d MB RAM · läuft seit %s" $d.Version $d.SelfMB (since $d.Started)}}</dd>
         </dl>
       </div>
@@ -104,3 +114,5 @@
   </form>
 </section>
 {{end}}
+
+{{define "scope"}}{{if .D.Multi}}{{if eq .Kind "all"}}<span class="scope scope-all" title="{{t "Das Dashboard gibt diese Einstellung an alle Agents weiter."}}">{{t "Alle Nodes"}}</span>{{else if eq .Kind "dash"}}<span class="scope scope-dash">{{t "Nur das Dashboard"}}</span>{{else if .D.HasLocal}}<span class="scope scope-local" title="{{t "Für andere Nodes unter Nodes → Bearbeiten einstellen."}}">{{t "Nur %s" .D.LocalName}}</span>{{end}}{{end}}{{end}}

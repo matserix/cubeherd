@@ -1,0 +1,20 @@
+# Cubeherd agent: runs next to the Minecraft servers of this host and is managed by a dashboard.
+# The data directory must have the SAME path inside the container as on the host,
+# because Docker resolves the Minecraft servers' bind mounts on the host.
+# On first start the agent prints its certificate fingerprint and, unless CUBEHERD_AGENT_TOKEN is set, a token.
+services:
+  cubeherd-agent:
+    image: ghcr.io/matserix/cubeherd:latest
+    container_name: cubeherd-agent
+    command: ["agent"]
+    restart: unless-stopped
+    ports:
+      - "8421:8421"          # only expose on the LAN/VPN
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /srv/cubeherd:/srv/cubeherd
+    environment:
+      CUBEHERD_DATA: /srv/cubeherd
+      CUBEHERD_AGENT_TOKEN: change-me   # a long random string; the dashboard's "Add node" dialog can generate one
+      TZ: Europe/Berlin
+    mem_limit: 96m
