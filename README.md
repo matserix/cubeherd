@@ -17,7 +17,7 @@ a single Go binary, around 10 MB of RAM and 0 % CPU when idle, no database. Live
 ## Screenshots
 
 <p align="center">
-  <img src="docs/images/overview.png" alt="Overview with two running servers" width="100%">
+  <img src="docs/images/overview.png" alt="Overview of three nodes with their servers" width="100%">
 </p>
 
 <table>
