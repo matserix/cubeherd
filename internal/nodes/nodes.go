@@ -296,6 +296,7 @@ func (r *Registry) snapshot(st *remoteState, stale bool) View {
 
 func (r *Registry) refreshRemote(ctx context.Context, st *remoteState, withStats bool, maxAge time.Duration) View {
 	r.mu.Lock()
+	entry := st.entry // sync rewrites st.entry when the settings change; work on a copy
 	fresh := st.status.State != Offline && time.Since(st.viewsAt) < maxAge && (st.withStats || !withStats)
 	r.mu.Unlock()
 	if fresh {
@@ -315,7 +316,7 @@ func (r *Registry) refreshRemote(ctx context.Context, st *remoteState, withStats
 		latency := time.Since(t0)
 		if views, err = st.c.Views(ctx, withStats); err == nil {
 			hs = st.c.HostStats(ctx)
-			tag(views, st.entry.ID, st.entry.Name)
+			tag(views, entry.ID, entry.Name)
 			r.mu.Lock()
 			state := Online
 			if in.Version != r.version && in.Version != "dev" && r.version != "dev" {
@@ -323,7 +324,7 @@ func (r *Registry) refreshRemote(ctx context.Context, st *remoteState, withStats
 			}
 			st.status = Status{State: state, Version: in.Version, Hostname: in.Hostname, Latency: latency, LastSeen: time.Now(), DockerOK: in.DockerOK, DockerErr: in.DockerErr}
 			st.host, st.views, st.viewsAt, st.withStats = hs, views, time.Now(), withStats
-			cfg := r.config(st.entry)
+			cfg := r.config(entry)
 			needPush := st.pushed != hash(cfg)
 			r.mu.Unlock()
 			if needPush {

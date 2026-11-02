@@ -390,6 +390,9 @@ textarea.input { font-family: var(--font-mono); font-size: 13px; line-height: 1.
   .tbl th, .tbl td { padding-left: 12px; padding-right: 12px; }
   .hide-sm { display: none; }
   .log { height: 320px; }
+  /* Nodes table: keep status and the two actions on screen. */
+  #nodes-table .t-name span { display: none; }
+  #nodes-table td.right .btn { display: flex; margin-left: auto; }
 }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }

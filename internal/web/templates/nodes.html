@@ -7,12 +7,12 @@
   <div class="panel">
     <div class="tbl-wrap">
       <table class="tbl" id="nodes-table">
-        <thead><tr><th>Node</th><th>{{t "Adresse"}}</th><th>{{t "Status"}}</th><th class="hide-sm">Agent</th><th class="hide-sm">{{t "Latenz"}}</th><th class="hide-sm">Server</th><th class="right"></th></tr></thead>
+        <thead><tr><th>Node</th><th class="hide-sm">{{t "Adresse"}}</th><th>{{t "Status"}}</th><th class="hide-sm">Agent</th><th class="hide-sm">{{t "Latenz"}}</th><th class="hide-sm">Server</th><th class="right"></th></tr></thead>
         <tbody>
         {{range .Data.Rows}}
         <tr data-node="{{.ID}}">
           <td class="t-name"><b>{{.Name}}</b><span>{{if .Local}}{{t "eingebetteter Agent in diesem Dashboard"}}{{else}}{{t "Agent auf einem anderen Host"}}{{end}}</span></td>
-          <td class="mono">{{if .Local}}{{t "eingebettet"}}{{else}}{{.Addr}}{{end}}</td>
+          <td class="mono hide-sm">{{if .Local}}{{t "eingebettet"}}{{else}}{{.Addr}}{{end}}</td>
           <td><span class="pill s-{{nodeCSS .Status.State}}">{{nodeState .Status.State}}</span>
             {{if eq .Status.State "offline"}}<div class="muted" style="font-size:12px;margin-top:4px">{{nodeReason .Status}}{{if not .Status.LastSeen.IsZero}} · {{t "zuletzt gesehen: %s" (ago .Status.LastSeen)}}{{end}}</div>{{end}}</td>
           <td class="hide-sm mono">{{with .Status.Version}}v{{.}}{{else}}–{{end}}</td>

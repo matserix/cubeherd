@@ -8,6 +8,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"slices"
 	"sync"
 
 	"cubeherd/internal/s3"
@@ -85,10 +86,21 @@ func Load(dataDir string) (*Store, error) {
 	return st, nil
 }
 
+// Get returns a copy of the settings. The lists are copied too: Update changes them in place (a node's port range,
+// say), and a caller must be able to read what it got without holding the lock.
 func (st *Store) Get() Settings {
 	st.mu.RLock()
 	defer st.mu.RUnlock()
-	return st.s
+	s := st.s
+	s.BindIPs = slices.Clone(s.BindIPs)
+	if s.Nodes != nil {
+		s.Nodes = make([]Node, len(st.s.Nodes))
+		for i, n := range st.s.Nodes {
+			n.BindIPs = slices.Clone(n.BindIPs)
+			s.Nodes[i] = n
+		}
+	}
+	return s
 }
 
 // Update applies fn to a copy and persists it.

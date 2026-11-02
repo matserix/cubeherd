@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -474,4 +475,40 @@ func TestSettingsSayWhichNodesTheyApplyTo(t *testing.T) {
 	if strings.Contains(body, "scope-local") {
 		t.Error("a local-only chip without a local node")
 	}
+}
+
+// Pages, live partials and node edits at the same time. Meaningful under -race.
+func TestConcurrentRequestsWhileNodesChange(t *testing.T) {
+	addr, fp, _ := startFakeAgent(t, "rem", "tok")
+	d := newDashboard(t, true, config.Node{ID: "vps", Name: "VPS", Addr: addr, Token: "tok", Fingerprint: fp})
+	done := make(chan struct{})
+	var wg sync.WaitGroup
+	paths := []string{"/", "/partials/overview", "/partials/rack?current=rem-one&node=vps", "/nodes", "/servers/new", "/settings", "/n/vps/s/missing"}
+	for i := 0; i < 6; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for n := 0; ; n++ {
+				select {
+				case <-done:
+					return
+				default:
+				}
+				p := paths[(i+n)%len(paths)]
+				if rec := d.do("GET", p, nil, strings.HasPrefix(p, "/partials")); rec.Code >= 500 && rec.Code != http.StatusServiceUnavailable {
+					t.Errorf("%s: %d", p, rec.Code)
+				}
+			}
+		}()
+	}
+	for i := 0; i < 15; i++ {
+		d.reg.Edit("vps", func(n *config.Node) { n.PortMin, n.PortMax = 26000+i, 26100 })
+		d.cfg.Update(func(s *config.Settings) { s.Language = []string{"de", "en"}[i%2] })
+		d.reg.ForgetPushed()
+		if i%4 == 0 {
+			d.do("POST", "/nodes/vps", url.Values{"name": {"VPS"}, "addr": {"https://" + addr}, "fingerprint": {fp}, "portMin": {"26000"}, "portMax": {"26100"}}, true)
+		}
+	}
+	close(done)
+	wg.Wait()
 }

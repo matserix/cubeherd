@@ -6,6 +6,7 @@ import (
 	"errors"
 	"net"
 	"net/http"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -254,4 +255,44 @@ func TestWithoutLocalNodeTheFirstRemoteIsTheDefault(t *testing.T) {
 	if d, ok := reg.Default(); !ok || d.ID != "vps" || d.Local {
 		t.Fatalf("Default = %+v", d)
 	}
+}
+
+// Many pages refresh at once while the node list and the settings change. Meaningful under -race.
+func TestConcurrentRefreshAndChanges(t *testing.T) {
+	a := startAgent(t, "vps", "tok", "1.0.0")
+	reg, cfg := newRegistry(t, &fakeNode{name: "home"}, "1.0.0")
+	cfg.Update(func(s *config.Settings) {
+		s.Nodes = []config.Node{{ID: "vps", Name: "VPS", Addr: a.addr, Token: "tok", Fingerprint: a.fp}}
+	})
+	done := make(chan struct{})
+	var wg sync.WaitGroup
+	for i := 0; i < 8; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for {
+				select {
+				case <-done:
+					return
+				default:
+				}
+				reg.Refresh(context.Background(), i%2 == 0, time.Duration(i)*time.Millisecond)
+				reg.Status(context.Background(), "vps")
+				reg.List()
+				reg.Get("vps")
+				reg.Default()
+			}
+		}()
+	}
+	for i := 0; i < 20; i++ {
+		reg.ForgetPushed()
+		reg.Edit("vps", func(n *config.Node) { n.PortMin, n.PortMax = 26000+i, 26100 })
+		cfg.Update(func(s *config.Settings) { s.Language = []string{"de", "en"}[i%2] })
+		if i%5 == 0 {
+			reg.Remove("vps")
+			reg.Add("VPS", a.addr, "tok", a.fp)
+		}
+	}
+	close(done)
+	wg.Wait()
 }
