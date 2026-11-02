@@ -34,6 +34,15 @@ $CUBEHERD_DATA/               # default: /srv/cubeherd (root) or ./cubeherd-data
 If Cubeherd itself runs in a container, `$CUBEHERD_DATA` must be mounted at **the same path**,
 because Compose resolves relative paths on the client side and the Docker daemon interprets them on the host.
 
+## Agent (work in progress)
+
+`cubeherd agent` serves a node API (`/v1/info`, `/v1/host`, `/v1/servers`, `/v1/servers/{id}/{start|stop|restart}` so far) and runs the scheduler.
+The dashboard opens every connection. Transport is HTTPS (TLS 1.3 only): the agent creates a self-signed ECDSA certificate in `$CUBEHERD_DATA/agent/` on
+first start and prints its SHA-256 fingerprint; the client pins that fingerprint instead of trusting a CA (`remote.Probe` fetches it for trust on first use).
+Each request carries `Authorization: Bearer <token>` and `X-Cubeherd-API: <major>`. The token comes from `CUBEHERD_AGENT_TOKEN` or is generated on the first
+start (printed once, only its SHA-256 is stored in `agent/token.sha256`); failed attempts are throttled per client IP like the dashboard login.
+Listen address: `CUBEHERD_AGENT_LISTEN` (default `:8421`).
+
 ## Status model
 
 | Display | Source |
@@ -52,6 +61,9 @@ cmd/cubeherd        main: read configuration from env, start the HTTP server
 internal/config       global settings (JSON, written atomically)
 internal/auth         password, session cookie, login throttling
 internal/docker       minimal Engine API client (list, inspect, start/stop, logs, stats, exec, info)
+internal/api          wire types shared by dashboard and agent (View, Info, fingerprint helper)
+internal/agent        `cubeherd agent`: HTTPS node API with self-signed certificate and bearer token
+internal/remote       agent client: pinned certificate fingerprint, Probe for trust on first use
 internal/node         the Node interface: everything the web layer needs from one host (implemented by manager)
 internal/server       server definition, on-disk store, Compose generation, status derivation
 internal/s3           minimal S3 client (SigV4, multipart upload) for external backups, standard library only

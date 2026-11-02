@@ -3,6 +3,7 @@ package manager
 import (
 	"bytes"
 	"context"
+	"cubeherd/internal/api"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -162,11 +163,7 @@ func (m *Manager) VerifyBackup(id, name string) error {
 }
 
 // Health is what the Backups tab shows above the list.
-type Health struct {
-	Level  string // ok | warn | crit | off
-	Title  string
-	Detail string
-}
+type Health = api.Health
 
 // warnAfter is how old the last good backup may get before a warning is shown.
 func warnAfter(p server.BackupPlan) time.Duration {
@@ -221,8 +218,8 @@ func (m *Manager) BackupHealth(s *server.Server, running bool) Health {
 	}
 	failed := st.LastFail.After(lastOK)
 	if failed && st.FailCorrupt {
-		return Health{"crit", m.t("Das letzte Backup ist beschädigt"),
-			m.t("Die Prüfung ist fehlgeschlagen: %s. %s Lege jetzt ein neues an.", st.FailMsg, good)}
+		return Health{Level: "crit", Title: m.t("Das letzte Backup ist beschädigt"),
+			Detail: m.t("Die Prüfung ist fehlgeschlagen: %s. %s Lege jetzt ein neues an.", st.FailMsg, good)}
 	}
 	ref := lastOK
 	if ref.Before(s.CreatedAt) {
@@ -239,10 +236,10 @@ func (m *Manager) BackupHealth(s *server.Server, running bool) Health {
 		if failed {
 			detail = m.t("Der letzte Versuch ist fehlgeschlagen: %s. %s", st.FailMsg, good)
 		}
-		return Health{"warn", title, detail}
+		return Health{Level: "warn", Title: title, Detail: detail}
 	}
 	if lastOK.IsZero() {
-		return Health{"ok", m.t("Noch kein Backup"), m.t("Das erste geplante Backup folgt nach dem Zeitplan. „Jetzt sichern“ erstellt es sofort.")}
+		return Health{Level: "ok", Title: m.t("Noch kein Backup"), Detail: m.t("Das erste geplante Backup folgt nach dem Zeitplan. „Jetzt sichern“ erstellt es sofort.")}
 	}
 	extra := ""
 	if !plan.NoVerify {
@@ -251,7 +248,7 @@ func (m *Manager) BackupHealth(s *server.Server, running bool) Health {
 	if plan.Remote {
 		extra += " " + m.t("Extern gespeichert.")
 	}
-	return Health{"ok", m.t("Backups sind in Ordnung"), m.t("Letztes erfolgreiches Backup: %s.", m.stamp(lastOK)) + extra}
+	return Health{Level: "ok", Title: m.t("Backups sind in Ordnung"), Detail: m.t("Letztes erfolgreiches Backup: %s.", m.stamp(lastOK)) + extra}
 }
 
 // annotate fills the verification result of each archive from the stored state.

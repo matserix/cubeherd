@@ -2,6 +2,7 @@ package manager
 
 import (
 	"context"
+	"cubeherd/internal/api"
 	"errors"
 	"fmt"
 	"strconv"
@@ -13,15 +14,7 @@ import (
 )
 
 // Unmanaged is an itzg container that Cubeherd does not manage yet.
-type Unmanaged struct {
-	ID      string
-	Name    string
-	Image   string
-	Type    string
-	Version string
-	Port    string
-	State   string
-}
+type Unmanaged = api.Unmanaged
 
 func isItzg(image string) bool {
 	return strings.HasPrefix(image, server.Image) || strings.HasPrefix(image, "docker.io/"+server.Image)

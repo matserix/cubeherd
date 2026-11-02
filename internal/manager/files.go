@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"cubeherd/internal/api"
 	"errors"
 	"fmt"
 	"io"
@@ -22,12 +23,7 @@ import (
 )
 
 // Entry is one item in a directory of /data.
-type Entry struct {
-	Name    string
-	Dir     bool
-	Size    int64
-	ModTime time.Time
-}
+type Entry = api.Entry
 
 const (
 	MaxEditSize = 1 << 20 // larger files are offered for download only

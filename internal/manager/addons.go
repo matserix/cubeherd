@@ -3,6 +3,7 @@ package manager
 import (
 	"bytes"
 	"context"
+	"cubeherd/internal/api"
 	"errors"
 	"fmt"
 	"io"
@@ -18,11 +19,7 @@ import (
 )
 
 // AddonFile is a JAR in the server's mods/plugins folder.
-type AddonFile struct {
-	Name     string
-	Size     int64
-	Uploaded bool // uploaded through Cubeherd (removable here); other files belong to itzg or the modpack
-}
+type AddonFile = api.AddonFile
 
 var jarName = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9 ._+()\[\]-]{0,120}\.jar$`)
 

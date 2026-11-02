@@ -4,6 +4,7 @@ package manager
 import (
 	"bufio"
 	"context"
+	"cubeherd/internal/api"
 	"errors"
 	"fmt"
 	"io"
@@ -302,19 +303,7 @@ func (m *Manager) compose(ctx context.Context, s *server.Server, o *Op, args ...
 
 // ---------------- Views ----------------
 
-type View struct {
-	S           *server.Server
-	Status      server.Status
-	C           *docker.ContainerJSON
-	Online      []string
-	MaxPlayers  int
-	MemUsed     uint64
-	CrashReason string
-	Since       time.Time
-	OpError     string
-	Restarts    int  // unexpected restarts of the current container (restart policy)
-	AutoStopped bool // stopped by itzg autostop after idling
-}
+type View = api.View
 
 func (m *Manager) inspect(ctx context.Context, s *server.Server) *docker.ContainerJSON {
 	c, err := m.Docker.Inspect(ctx, s.Container())
