@@ -12,7 +12,7 @@ A lean web dashboard for [itzg/docker-minecraft-server](https://github.com/itzg/
 create, start, update, manage and uninstall Minecraft servers (including modpacks from Modrinth and CurseForge).
 
 Cubeherd runs on the same host as the Minecraft servers and takes next to nothing from them:
-a single Go binary, around 10 MB of RAM and 0 % CPU when idle, no database. Live data only flows while a page is open.
+a single Go binary, around 10 MB of RAM and 0 % CPU when idle. By default there is no database and live data only flows while a page is open; user accounts and statistics are optional and bring their own SQLite files.
 
 ## Screenshots
 
@@ -28,6 +28,13 @@ a single Go binary, around 10 MB of RAM and 0 % CPU when idle, no database. Live
   <tr>
     <td width="50%"><img src="docs/images/backups.png" alt="Backups"><br><sub>Scheduled and manual backups with restore</sub></td>
     <td width="50%"><img src="docs/images/files.png" alt="File browser"><br><sub>File browser, editor and world import/export</sub></td>
+  </tr>
+  <tr>
+    <td width="50%"><img src="docs/images/statistics.png" alt="History of load, players and TPS"><br><sub>Optional statistics: load, players and TPS over time, with events</sub></td>
+    <td width="50%"><img src="docs/images/access.png" alt="Users, roles and groups"><br><sub>Optional accounts: roles per node and per server</sub></td>
+  </tr>
+  <tr>
+    <td colspan="2"><img src="docs/images/audit.png" alt="Audit log"><br><sub>Audit log of every sign-in and action, with filters and CSV/JSON export</sub></td>
   </tr>
 </table>
 
