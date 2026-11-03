@@ -1,6 +1,7 @@
 package web
 
 import (
+	"cubeherd/internal/access"
 	"encoding/json"
 	"fmt"
 	"hash/fnv"
@@ -42,6 +43,26 @@ func newFuncs(lang string) template.FuncMap {
 	dec := func(f float64) string { return decimal(lang, f) }
 	gbf := func(b any) string { return dec(toF(b) / (1 << 30)) }
 	return template.FuncMap{
+		"can":        func(p Page, perm string) bool { return p.P.Can(access.Perm(perm), p.CurrentNode, p.Current) },
+		"canG":       func(p Page, perm string) bool { return p.P.Global(access.Perm(perm)) },
+		"canAny":     func(p Page, perm string) bool { return p.P.Anywhere(access.Perm(perm)) },
+		"accessHome": accessHome,
+		"grantCtx": func(rows []grantRow, ret string) struct {
+			Rows   []grantRow
+			Return string
+		} {
+			return struct {
+				Rows   []grantRow
+				Return string
+			}{rows, ret}
+		},
+		"ssoForm":   func(p *ssoRow, d *ssoData) map[string]any { return map[string]any{"P": p, "D": d} },
+		"permName":  func(p access.Perm) string { return permText[p][0] },
+		"inc":       func(n int) int { return n + 1 },
+		"lower":     strings.ToLower,
+		"minus":     func(a, b int) int { return a - b },
+		"join":      strings.Join,
+		"dec":       func(n int) int { return n - 1 },
 		"t":         t,
 		"lang":      func() string { return lang },
 		"version":   func() string { return Version },

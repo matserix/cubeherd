@@ -2,7 +2,7 @@
 <section class="view">
   <div class="view-head">
     <div><h1>{{t "Übersicht"}}</h1><p class="sub" id="ov-sub">{{template "ovSub" .Data}}</p></div>
-    <div class="actions"><a class="btn primary" href="/servers/new" style="text-decoration:none"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M8 3v10M3 8h10"/></svg>{{t "Server anlegen"}}</a></div>
+    <div class="actions">{{if canAny . "server.create"}}<a class="btn primary" href="/servers/new" style="text-decoration:none"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M8 3v10M3 8h10"/></svg>{{t "Server anlegen"}}</a>{{end}}</div>
   </div>
   <div id="ov-live" hx-get="/partials/overview?node={{.Data.Filter}}" hx-trigger="every 5s" hx-swap="none">
   </div>

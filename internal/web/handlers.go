@@ -16,6 +16,7 @@ import (
 	"sync"
 	"time"
 
+	"cubeherd/internal/access"
 	"cubeherd/internal/api"
 	"cubeherd/internal/auth"
 	"cubeherd/internal/config"
@@ -37,20 +38,40 @@ func selfMB() uint64 {
 // ---------------- Auth ----------------
 
 type loginData struct {
-	Setup  bool
-	Action string
-	Error  string
+	Setup    bool
+	Action   string
+	Error    string
+	Accounts bool   // multi-user mode: ask for a user name
+	Name     string // the name typed before a failed attempt
+	SSO      []ssoButton
+	NoLocal  bool // password sign-in is off; only the SSO buttons are shown
+}
+
+func (a *App) loginData(action string) loginData {
+	d := loginData{Action: action, Accounts: a.store() != nil}
+	if d.Accounts {
+		d.SSO, d.NoLocal = a.ssoButtons()
+	}
+	return d
 }
 
 func (a *App) loginPage(w http.ResponseWriter, r *http.Request) {
-	if a.sess.Valid(r) {
+	if _, ok := a.authenticate(r); ok {
 		redirect(w, r, "/")
 		return
 	}
-	a.render(w, r, "login", Page{Title: a.t("Anmelden"), Nav: "login", Data: loginData{Action: "/login"}})
+	d := a.loginData("/login")
+	if m := takeFlash(w, r); m != "" {
+		d.Error = m
+	}
+	a.render(w, r, "login", Page{Title: a.t("Anmelden"), Nav: "login", Data: d})
 }
 
 func (a *App) loginPost(w http.ResponseWriter, r *http.Request) {
+	if a.store() != nil {
+		a.loginAccounts(w, r)
+		return
+	}
 	if d := a.lim.Wait(r); d > 0 {
 		a.render(w, r, "login", Page{Nav: "login", Data: loginData{Action: "/login", Error: a.t("Zu viele Versuche. Bitte %d Sekunden warten.", int(d.Seconds())+1)}})
 		return
@@ -72,10 +93,16 @@ func (a *App) setupPage(w http.ResponseWriter, r *http.Request) {
 		lang := i18n.Match(r.Header.Get("Accept-Language"))
 		_ = a.Cfg.Update(func(s *config.Settings) { s.Language = lang })
 	}
-	a.render(w, r, "login", Page{Title: a.t("Einrichten"), Nav: "login", Data: loginData{Setup: true, Action: "/setup"}})
+	d := a.loginData("/setup")
+	d.Setup = true
+	a.render(w, r, "login", Page{Title: a.t("Einrichten"), Nav: "login", Data: d})
 }
 
 func (a *App) setupPost(w http.ResponseWriter, r *http.Request) {
+	if a.store() != nil {
+		a.setupAccounts(w, r)
+		return
+	}
 	if l := r.FormValue("language"); i18n.Valid(l) && l != a.Cfg.Get().Language {
 		_ = a.Cfg.Update(func(s *config.Settings) { s.Language = l })
 	}
@@ -114,6 +141,14 @@ func (a *App) setupPost(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *App) logout(w http.ResponseWriter, r *http.Request) {
+	if st := a.store(); st != nil {
+		if t := tokenOf(r); t != "" {
+			st.EndSession(t)
+			if p := principalOf(r); p != nil {
+				a.recordAs(r, p.User, "", "logout", p.User.Name, access.OK)
+			}
+		}
+	}
 	a.sess.Clear(w)
 	http.Redirect(w, r, "/login", http.StatusSeeOther)
 }
@@ -147,10 +182,11 @@ type overviewData struct {
 	Offline    []nodes.View // nodes that did not answer
 	Outdated   []nodes.View
 	Unmanaged  []unmanaged
+	HideHost   bool // the user sees servers but may not look at any node, so no load tiles
 }
 
 func (a *App) overviewData(ctx context.Context, filter string, discover bool, maxAge time.Duration) overviewData {
-	all := a.Reg.Refresh(ctx, true, maxAge)
+	all := a.refresh(ctx, true, maxAge)
 	d := overviewData{Multi: len(all) > 1, Filter: filter, SelfMB: selfMB(), Goroutines: runtime.NumGoroutine()}
 	if filter != "" && !slices.ContainsFunc(all, func(n nodes.View) bool { return n.ID == filter }) {
 		d.Filter = ""
@@ -164,11 +200,16 @@ func (a *App) overviewData(ctx context.Context, filter string, discover bool, ma
 			}
 			c.Players += len(v.Online)
 		}
-		d.Cards = append(d.Cards, c)
-		if n.Status.State == nodes.Offline {
-			d.Offline = append(d.Offline, n)
-		} else if n.Status.State == nodes.Outdated {
-			d.Outdated = append(d.Outdated, n)
+		seeNode := principalFrom(ctx).Can(access.NodesView, n.ID, "")
+		if seeNode {
+			d.Cards = append(d.Cards, c)
+		}
+		if seeNode { // node trouble is for those who may look at the node
+			if n.Status.State == nodes.Offline {
+				d.Offline = append(d.Offline, n)
+			} else if n.Status.State == nodes.Outdated {
+				d.Outdated = append(d.Outdated, n)
+			}
 		}
 		if d.Filter == "" || d.Filter == n.ID {
 			d.Views = append(d.Views, n.Views...)
@@ -176,11 +217,12 @@ func (a *App) overviewData(ctx context.Context, filter string, discover bool, ma
 			d.Players += c.Players
 		}
 	}
+	d.HideHost = len(all) > 0 && len(d.Cards) == 0
 	if discover {
 		var mu sync.Mutex
 		var wg sync.WaitGroup
 		for _, n := range all {
-			if n.Status.State == nodes.Offline {
+			if n.Status.State == nodes.Offline || !principalFrom(ctx).Can(access.ServerCreate, n.ID, "") {
 				continue
 			}
 			wg.Add(1)
@@ -461,6 +503,18 @@ type tab struct {
 var tabs = []tab{{"console", "Konsole", false}, {"perf", "Performance", false}, {"settings", "Einstellungen", false}, {"players", "Spieler", false},
 	{"mods", "Mods & Plugins", false}, {"backups", "Backups", false}, {"files", "Dateien", false}}
 
+// allowedTabs are the tabs whose content the user may use.
+func allowedTabs(c api.Caps) []tab {
+	ok := map[string]bool{"console": c.Console, "perf": true, "settings": c.Settings, "players": c.Players, "mods": c.Addons, "backups": c.BackupsView, "files": c.FilesRead}
+	var out []tab
+	for _, t := range tabs {
+		if ok[t.Key] {
+			out = append(out, t)
+		}
+	}
+	return out
+}
+
 type serverPage struct {
 	V          manager.View
 	Tab        string
@@ -495,6 +549,7 @@ type playersData struct {
 	Online []string
 	Max    int
 	Live   bool
+	Kick   bool // the user may send commands, which kicking is
 }
 
 func (a *App) loadServer(w http.ResponseWriter, r *http.Request) (*server.Server, bool) {
@@ -529,12 +584,12 @@ func (a *App) updateHint(ctx context.Context, s *server.Server) string {
 }
 
 func (a *App) serverPageData(ctx context.Context, s *server.Server, tabKey string) serverPage {
-	d := serverPage{V: a.view(ctx, s, true), Tab: tabKey, Tabs: tabs, Disk: a.M.DiskUsage(s), MaxRAM: a.maxRAM(ctx), HostRAM: decimal(a.lang(), float64(a.M.HostStats(ctx).MemTotal)/(1<<30)), DataDir: a.M.Paths(s).DataDir}
+	d := serverPage{V: a.view(ctx, s, true), Tab: tabKey, Tabs: allowedTabs(a.caps(ctx, s.ID)), Disk: a.M.DiskUsage(s), MaxRAM: a.maxRAM(ctx), HostRAM: decimal(a.lang(), float64(a.M.HostStats(ctx).MemTotal)/(1<<30)), DataDir: a.M.Paths(s).DataDir}
 	if !d.V.Status.Busy() {
 		d.Update = a.updateHint(ctx, s)
 	}
 	d.Stats = statsData{Spark: spark(nil), MemUsed: d.V.MemUsed, MemGB: s.MemoryGB}
-	d.Players = playersData{ID: s.ID, Online: d.V.Online, Max: d.V.MaxPlayers, Live: d.V.Status.Live()}
+	d.Players = playersData{ID: s.ID, Online: d.V.Online, Max: d.V.MaxPlayers, Live: d.V.Status.Live(), Kick: d.V.Can.Command}
 	switch tabKey {
 	case "settings":
 		d.BindIPs = a.bindIPs()
@@ -615,12 +670,13 @@ func (a *App) serverPage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	t := r.FormValue("tab")
-	valid := false
-	for _, x := range tabs {
-		valid = valid || x.Key == t
-	}
-	if !valid {
-		t = "console"
+	allowed := allowedTabs(a.caps(r.Context(), s.ID))
+	if !slices.ContainsFunc(allowed, func(x tab) bool { return x.Key == t }) {
+		if len(allowed) == 0 {
+			http.NotFound(w, r)
+			return
+		}
+		t = allowed[0].Key
 	}
 	d := a.serverPageData(r.Context(), s, t)
 	a.serverTabData(r, &d, s)
@@ -977,6 +1033,7 @@ func (a *App) uninstallPost(w http.ResponseWriter, r *http.Request) {
 // ---------------- Einstellungen ----------------
 
 type settingsData struct {
+	Accounts   bool   // the multi-user mode is on
 	HasLocal   bool   // the dashboard has its own Docker access
 	Multi      bool   // remote nodes exist, so each setting says which nodes it applies to
 	LocalName  string // display name of the embedded node
@@ -1000,6 +1057,7 @@ func (a *App) settingsPage(w http.ResponseWriter, r *http.Request) {
 		Version: Version, SelfMB: selfMB(), Started: a.start,
 		Zones: commonZones, SystemZone: time.Local.String(), ZoneNow: time.Now().In(displayLoc()).Format("02.01.2006 15:04 MST")}
 	d.Multi = len(a.Cfg.Get().Nodes) > 0
+	d.Accounts = a.store() != nil
 	if info, ok := a.Reg.Get(nodes.LocalID); ok {
 		d.LocalName = info.Name
 	}
@@ -1108,6 +1166,10 @@ func (a *App) updateDismiss(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *App) passwordPost(w http.ResponseWriter, r *http.Request) {
+	if a.store() != nil {
+		a.accountPassword(w, r)
+		return
+	}
 	if !auth.CheckPassword(a.Cfg.Get().PasswordHash, r.FormValue("current")) {
 		a.lim.Fail(r)
 		a.fail(w, "Das aktuelle Passwort ist falsch.")

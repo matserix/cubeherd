@@ -56,6 +56,18 @@ func (s Sessions) Issue(w http.ResponseWriter) {
 	})
 }
 
+// Set stores an opaque server-side session token in the cookie (accounts mode).
+func (s Sessions) Set(w http.ResponseWriter, token string) {
+	days := s.Days()
+	if days <= 0 {
+		days = 7
+	}
+	http.SetCookie(w, &http.Cookie{
+		Name: Cookie, Value: token, Path: "/", Expires: time.Now().Add(time.Duration(days) * 24 * time.Hour),
+		HttpOnly: true, SameSite: http.SameSiteStrictMode, Secure: s.Secure,
+	})
+}
+
 func (s Sessions) Clear(w http.ResponseWriter) {
 	http.SetCookie(w, &http.Cookie{Name: Cookie, Value: "", Path: "/", MaxAge: -1, HttpOnly: true, SameSite: http.SameSiteStrictMode})
 }
@@ -95,10 +107,19 @@ func clientIP(r *http.Request) string {
 }
 
 // Wait returns how long the client must wait before the next attempt.
-func (l *Limiter) Wait(r *http.Request) time.Duration {
+func (l *Limiter) Wait(r *http.Request) time.Duration { return l.WaitKey(clientIP(r)) }
+
+func (l *Limiter) Fail(r *http.Request) { l.FailKey(clientIP(r)) }
+
+// WaitKey, FailKey and ResetKey do the same for an arbitrary key, such as a user name.
+func (l *Limiter) WaitKey(key string) time.Duration {
 	l.mu.Lock()
 	defer l.mu.Unlock()
-	a := l.fail[clientIP(r)]
+	return l.wait(key)
+}
+
+func (l *Limiter) wait(key string) time.Duration {
+	a := l.fail[key]
 	if a == nil || a.n < 5 {
 		return 0
 	}
@@ -109,10 +130,15 @@ func (l *Limiter) Wait(r *http.Request) time.Duration {
 	return 0
 }
 
-func (l *Limiter) Fail(r *http.Request) {
+func (l *Limiter) ResetKey(key string) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
-	ip := clientIP(r)
+	delete(l.fail, key)
+}
+
+func (l *Limiter) FailKey(ip string) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
 	a := l.fail[ip]
 	if a == nil {
 		if len(l.fail) > 1000 {
@@ -125,8 +151,4 @@ func (l *Limiter) Fail(r *http.Request) {
 	a.last = time.Now()
 }
 
-func (l *Limiter) Reset(r *http.Request) {
-	l.mu.Lock()
-	defer l.mu.Unlock()
-	delete(l.fail, clientIP(r))
-}
+func (l *Limiter) Reset(r *http.Request) { l.ResetKey(clientIP(r)) }

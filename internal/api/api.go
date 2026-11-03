@@ -47,6 +47,15 @@ type View struct {
 	OpError     string
 	Restarts    int  // unexpected restarts of the current container (restart policy)
 	AutoStopped bool // stopped by itzg autostop after idling
+	// Can is what the signed-in user may do with this server. The dashboard sets it per request; it never travels.
+	Can Caps `json:"-"`
+}
+
+// Caps are the actions on one server that the UI offers, one flag per permission.
+type Caps struct {
+	Power, Console, Command, Players, Settings, Update, Delete bool
+	FilesRead, FilesWrite, WorldExport, WorldImport, Addons    bool
+	BackupsView, BackupsCreate, BackupsRestore, BackupsDelete  bool
 }
 
 // Unmanaged is an itzg container that Cubeherd does not manage yet.

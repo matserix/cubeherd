@@ -2,7 +2,7 @@
 <section class="view">
   <div class="view-head">
     <div><h1>{{t "Nodes"}}</h1><p class="sub">{{t "Jeder Host, auf dem ein Agent läuft. Das Dashboard ruft die Agents auf, nie umgekehrt."}}</p></div>
-    <div class="actions"><button class="btn primary" hx-get="/nodes/new" hx-target="#modal-card"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M8 3v10M3 8h10"/></svg>{{t "Node hinzufügen"}}</button></div>
+    <div class="actions">{{if canG . "nodes.manage"}}<button class="btn primary" hx-get="/nodes/new" hx-target="#modal-card"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M8 3v10M3 8h10"/></svg>{{t "Node hinzufügen"}}</button>{{end}}</div>
   </div>
   <div class="panel">
     <div class="tbl-wrap">
@@ -18,7 +18,7 @@
           <td class="hide-sm mono">{{with .Status.Version}}v{{.}}{{else}}–{{end}}</td>
           <td class="hide-sm num">{{if or .Local (eq .Status.State "offline")}}–{{else}}{{latency .Status.Latency}}{{end}}</td>
           <td class="hide-sm num">{{len .Views}}</td>
-          <td class="right"><button class="btn sm ghost" hx-get="/nodes/{{.ID}}/edit" hx-target="#modal-card">{{t "Bearbeiten"}}</button>{{if not .Local}}<button class="btn sm ghost" hx-get="/nodes/{{.ID}}/remove" hx-target="#modal-card">{{t "Entfernen"}}</button>{{end}}</td>
+          <td class="right">{{if canG $ "nodes.manage"}}<button class="btn sm ghost" hx-get="/nodes/{{.ID}}/edit" hx-target="#modal-card">{{t "Bearbeiten"}}</button>{{if not .Local}}<button class="btn sm ghost" hx-get="/nodes/{{.ID}}/remove" hx-target="#modal-card">{{t "Entfernen"}}</button>{{end}}{{end}}</td>
         </tr>
         {{else}}
         <tr><td colspan="7" class="muted" style="padding:28px 18px">{{t "Noch keine Nodes."}}</td></tr>

@@ -88,6 +88,22 @@ func usedKeys(t *testing.T) map[string]bool {
 	for _, tb := range tabs {
 		add(tb.Label)
 	}
+	for _, v := range permText {
+		add(v[0])
+		add(v[1])
+	}
+	for _, v := range groupText {
+		add(v)
+	}
+	for _, c := range auditCategories {
+		add(c.Label)
+	}
+	for _, d := range builtinDesc {
+		add(d)
+	}
+	for _, tb := range (&App{}).accTabs(nil) {
+		add(tb.Label)
+	}
 	for _, v := range []string{"Modpack-Version", "Server-Image", "Minecraft-Version", "Mods", "Plugins",
 		manager.ErrBusy.Error(), manager.ErrOutside.Error(), manager.ErrNoWorld.Error(), server.ErrNotFound.Error(),
 		sources.ErrUnauthorized.Error()} {

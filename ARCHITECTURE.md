@@ -80,6 +80,20 @@ remote agents from the settings (`nodes` in `cubeherd.json`, token and pinned fi
   in one place. Pages that mix nodes (overview, sidebar) name the node per link (`srv`), and table rows get unique ids (`row-<node>-<id>`).
 - **Wizard.** `/servers/new` is the placement step: pick a node (skipped when there is only one), then the usual wizard on `/n/<node>/s/new`.
 
+## Accounts and access control
+
+An opt-in mode (`config.Settings.Accounts`); without it nothing here runs and no database file exists. With it, `internal/access` owns `cubeherd.db` (SQLite through the pure Go driver `modernc.org/sqlite`, so the build stays `CGO_ENABLED=0`; WAL mode). Servers, backups and node settings are untouched and stay in their folders and in `cubeherd.json`.
+
+- **Model.** A permission is one kind of action (`server.power`, `files.write`, …, catalogue in `access/perms.go`). Each has a *lowest scope* (server, node or global) it can be granted on; a grant at a narrower scope than that has no effect. A role is a set of permissions (built-in roles are rewritten from code on every start, custom roles live in the database). A grant is (user or group, role, scope, optional expiry); scopes are global, node and server, and a wider grant covers everything below it. Rights are the union of all grants, there are no deny rules.
+- **One question.** `Principal.Can(perm, node, server)` answers every request, for the route guard and for the UI. `nil` is the single-user mode, where everything is allowed, so one code path serves both modes.
+- **Routes.** `web/access.go` registers every route through `router.handle(pattern, rule, handler)`; the rule names the permission and where the scope comes from (global, the node in the URL, the server in the URL, anywhere). The mux is not reachable otherwise, and `TestEveryRouteHasARule` fails the build if a route bypasses the table, and `TestRoutesRefuseAnAccountWithoutGrants` calls each guarded route as a user with no rights. A server the user may not see answers 404.
+- **UI.** `Principal` rides on the request context. `refresh()` drops servers (and nodes) the user cannot see from the overview, the sidebar and the live streams; each `api.View` carries `Can` flags that the templates use to hide buttons and tabs. The check on the server is the only authority.
+- **Guard rails.** Hand out only what you hold on that scope; change an account only if you hold everything it holds; define roles only from permissions you hold globally; built-in roles are read-only; every change that could remove the last enabled owner is rolled back inside its transaction.
+- **Sessions.** Opaque random tokens, only their SHA-256 is stored; revoked at once by disabling, password changes and "sign out everywhere". Sign-in limits apply per IP and per user name. CSRF protection is unchanged (same-origin check plus `SameSite=Strict`).
+- **Audit.** `access.Store.Record` appends to a hash chain (each row hashes its content and the previous hash) under a mutex, in the same code path as the check. Routes carry an audit action and a target; the guard records it after the handler with the outcome (`ok`, `fail` by status or failure toast, `denied`). Reads are not logged, downloads are. Retention (default 365 days) prunes from the start and leaves a note, and the chain stays verifiable. Entries can be scoped: an `audit.view` held on a node or server only shows entries of that scope.
+- **Single sign-on.** `access/oidc.go` implements discovery, the authorization code flow with PKCE, and ID token validation (RS256 and ES256 against the provider's keys, issuer, audience, expiry, nonce) with the standard library. Attempts are bound to the browser by state and a cookie. Client secrets are encrypted with AES-GCM; the key is `access.key` next to the database. Providers can restrict e-mail domains and Workspace domains, link by verified e-mail, create accounts and map a claim to groups.
+- **Operations.** `cubeherd user reset-owner [name]` and `cubeherd db backup <file>` work on the database directly.
+
 ## Status model
 
 | Display | Source |
@@ -96,7 +110,8 @@ remote agents from the settings (`nodes` in `cubeherd.json`, token and pinned fi
 ```
 cmd/cubeherd        main: read configuration from env, start the HTTP server
 internal/config       global settings (JSON, written atomically)
-internal/auth         password, session cookie, login throttling
+internal/auth         password, session cookie (single-user mode), login throttling
+internal/access       multi-user mode: SQLite store, permissions and roles, grants and scopes, sessions, audit log, OpenID Connect
 internal/docker       minimal Engine API client (list, inspect, start/stop, logs, stats, exec, info)
 internal/api          wire types shared by dashboard and agent (View, Info, fingerprint helper)
 internal/agent        `cubeherd agent`: HTTPS node API with self-signed certificate and bearer token
@@ -117,6 +132,8 @@ internal/web          handlers, templates, SSE, static assets
 | `CUBEHERD_DATA` | `/srv/cubeherd` as root, otherwise `./cubeherd-data` | Data directory |
 | `CUBEHERD_LISTEN` | `:8420` | Web server address |
 | `CUBEHERD_LOCAL` | `true` | `false`: no embedded local node, the dashboard needs no Docker socket |
+| `CUBEHERD_ACCOUNTS` | `false` | `true`: multi-user mode (accounts, roles, audit log in `cubeherd.db`) |
+| `CUBEHERD_AUDIT_STDOUT` | `false` | Also write every audit entry as a JSON line to stdout |
 | `CUBEHERD_AGENT_TOKEN` | generated on first start | Agent mode: the bearer token (only its hash is stored when generated) |
 | `CUBEHERD_AGENT_LISTEN` | `:8421` | Agent mode: address of the node API |
 | `DOCKER_HOST` | `unix:///var/run/docker.sock`, falling back to `~/.docker/run/docker.sock` | Docker socket |

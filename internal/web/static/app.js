@@ -30,10 +30,18 @@
     }
   });
   document.body.addEventListener('fc-close-modal', closeModal);
+  document.addEventListener('input', e => {
+    const f = e.target.closest('.member-filter');
+    if (!f) return;
+    const q = f.value.trim().toLowerCase();
+    f.closest('.members').querySelectorAll('.memberlist .pick').forEach(l => { l.hidden = q !== '' && !l.dataset.name.includes(q); });
+  });
   document.addEventListener('click', e => {
     if (e.target.closest('[data-close]') || e.target.id === 'modal') closeModal();
+    const um = $('.usermenu[open]');
+    if (um && !um.contains(e.target)) um.removeAttribute('open');
   });
-  document.addEventListener('keydown', e => { if (e.key === 'Escape' && modal() && !modal().hidden) closeModal(); });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') { $('.usermenu[open]')?.removeAttribute('open'); if (modal() && !modal().hidden) closeModal(); } });
 
   /* ---------------- Confirm dialog ----------------
      Replaces window.confirm. Every element with hx-confirm gets it automatically; options come from

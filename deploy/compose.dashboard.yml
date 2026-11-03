@@ -12,7 +12,8 @@ services:
     environment:
       CUBEHERD_DATA: /srv/cubeherd
       CUBEHERD_LOCAL: "false"  # no embedded local node
+      # CUBEHERD_ACCOUNTS: "true"  # multi-user mode: accounts, roles, audit log (cubeherd.db)
       TZ: Europe/Berlin
-    mem_limit: 64m
+    mem_limit: 96m
 volumes:
   cubeherd-data:

@@ -18,9 +18,9 @@
     <a class="brand" href="/" style="text-decoration:none;color:inherit">{{template "logo"}}<b>Cubeherd</b></a>
     <nav class="nav" aria-label="{{t "Hauptnavigation"}}">
       <a href="/" class="navlink" aria-current="{{eq .Nav "overview"}}" title="{{t "Übersicht"}}"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1.5" y="1.5" width="5.5" height="5.5" rx="1"/><rect x="9" y="1.5" width="5.5" height="5.5" rx="1"/><rect x="1.5" y="9" width="5.5" height="5.5" rx="1"/><rect x="9" y="9" width="5.5" height="5.5" rx="1"/></svg><span class="nav-txt">{{t "Übersicht"}}</span></a>
-      <a href="/nodes" class="navlink" aria-current="{{eq .Nav "nodes"}}" title="{{t "Nodes"}}"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="5.5" y="1.5" width="5" height="4" rx="1"/><rect x="1.5" y="10.5" width="5" height="4" rx="1"/><rect x="9.5" y="10.5" width="5" height="4" rx="1"/><path d="M8 5.5v2.5M4 10.5V8h8v2.5"/></svg><span class="nav-txt">{{t "Nodes"}}</span></a>
-      <a href="/servers/new" class="navlink" aria-current="{{eq .Nav "wizard"}}" title="{{t "Neuer Server"}}"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 3v10M3 8h10"/></svg><span class="nav-txt">{{t "Neuer Server"}}</span></a>
-      <a href="/settings" class="navlink" aria-current="{{eq .Nav "settings"}}" title="{{t "Einstellungen"}}"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="2.2"/><path d="M8 1.5v2M8 12.5v2M1.5 8h2M12.5 8h2M3.4 3.4l1.4 1.4M11.2 11.2l1.4 1.4M3.4 12.6l1.4-1.4M11.2 4.8l1.4-1.4"/></svg><span class="nav-txt">{{t "Einstellungen"}}</span></a>
+      {{if or (canG $ "users.manage") (canG $ "roles.manage") (canG $ "sso.manage") (canAny $ "audit.view")}}<a href="{{accessHome $}}" class="navlink" aria-current="{{eq .Nav "access"}}" title="{{t "Zugriff"}}"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 1.5 13.5 3.5v4c0 3.2-2.3 5.6-5.5 7-3.2-1.4-5.5-3.8-5.5-7v-4Z"/><path d="M5.8 8l1.6 1.6L10.4 6.4"/></svg><span class="nav-txt">{{t "Zugriff"}}</span></a>{{end}}
+      {{if canAny $ "nodes.view"}}<a href="/nodes" class="navlink" aria-current="{{eq .Nav "nodes"}}" title="{{t "Nodes"}}"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="5.5" y="1.5" width="5" height="4" rx="1"/><rect x="1.5" y="10.5" width="5" height="4" rx="1"/><rect x="9.5" y="10.5" width="5" height="4" rx="1"/><path d="M8 5.5v2.5M4 10.5V8h8v2.5"/></svg><span class="nav-txt">{{t "Nodes"}}</span></a>{{end}}
+      {{if canAny $ "server.create"}}<a href="/servers/new" class="navlink" aria-current="{{eq .Nav "wizard"}}" title="{{t "Neuer Server"}}"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 3v10M3 8h10"/></svg><span class="nav-txt">{{t "Neuer Server"}}</span></a>{{end}}
     </nav>
     <div class="rack-wrap">
       <div class="rack-head"><span class="label">Server</span><span class="label num">{{.RackCount}}</span></div>
@@ -28,7 +28,14 @@
     </div>
     <div class="side-foot">
       <div class="row"><span>Cubeherd</span><span class="num">{{.Version}}</span></div>
-      <form method="post" action="/logout"><button class="btn sm ghost" style="padding-left:0">{{t "Abmelden"}}</button></form>
+      <details class="usermenu" {{if or (eq .Nav "settings") (eq .Nav "account")}}data-current{{end}}>
+        <summary class="side-user" title="{{t "Konto"}}"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><circle cx="8" cy="5.5" r="2.6"/><path d="M2.8 14c.6-2.6 2.7-4 5.2-4s4.6 1.4 5.2 4"/></svg><span>{{if .Account}}{{.Account}}{{else}}{{t "Admin"}}{{end}}</span><svg class="chev" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M4 10l4-4 4 4"/></svg></summary>
+        <div class="menu" role="menu">
+          {{if .Account}}<a href="/account" role="menuitem">{{t "Mein Konto"}}</a>{{end}}
+          {{if canG $ "settings.manage"}}<a href="/settings" role="menuitem">{{t "Einstellungen"}}</a>{{end}}
+          <form method="post" action="/logout"><button role="menuitem">{{t "Abmelden"}}</button></form>
+        </div>
+      </details>
     </div>
   </aside>
   <main class="main" id="main">

@@ -61,6 +61,8 @@ sudo CUBEHERD_DATA=/srv/cubeherd ./cubeherd
 | `CUBEHERD_LISTEN` | `:8420` | Web server address |
 | `DOCKER_HOST` | `/var/run/docker.sock`, falling back to `~/.docker/run/docker.sock` | Docker socket |
 | `CUBEHERD_LOCAL` | `true` | Set to `false` for a dashboard that only manages remote agents (needs no Docker socket) |
+| `CUBEHERD_ACCOUNTS` | `false` | `true` starts in multi-user mode (see [Users and roles](#users-and-roles)); it can also be switched on in the settings |
+| `CUBEHERD_AUDIT_STDOUT` | `false` | Also print every audit entry as one JSON line to stdout, for Docker log drivers |
 | `CUBEHERD_AGENT_TOKEN`, `CUBEHERD_AGENT_LISTEN` | – / `:8421` | Agent mode only, see below |
 | `TZ` | `UTC` | Default time zone, as long as none is chosen in the settings |
 
@@ -101,11 +103,25 @@ Whoever holds an agent's token controls Docker on that host, so keep port 8421 o
   Update an agent by pulling the new image on its host and recreating the container; its Minecraft servers keep running meanwhile.
 - **Going back to an older release** loses the node list the next time that release saves its settings, because it does not know the `nodes` entry in `cubeherd.json`. Keep a copy of the file if you may roll back.
 
+## Users and roles
+
+By default Cubeherd has one shared password. For teams and communities there is an optional **multi-user mode**: personal accounts, roles, an audit log and single sign-on. Switch it on under *Settings → User accounts* (or start with `CUBEHERD_ACCOUNTS=true`). Your current password becomes the account `admin` with the Owner role and you stay signed in; nothing else changes until you add people. The data lives in one SQLite file, `cubeherd.db`, in the data directory; the servers themselves stay in their folders.
+
+- **Rights** are fine grained: view, power, console, commands, players, settings, update, create, delete, files (read and write), world, add-ons and four backup rights, plus node load (per node), node management, global settings, users, roles, sign-in providers and the audit log.
+- **Roles** are sets of rights. Owner, Admin, Operator, Moderator and Viewer are built in and read-only (duplicate one to adapt it); you can create your own.
+- **Assignments** give a user or a group a role on a **scope**: everything, one node (including servers created later) or one server. Rights add up, there is no deny. An assignment can expire. Rights that only exist for the whole dashboard (nodes, settings, users, roles, providers) take effect only on "Everything".
+- Everything a user may not do is hidden, and the server refuses it anyway (a server the user may not see answers 404). Nobody can hand out rights they do not hold themselves, change an account with more rights than their own, or remove the last owner.
+- **Audit log:** sign-ins, every change to accounts and roles, and every action on servers (start and stop, commands, file saves and downloads, backups, settings) with who, when, from where and the outcome. Refused attempts are logged too. File contents and secrets are never recorded. Entries are chained by hash (*Verify chain* finds later edits), cannot be changed in the interface, and are kept 365 days by default. Export as CSV or JSON, or stream to stdout.
+- **Single sign-on** with Google or any OpenID Connect provider (Keycloak, Authentik, Authelia, Zitadel, Entra ID, Okta, …): PKCE and ID-token validation, optional e-mail domain and Workspace restriction, linking by verified e-mail, automatic account creation, and groups that follow a claim of the provider. Set the public address of the dashboard so the callback address is right when you run behind a proxy.
+- **Back up** `cubeherd.db` together with `cubeherd.json` and `access.key`: `cubeherd db backup <file>` writes a consistent copy of the database. `cubeherd user reset-owner [name]` creates or repairs an owner and sets a new password (it also switches password sign-in back on); run it on the host or with `docker exec`.
+- **Agents are not part of this.** An agent token still gives full control of its host. The rights protect the dashboard; do not give people access to a host or an agent token that they should not have.
+- **Going back:** *Access → Users → End multi-user mode* returns to one shared password. Accounts stay in the database and are ignored. An older Cubeherd release without accounts support uses the single password again.
+
 ## Security
 
 Anyone who can operate Cubeherd controls Docker and therefore, in practice, the entire host.
 Only expose Cubeherd on your LAN or via VPN, never directly to the internet.
-It has a single admin account (bcrypt), signed session cookies (`SameSite=Strict`), login throttling and CSRF protection.
+It has a single admin account (bcrypt), signed session cookies (`SameSite=Strict`), login throttling and CSRF protection. The [multi-user mode](#users-and-roles) replaces it with accounts, roles and an audit log.
 Agents add a second entry point with the same reach: protect their token like the admin password (see [Several hosts](#several-hosts)).
 
 ## Features

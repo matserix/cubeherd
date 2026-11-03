@@ -309,7 +309,7 @@ func TestPlayerNamesAreJSONEncodedInHxVals(t *testing.T) {
 		t.Fatal(err)
 	}
 	evil := `a","cmd":"stop`
-	out, err := a.renderString("server", "players", playersData{ID: "x", Online: []string{evil}, Max: 5, Live: true})
+	out, err := a.renderString("server", "players", playersData{ID: "x", Online: []string{evil}, Max: 5, Live: true, Kick: true})
 	if err != nil {
 		t.Fatal(err)
 	}

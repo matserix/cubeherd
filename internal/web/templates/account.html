@@ -1,0 +1,37 @@
+{{define "content"}}{{$d := .Data}}
+<section class="view">
+  <div class="view-head">
+    <div><h1>{{t "Mein Konto"}}</h1><p class="sub">{{$d.User.Name}}{{with $d.User.Email}} · {{.}}{{end}}</p></div>
+  </div>
+  <div class="stack">
+  <form class="panel" hx-post="/settings/password" hx-on::after-request="if(event.detail.successful) this.reset()">
+    <div class="panel-head"><h2>{{t "Passwort ändern"}}</h2></div>
+    <div class="panel-pad stack">
+      {{if $d.HasPW}}<label class="field"><span>{{t "Aktuelles Passwort"}}</span><input class="input" type="password" name="current" autocomplete="current-password" required></label>{{end}}
+      <div class="grid-2">
+        <label class="field"><span>{{t "Neues Passwort"}}</span><input class="input" type="password" name="password" minlength="10" autocomplete="new-password" required><small>{{t "Mindestens 10 Zeichen."}}</small></label>
+        <label class="field"><span>{{t "Passwort wiederholen"}}</span><input class="input" type="password" name="password2" minlength="10" autocomplete="new-password" required></label>
+      </div>
+      <div class="actions"><button class="btn primary">{{t "Passwort ändern"}} <span class="spin-on-req"></span></button></div>
+    </div>
+  </form>
+
+  <div class="panel">
+    <div class="panel-head"><h2>{{t "Meine Rechte"}}</h2><span class="muted" style="font-size:12px">{{if $d.Groups}}{{t "Gruppen: %s" (join $d.Groups ", ")}}{{end}}</span></div>
+    <div class="panel-pad stack">
+      {{range $d.Effective}}<div><b>{{.Label}}</b><div class="permchips">{{range .Perms}}<span class="chip">{{t (permName .)}}</span>{{end}}</div></div>
+      {{else}}<p class="muted">{{t "Du hast noch keine Rechte. Bitte einen Owner, dir eine Rolle zuzuweisen."}}</p>{{end}}
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-head"><h2>{{t "Aktive Sitzungen"}}</h2>{{if gt (len $d.Sessions) 1}}<button class="btn sm ghost" hx-post="/account/sessions/end">{{t "Alle anderen abmelden"}}</button>{{end}}</div>
+    <div class="tbl-wrap"><table class="tbl"><thead><tr><th>{{t "Gerät"}}</th><th>IP</th><th class="hide-sm">{{t "Angemeldet"}}</th><th>{{t "Zuletzt aktiv"}}</th><th class="right"></th></tr></thead><tbody>
+    {{range $d.Sessions}}<tr><td style="max-width:360px;overflow-wrap:anywhere">{{.UserAgent}}{{if .Current}} <span class="chip">{{t "diese Sitzung"}}</span>{{end}}</td><td class="mono">{{.IP}}</td><td class="hide-sm num">{{dt .Created}}</td><td class="num">{{ago .LastSeen}}</td>
+      <td class="right">{{if not .Current}}<button class="btn sm ghost" hx-post="/account/sessions/{{.Hash}}/end">{{t "Abmelden"}}</button>{{end}}</td></tr>{{end}}
+    </tbody></table></div>
+  </div>
+  {{if $d.Identities}}<div class="panel panel-pad"><b>{{t "Verknüpfte Anmeldungen"}}</b>{{range $d.Identities}}<div class="muted mono" style="font-size:12.5px">{{.Issuer}} · {{.Email}}</div>{{end}}</div>{{end}}
+  </div>
+</section>
+{{end}}

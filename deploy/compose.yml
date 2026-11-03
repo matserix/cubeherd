@@ -15,4 +15,5 @@ services:
     environment:
       CUBEHERD_DATA: /srv/cubeherd
       TZ: Europe/Berlin       # for backup schedules
+      # CUBEHERD_ACCOUNTS: "true"  # multi-user mode: accounts, roles, audit log (cubeherd.db)
     mem_limit: 96m

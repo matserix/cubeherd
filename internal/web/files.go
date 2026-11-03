@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"cubeherd/internal/api"
 	"cubeherd/internal/manager"
 	"cubeherd/internal/server"
 )
@@ -24,6 +25,7 @@ type treeData struct {
 	Entries   []manager.Entry
 	Truncated bool
 	Error     string
+	Can       api.Caps
 }
 
 func crumbs(rel string) []crumb {
@@ -51,7 +53,7 @@ func (a *App) relParam(w http.ResponseWriter, r *http.Request) (string, bool) {
 }
 
 func (a *App) fileTree(w http.ResponseWriter, r *http.Request, s *server.Server, rel string) {
-	d := treeData{ID: s.ID, Path: rel, Crumbs: crumbs(rel)}
+	d := treeData{ID: s.ID, Path: rel, Crumbs: crumbs(rel), Can: a.caps(r.Context(), s.ID)}
 	var err error
 	d.Entries, d.Truncated, err = a.M.List(r.Context(), s, rel)
 	if err != nil {
@@ -99,7 +101,7 @@ func (a *App) filesView(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	a.partial(w, "server", "fileEditor", map[string]any{"ID": s.ID, "Path": rel, "Entry": st, "Text": text, "IsText": isText,
-		"Hint": fileHints[rel], "Live": a.view(r.Context(), s, false).Status.Up()})
+		"Hint": fileHints[rel], "Can": a.caps(r.Context(), s.ID), "Live": a.view(r.Context(), s, false).Status.Up()})
 }
 
 func (a *App) filesSave(w http.ResponseWriter, r *http.Request) {

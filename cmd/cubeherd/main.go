@@ -58,15 +58,28 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	if len(os.Args) > 1 && os.Args[1] == "agent" {
-		runAgent(dataDir)
-		return
+	if len(os.Args) > 1 {
+		switch os.Args[1] {
+		case "agent":
+			runAgent(dataDir)
+			return
+		case "user", "db":
+			if err := runCLI(dataDir, os.Args[1:]); err != nil {
+				log.Fatal(err)
+			}
+			return
+		}
 	}
 	listen := env("CUBEHERD_LISTEN", ":8420")
 
 	cfg, err := config.Load(dataDir)
 	if err != nil {
 		log.Fatalf("loading settings: %v", err)
+	}
+	if envBool("CUBEHERD_ACCOUNTS", false) && !cfg.Get().Accounts {
+		if err := cfg.Update(func(s *config.Settings) { s.Accounts = true }); err != nil {
+			log.Fatalf("saving settings: %v", err)
+		}
 	}
 	src := sources.New(func() string { return cfg.Get().CFAPIKey })
 
@@ -108,6 +121,10 @@ func main() {
 		log.Fatalf("Templates: %v", err)
 	}
 
+	if envBool("CUBEHERD_AUDIT_STDOUT", false) {
+		app.SetAuditSink(func(b []byte) { _, _ = os.Stdout.Write(append(b, '\n')) })
+	}
+	go app.RunMaintenance(context.Background())
 	srv := &http.Server{
 		Addr:              listen,
 		Handler:           app.Handler(),

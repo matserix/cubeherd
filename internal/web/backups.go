@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"cubeherd/internal/api"
 	"cubeherd/internal/manager"
 	"cubeherd/internal/server"
 )
@@ -24,11 +25,12 @@ type backupsData struct {
 	Remote      bool   // an external storage is configured
 	RemoteError string // listing the external storage failed
 	Health      manager.Health
+	Can         api.Caps
 	OOB         bool // refresh the health banner above the schedule together with the list (htmx out-of-band)
 }
 
 func (a *App) backupsData(ctx context.Context, s *server.Server, st server.Status) backupsData {
-	d := backupsData{ID: s.ID, Plan: s.Plan(), Next: a.M.NextBackupFor(s), Busy: st.Busy(), Running: st.Up(), Remote: a.M.HasRemote()}
+	d := backupsData{ID: s.ID, Plan: s.Plan(), Next: a.M.NextBackupFor(s), Busy: st.Busy(), Running: st.Up(), Remote: a.M.HasRemote(), Can: a.caps(ctx, s.ID)}
 	d.Health = a.M.BackupHealth(s, st.Live())
 	var err error
 	d.List, err = a.M.BackupsAll(ctx, s)

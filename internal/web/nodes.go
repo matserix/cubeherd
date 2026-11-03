@@ -6,6 +6,7 @@ import (
 	"slices"
 	"strings"
 
+	"cubeherd/internal/access"
 	"cubeherd/internal/agent"
 	"cubeherd/internal/config"
 	"cubeherd/internal/nodes"
@@ -19,7 +20,7 @@ type nodesData struct {
 }
 
 func (a *App) nodesPage(w http.ResponseWriter, r *http.Request) {
-	a.render(w, r, "nodes", Page{Title: a.t("Nodes"), Nav: "nodes", Data: nodesData{Rows: a.Reg.Refresh(r.Context(), false, 0)}})
+	a.render(w, r, "nodes", Page{Title: a.t("Nodes"), Nav: "nodes", Data: nodesData{Rows: a.visibleNodes(r)}})
 }
 
 // nodeError turns a connection error into a message for the add and edit dialogs.
@@ -230,7 +231,10 @@ func (a *App) nodeRemove(w http.ResponseWriter, r *http.Request) {
 
 // nodePick is the first step of the wizard: where should the server run? With one node there is nothing to pick.
 func (a *App) nodePick(w http.ResponseWriter, r *http.Request) {
-	all := a.Reg.Refresh(r.Context(), false, 2e9)
+	all := a.refresh(r.Context(), false, 2e9)
+	if p := principalOf(r); p != nil {
+		all = slices.DeleteFunc(all, func(n nodes.View) bool { return !p.Can(access.ServerCreate, n.ID, "") })
+	}
 	if len(all) == 1 && all[0].Status.State != nodes.Offline {
 		redirect(w, r, "/n/"+all[0].ID+"/s/new")
 		return

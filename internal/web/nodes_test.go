@@ -187,7 +187,7 @@ func TestPartialsOnANodePageStayOnThatNode(t *testing.T) {
 	b := *d.app
 	b.NodeID, b.NodeName = "vps", "VPS"
 	s := &server.Server{ID: "atm", Name: "ATM", Kind: server.KindSoftware, Type: "PAPER", Version: "1.21.4", MemoryGB: 4, Node: "vps", NodeName: "VPS"}
-	out, err := b.renderString("server", "srvHead", serverPage{V: manager.View{S: s, Status: server.StatusRunning}})
+	out, err := b.renderString("server", "srvHead", serverPage{V: manager.View{S: s, Status: server.StatusRunning, Can: api.Caps{Power: true, Update: true, Delete: true}}})
 	if err != nil {
 		t.Fatal(err)
 	}

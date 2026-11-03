@@ -20,6 +20,7 @@ import (
 	"time"
 	"unicode/utf16"
 
+	"cubeherd/internal/access"
 	"cubeherd/internal/auth"
 	"cubeherd/internal/config"
 	"cubeherd/internal/i18n"
@@ -52,14 +53,19 @@ type App struct {
 	Listen  string
 	Updates *update.Checker
 
-	sess  auth.Sessions
-	lim   *auth.Limiter
-	pages map[string]map[string]*template.Template // language → page → templates
-	start time.Time
+	sess auth.Sessions
+	lim  *auth.Limiter
+	accs *accHolder
+	sso  *ssoRuntime
+	// auditStdout, when set, also receives every audit entry as a JSON line.
+	auditStdout func([]byte)
+	routes      []route
+	pages       map[string]map[string]*template.Template // language → page → templates
+	start       time.Time
 }
 
 func New(reg *nodes.Registry, src *sources.Client, cfg *config.Store, dataDir, listen string) (*App, error) {
-	a := &App{Reg: reg, Sources: src, Cfg: cfg, DataDir: dataDir, Listen: listen, lim: auth.NewLimiter(), start: time.Now(), Updates: update.New()}
+	a := &App{Reg: reg, Sources: src, Cfg: cfg, DataDir: dataDir, Listen: listen, lim: auth.NewLimiter(), accs: &accHolder{}, sso: newSSO(), start: time.Now(), Updates: update.New()}
 	a.sess = auth.Sessions{
 		Secret: func() (string, string) {
 			s := cfg.Get()
@@ -82,6 +88,14 @@ func New(reg *nodes.Registry, src *sources.Client, cfg *config.Store, dataDir, l
 	if err := a.loadTemplates(); err != nil {
 		return nil, err
 	}
+	if cfg.Get().Accounts {
+		if err := a.openAccounts(); err != nil {
+			return nil, err
+		}
+		if _, err := a.migrateOwner(); err != nil {
+			return nil, err
+		}
+	}
 	return a, nil
 }
 
@@ -94,7 +108,7 @@ func (a *App) loadTemplates() error {
 			return err
 		}
 		a.pages[l.Code] = map[string]*template.Template{}
-		for _, p := range []string{"login", "overview", "wizard", "server", "settings", "nodes", "nodepick", "nodedown"} {
+		for _, p := range []string{"login", "forbidden", "access", "account", "overview", "wizard", "server", "settings", "nodes", "nodepick", "nodedown"} {
 			t, err := base.Clone()
 			if err != nil {
 				return err
@@ -122,82 +136,101 @@ func (a *App) t(key string, args ...any) string { return i18n.T(a.lang(), key, a
 // rackMaxAge is how old a remote node's answer may be when the sidebar is drawn.
 const rackMaxAge = 3 * time.Second
 
-// Handler wires all routes behind auth and CSRF checks.
+// Handler wires all routes behind auth and CSRF checks. Every route is registered with the rule that guards it
+// (see access.go); TestEveryRouteHasARule keeps it that way.
 func (a *App) Handler() http.Handler {
 	mux := http.NewServeMux()
 	static, _ := fs.Sub(staticFS, "static")
 	fileServer := http.FileServer(http.FS(static))
 	mux.Handle("GET /static/", http.StripPrefix("/static/", cacheForever(fileServer)))
+	rt := &router{a: a, mux: mux}
 
-	mux.HandleFunc("GET /login", a.p((*App).loginPage))
-	mux.HandleFunc("POST /login", a.p((*App).loginPost))
-	mux.HandleFunc("GET /setup", a.p((*App).setupPage))
-	mux.HandleFunc("POST /setup", a.p((*App).setupPost))
-	mux.HandleFunc("POST /logout", a.p((*App).logout))
+	rt.handle("GET /login", public(), a.p((*App).loginPage))
+	rt.handle("POST /login", public(), a.p((*App).loginPost))
+	rt.handle("GET /login/sso", public(), a.p((*App).ssoStart))
+	rt.handle("GET /login/sso/callback", public(), a.p((*App).ssoCallback))
+	rt.handle("GET /setup", public(), a.p((*App).setupPage))
+	rt.handle("POST /setup", public(), a.p((*App).setupPost))
+	rt.handle("POST /logout", open(), a.p((*App).logout))
 
-	mux.HandleFunc("GET /{$}", a.p((*App).overview))
-	mux.HandleFunc("GET /partials/overview", a.p((*App).overviewPartial))
-	mux.HandleFunc("GET /partials/rack", a.p((*App).rackPartial))
-	mux.HandleFunc("POST /import", a.h((*App).importPost))
+	rt.handle("GET /{$}", open(), a.p((*App).overview))
+	rt.handle("GET /partials/overview", open(), a.p((*App).overviewPartial))
+	rt.handle("GET /partials/rack", open(), a.p((*App).rackPartial))
+	rt.handle("POST /import", onNode(access.ServerCreate).log("server.import", form("name")), a.h((*App).importPost))
 
-	mux.HandleFunc("GET /servers/new", a.wizardEntry)
-	mux.HandleFunc("GET /wizard/java", a.p((*App).wizardJava))
-	mux.HandleFunc("GET /wizard/packs", a.p((*App).wizardPacks))
-	mux.HandleFunc("GET /wizard/packversions", a.p((*App).wizardPackVersions))
-	mux.HandleFunc("POST /wizard/preview", a.h((*App).wizardPreview))
-	mux.HandleFunc("POST /servers", a.h((*App).createServer))
+	rt.handle("GET /servers/new", nodeOrAnywhere(access.ServerCreate), a.wizardEntry)
+	rt.handle("GET /wizard/java", anywhere(access.ServerCreate), a.p((*App).wizardJava))
+	rt.handle("GET /wizard/packs", anywhere(access.ServerCreate), a.p((*App).wizardPacks))
+	rt.handle("GET /wizard/packversions", anywhere(access.ServerCreate), a.p((*App).wizardPackVersions))
+	rt.handle("POST /wizard/preview", anywhere(access.ServerCreate), a.h((*App).wizardPreview))
+	rt.handle("POST /servers", onNode(access.ServerCreate).log("server.create", form("name")), a.h((*App).createServer))
 
-	mux.HandleFunc("GET /servers/{id}", a.h((*App).serverPage))
-	mux.HandleFunc("GET /servers/{id}/events", a.h((*App).serverEvents))
-	mux.HandleFunc("POST /servers/{id}/action/{action}", a.h((*App).serverAction))
-	mux.HandleFunc("POST /servers/{id}/command", a.h((*App).serverCommand))
-	mux.HandleFunc("POST /servers/{id}/settings", a.h((*App).serverSettings))
-	mux.HandleFunc("POST /servers/{id}/players/{list}/{op}", a.h((*App).serverPlayers))
-	mux.HandleFunc("GET /servers/{id}/update", a.h((*App).updateModal))
-	mux.HandleFunc("POST /servers/{id}/update", a.h((*App).updatePost))
-	mux.HandleFunc("GET /servers/{id}/files/list", a.h((*App).filesList))
-	mux.HandleFunc("GET /servers/{id}/files/view", a.h((*App).filesView))
-	mux.HandleFunc("GET /servers/{id}/files/download", a.h((*App).filesDownload))
-	mux.HandleFunc("POST /servers/{id}/files/save", a.h((*App).filesSave))
-	mux.HandleFunc("POST /servers/{id}/files/upload", a.h((*App).filesUpload))
-	mux.HandleFunc("POST /servers/{id}/files/delete", a.h((*App).filesDelete))
-	mux.HandleFunc("GET /servers/{id}/world.zip", a.h((*App).worldDownload))
-	mux.HandleFunc("POST /servers/{id}/world", a.h((*App).worldUpload))
-	mux.HandleFunc("GET /servers/{id}/addons/search", a.h((*App).addonSearch))
-	mux.HandleFunc("POST /servers/{id}/addons/add", a.h((*App).addonAdd))
-	mux.HandleFunc("POST /servers/{id}/addons/remove", a.h((*App).addonRemove))
-	mux.HandleFunc("POST /servers/{id}/addons/upload", a.h((*App).addonUpload))
-	mux.HandleFunc("POST /servers/{id}/addons/uploads/delete", a.h((*App).addonDeleteUpload))
-	mux.HandleFunc("POST /servers/{id}/backups", a.h((*App).backupCreate))
-	mux.HandleFunc("GET /servers/{id}/backups/list", a.h((*App).backupList))
-	mux.HandleFunc("POST /servers/{id}/backups/plan", a.h((*App).backupPlan))
-	mux.HandleFunc("GET /servers/{id}/backups/{name}", a.h((*App).backupDownload))
-	mux.HandleFunc("POST /servers/{id}/backups/{name}/upload", a.h((*App).backupUpload))
-	mux.HandleFunc("POST /servers/{id}/backups/{name}/verify", a.h((*App).backupVerify))
-	mux.HandleFunc("POST /servers/{id}/backups/{name}/delete", a.h((*App).backupDelete))
-	mux.HandleFunc("GET /servers/{id}/backups/{name}/restore", a.h((*App).restoreModal))
-	mux.HandleFunc("POST /servers/{id}/backups/{name}/restore", a.h((*App).restorePost))
-	mux.HandleFunc("GET /servers/{id}/uninstall", a.h((*App).uninstallModal))
-	mux.HandleFunc("POST /servers/{id}/uninstall", a.h((*App).uninstallPost))
+	rt.handle("GET /servers/{id}", onServer(access.ServerView), a.h((*App).serverPage))
+	rt.handle("GET /servers/{id}/events", onServer(access.ServerView), a.h((*App).serverEvents))
+	rt.handle("POST /servers/{id}/action/{action}", onServer(access.ServerPower).log("server.power", pathValue("action")), a.h((*App).serverAction))
+	rt.handle("POST /servers/{id}/command", onServer(access.ServerCommand).log("server.command", form("cmd")), a.h((*App).serverCommand))
+	rt.handle("POST /servers/{id}/settings", onServer(access.ServerSettings).log("server.settings"), a.h((*App).serverSettings))
+	rt.handle("POST /servers/{id}/players/{list}/{op}", onServer(access.ServerPlayers).log("server.players", playerTarget), a.h((*App).serverPlayers))
+	rt.handle("GET /servers/{id}/update", onServer(access.ServerUpdate), a.h((*App).updateModal))
+	rt.handle("POST /servers/{id}/update", onServer(access.ServerUpdate).log("server.update", form("version")), a.h((*App).updatePost))
+	rt.handle("GET /servers/{id}/files/list", onServer(access.FilesRead), a.h((*App).filesList))
+	rt.handle("GET /servers/{id}/files/view", onServer(access.FilesRead), a.h((*App).filesView))
+	rt.handle("GET /servers/{id}/files/download", onServer(access.FilesRead).log("files.download", form("path")), a.h((*App).filesDownload))
+	rt.handle("POST /servers/{id}/files/save", onServer(access.FilesWrite).log("files.save", form("path")), a.h((*App).filesSave))
+	rt.handle("POST /servers/{id}/files/upload", onServer(access.FilesWrite).log("files.upload", form("path")), a.h((*App).filesUpload))
+	rt.handle("POST /servers/{id}/files/delete", onServer(access.FilesWrite).log("files.delete", form("path")), a.h((*App).filesDelete))
+	rt.handle("GET /servers/{id}/world.zip", onServer(access.WorldExport).log("world.export"), a.h((*App).worldDownload))
+	rt.handle("POST /servers/{id}/world", onServer(access.WorldImport).log("world.import"), a.h((*App).worldUpload))
+	rt.handle("GET /servers/{id}/addons/search", onServer(access.AddonsManage), a.h((*App).addonSearch))
+	rt.handle("POST /servers/{id}/addons/add", onServer(access.AddonsManage).log("addons.add", form("name")), a.h((*App).addonAdd))
+	rt.handle("POST /servers/{id}/addons/remove", onServer(access.AddonsManage).log("addons.remove", form("ref")), a.h((*App).addonRemove))
+	rt.handle("POST /servers/{id}/addons/upload", onServer(access.AddonsManage).log("addons.upload"), a.h((*App).addonUpload))
+	rt.handle("POST /servers/{id}/addons/uploads/delete", onServer(access.AddonsManage).log("addons.remove", form("file")), a.h((*App).addonDeleteUpload))
+	rt.handle("POST /servers/{id}/backups", onServer(access.BackupsCreate).log("backup.create"), a.h((*App).backupCreate))
+	rt.handle("GET /servers/{id}/backups/list", onServer(access.BackupsView), a.h((*App).backupList))
+	rt.handle("POST /servers/{id}/backups/plan", onServer(access.BackupsCreate).log("backup.plan"), a.h((*App).backupPlan))
+	rt.handle("GET /servers/{id}/backups/{name}", onServer(access.BackupsView).log("backup.download", pathValue("name")), a.h((*App).backupDownload))
+	rt.handle("POST /servers/{id}/backups/{name}/upload", onServer(access.BackupsCreate).log("backup.upload", pathValue("name")), a.h((*App).backupUpload))
+	rt.handle("POST /servers/{id}/backups/{name}/verify", onServer(access.BackupsView).log("backup.verify", pathValue("name")), a.h((*App).backupVerify))
+	rt.handle("POST /servers/{id}/backups/{name}/delete", onServer(access.BackupsDelete).log("backup.delete", pathValue("name")), a.h((*App).backupDelete))
+	rt.handle("GET /servers/{id}/backups/{name}/restore", onServer(access.BackupsRestore), a.h((*App).restoreModal))
+	rt.handle("POST /servers/{id}/backups/{name}/restore", onServer(access.BackupsRestore).log("backup.restore", pathValue("name")), a.h((*App).restorePost))
+	rt.handle("GET /servers/{id}/uninstall", onServer(access.ServerDelete), a.h((*App).uninstallModal))
+	rt.handle("POST /servers/{id}/uninstall", onServer(access.ServerDelete).log("server.delete"), a.h((*App).uninstallPost))
 
-	mux.HandleFunc("GET /settings", a.p((*App).settingsPage))
-	mux.HandleFunc("POST /settings", a.p((*App).settingsPost))
-	mux.HandleFunc("POST /settings/password", a.p((*App).passwordPost))
-	mux.HandleFunc("POST /settings/cf-check", a.p((*App).cfCheck))
-	mux.HandleFunc("POST /settings/remote-check", a.p((*App).remoteCheck))
-	mux.HandleFunc("POST /update/dismiss", a.p((*App).updateDismiss))
+	rt.handle("GET /settings", global(access.SettingsManage), a.p((*App).settingsPage))
+	rt.handle("POST /settings", global(access.SettingsManage).log("settings.change"), a.p((*App).settingsPost))
+	rt.handle("POST /settings/password", open(), a.p((*App).passwordPost))
+	rt.handle("POST /settings/accounts", global(access.SettingsManage), a.p((*App).enableAccounts))
+	rt.handle("POST /settings/cf-check", global(access.SettingsManage), a.p((*App).cfCheck))
+	rt.handle("POST /settings/remote-check", global(access.SettingsManage), a.p((*App).remoteCheck))
+	rt.handle("POST /update/dismiss", global(access.SettingsManage), a.p((*App).updateDismiss))
 
-	mux.HandleFunc("GET /nodes", a.p((*App).nodesPage))
-	mux.HandleFunc("GET /nodes/new", a.p((*App).nodeNew))
-	mux.HandleFunc("POST /nodes/probe", a.p((*App).nodeProbe))
-	mux.HandleFunc("POST /nodes", a.p((*App).nodeAdd))
-	mux.HandleFunc("GET /nodes/{id}/edit", a.p((*App).nodeEdit))
-	mux.HandleFunc("POST /nodes/{id}/probe", a.p((*App).nodeReprobe))
-	mux.HandleFunc("POST /nodes/{id}", a.p((*App).nodeSave))
-	mux.HandleFunc("GET /nodes/{id}/remove", a.p((*App).nodeRemoveModal))
-	mux.HandleFunc("POST /nodes/{id}/remove", a.p((*App).nodeRemove))
+	rt.handle("GET /nodes", anywhere(access.NodesView), a.p((*App).nodesPage))
+	rt.handle("GET /nodes/new", global(access.NodesManage), a.p((*App).nodeNew))
+	rt.handle("POST /nodes/probe", global(access.NodesManage), a.p((*App).nodeProbe))
+	rt.handle("POST /nodes", global(access.NodesManage).log("node.add", form("name")), a.p((*App).nodeAdd))
+	rt.handle("GET /nodes/{id}/edit", global(access.NodesManage), a.p((*App).nodeEdit))
+	rt.handle("POST /nodes/{id}/probe", global(access.NodesManage), a.p((*App).nodeReprobe))
+	rt.handle("POST /nodes/{id}", global(access.NodesManage).log("node.edit", pathValue("id")), a.p((*App).nodeSave))
+	rt.handle("GET /nodes/{id}/remove", global(access.NodesManage), a.p((*App).nodeRemoveModal))
+	rt.handle("POST /nodes/{id}/remove", global(access.NodesManage).log("node.remove", pathValue("id")), a.p((*App).nodeRemove))
 
+	a.accessRoutes(rt)
+	a.routes = rt.table
 	return a.security(a.nodePrefix(mux))
+}
+
+func playerTarget(r *http.Request) string {
+	return r.PathValue("list") + "/" + r.PathValue("op") + ": " + strings.TrimSpace(r.FormValue("player"))
+}
+
+// SetAuditSink also sends every audit entry as a JSON line to f (for Docker log drivers).
+func (a *App) SetAuditSink(f func([]byte)) {
+	a.auditStdout = f
+	if st := a.store(); st != nil {
+		st.AuditStdout = f
+	}
 }
 
 type nodeKey struct{}
@@ -326,8 +359,6 @@ func cacheForever(h http.Handler) http.Handler {
 	})
 }
 
-var publicPaths = map[string]bool{"/login": true, "/setup": true}
-
 const (
 	maxPublicBody     = 64 << 10 // POST /login and /setup carry a few short fields
 	publicReadTimeout = 15 * time.Second
@@ -350,12 +381,19 @@ func (a *App) security(next http.Handler) http.Handler {
 			http.Error(w, a.t("Ungültige Herkunft der Anfrage"), http.StatusForbidden)
 			return
 		}
-		if r.Method == http.MethodPost && publicPaths[r.URL.Path] {
+		if r.Method == http.MethodPost && isPublic(r.URL.Path) {
 			// Reachable without a session: keep the body small and the read short (uploads have their own limits).
 			r.Body = http.MaxBytesReader(w, r.Body, maxPublicBody)
 			_ = http.NewResponseController(w).SetReadDeadline(time.Now().Add(publicReadTimeout))
 		}
 		setup := a.Cfg.Get().PasswordHash == ""
+		if st := a.store(); st != nil {
+			setup = st.UserCount() == 0
+		}
+		authed := false
+		if !setup && !isPublic(r.URL.Path) {
+			r, authed = a.authenticate(r)
+		}
 		switch {
 		case setup && r.URL.Path != "/setup":
 			redirect(w, r, "/setup")
@@ -363,7 +401,7 @@ func (a *App) security(next http.Handler) http.Handler {
 		case !setup && r.URL.Path == "/setup":
 			redirect(w, r, "/")
 			return
-		case !setup && !publicPaths[r.URL.Path] && !a.sess.Valid(r):
+		case !setup && !isPublic(r.URL.Path) && !authed:
 			redirect(w, r, "/login")
 			return
 		}
@@ -405,16 +443,22 @@ type Page struct {
 	Version     string
 	Update      *update.Release // newer Cubeherd release, nil if none or dismissed
 	Data        any
+	P           *access.Principal // the signed-in user's rights; nil in single-user mode (everything allowed)
+	Account     string            // name of the signed-in user, "" in single-user mode
 }
 
 func (a *App) render(w http.ResponseWriter, r *http.Request, page string, p Page) {
 	p.Version = Version
+	p.P = principalOf(r)
+	if p.P != nil {
+		p.Account = p.P.User.Name
+	}
 	if page != "login" {
-		p.Nodes = a.Reg.Refresh(r.Context(), false, rackMaxAge)
+		p.Nodes = a.refresh(r.Context(), false, rackMaxAge)
 		for _, n := range p.Nodes {
 			p.RackCount += len(n.Views)
 		}
-		if cfg := a.Cfg.Get(); !cfg.NoUpdateCheck {
+		if cfg := a.Cfg.Get(); !cfg.NoUpdateCheck && p.P.Global(access.SettingsManage) {
 			if rel := a.Updates.Available(Version); rel != nil && rel.Tag != cfg.DismissedUpdate {
 				p.Update = rel
 			}

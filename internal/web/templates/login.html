@@ -3,17 +3,22 @@
   <form class="panel" method="post" action="{{.Data.Action}}">
     <div class="brand">{{template "logo"}}<b>Cubeherd</b></div>
     {{if .Data.Setup}}
-    <div><h1>{{t "Einrichten"}}</h1><p class="muted" style="margin-top:4px">{{t "Lege das Passwort für das Admin-Konto fest. Cubeherd nur im LAN oder per VPN erreichbar machen."}}</p></div>
+    <div><h1>{{t "Einrichten"}}</h1><p class="muted" style="margin-top:4px">{{if .Data.Accounts}}{{t "Lege den ersten Benutzer fest. Er bekommt die Rolle Owner. Cubeherd nur im LAN oder per VPN erreichbar machen."}}{{else}}{{t "Lege das Passwort für das Admin-Konto fest. Cubeherd nur im LAN oder per VPN erreichbar machen."}}{{end}}</p></div>
     <label class="field"><span>{{t "Sprache"}}</span><select class="input" name="language">{{range languages}}<option value="{{.Code}}" {{if eq .Code lang}}selected{{end}}>{{.Name}}</option>{{end}}</select></label>
-    <label class="field"><span>{{t "Passwort"}}</span><input class="input" name="password" type="password" autocomplete="new-password" minlength="10" required autofocus><small>{{t "Mindestens 10 Zeichen."}}</small></label>
+    {{if .Data.Accounts}}<label class="field"><span>{{t "Benutzername"}}</span><input class="input" name="user" value="{{or .Data.Name "admin"}}" autocomplete="username" required></label>{{end}}
+    <label class="field"><span>{{t "Passwort"}}</span><input class="input" name="password" type="password" autocomplete="new-password" minlength="10" required {{if not .Data.Accounts}}autofocus{{end}}><small>{{t "Mindestens 10 Zeichen."}}</small></label>
     <label class="field"><span>{{t "Passwort wiederholen"}}</span><input class="input" name="password2" type="password" autocomplete="new-password" minlength="10" required></label>
     {{with .Data.Error}}<p class="err">{{.}}</p>{{end}}
     <button class="btn primary" type="submit">{{t "Passwort speichern"}}</button>
     {{else}}
-    <div><h1>{{t "Anmelden"}}</h1><p class="muted" style="margin-top:4px">{{t "Admin-Konto dieses Dashboards."}}</p></div>
-    <label class="field"><span>{{t "Passwort"}}</span><input class="input" name="password" type="password" autocomplete="current-password" required autofocus></label>
+    <div><h1>{{t "Anmelden"}}</h1><p class="muted" style="margin-top:4px">{{if .Data.Accounts}}{{t "Melde dich mit deinem Konto an."}}{{else}}{{t "Admin-Konto dieses Dashboards."}}{{end}}</p></div>
+    {{if not .Data.NoLocal}}
+    {{if .Data.Accounts}}<label class="field"><span>{{t "Benutzername"}}</span><input class="input" name="user" value="{{.Data.Name}}" autocomplete="username" required autofocus></label>{{end}}
+    <label class="field"><span>{{t "Passwort"}}</span><input class="input" name="password" type="password" autocomplete="current-password" required {{if not .Data.Accounts}}autofocus{{end}}></label>
+    {{end}}
     {{with .Data.Error}}<p class="err">{{.}}</p>{{end}}
-    <button class="btn primary" type="submit">{{t "Anmelden"}}</button>
+    {{if not .Data.NoLocal}}<button class="btn primary" type="submit">{{t "Anmelden"}}</button>{{end}}
+    {{range .Data.SSO}}<a class="btn sso-btn" href="/login/sso?p={{.ID}}">{{t "Anmelden mit %s" .Label}}</a>{{end}}
     {{end}}
   </form>
 </div>

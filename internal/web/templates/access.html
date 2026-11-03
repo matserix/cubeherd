@@ -1,0 +1,388 @@
+{{define "content"}}
+<section class="view">
+  <div class="view-head">
+    <div><h1>{{t "Zugriff"}}</h1><p class="sub">{{t "Benutzer, Rollen und wer was wo darf. Jede Änderung landet im Audit-Log."}}</p></div>
+    <div class="actions">
+      {{if eq .Data.Tab "users"}}{{if not .Data.User}}<button class="btn primary" hx-get="/access/users/new" hx-target="#modal-card">{{template "plus"}}{{t "Benutzer anlegen"}}</button>{{end}}
+      {{else if eq .Data.Tab "roles"}}<button class="btn primary" hx-get="/access/roles/new" hx-target="#modal-card">{{template "plus"}}{{t "Rolle anlegen"}}</button>
+      {{else if eq .Data.Tab "grants"}}<button class="btn primary" hx-get="/access/grants/new" hx-target="#modal-card">{{template "plus"}}{{t "Zuweisung hinzufügen"}}</button>{{end}}
+    </div>
+  </div>
+  <div class="tabs" role="tablist">{{range .Data.Tabs}}<a role="tab" class="tab" href="{{.URL}}" aria-selected="{{eq $.Data.Tab .Key}}">{{t .Label}}</a>{{end}}</div>
+  {{if eq .Data.Tab "users"}}{{if .Data.User}}{{template "accUser" .}}{{else}}{{template "accUsers" .}}{{end}}
+  {{else if eq .Data.Tab "groups"}}{{template "accGroups" .}}
+  {{else if eq .Data.Tab "roles"}}{{template "accRoles" .}}
+  {{else if eq .Data.Tab "grants"}}{{template "accGrants" .}}
+  {{else if eq .Data.Tab "sso"}}{{template "accSSO" .}}
+  {{else if eq .Data.Tab "audit"}}{{template "accAudit" .}}{{end}}
+</section>
+{{end}}
+
+{{define "plus"}}<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M8 3v10M3 8h10"/></svg>{{end}}
+
+{{/* ---------- Users ---------- */}}
+{{define "accUsers"}}
+<div class="panel"><div class="tbl-wrap"><table class="tbl" id="users-table">
+  <thead><tr><th>{{t "Benutzer"}}</th><th>{{t "Rollen"}}</th><th class="hide-sm">{{t "Gruppen"}}</th><th class="hide-sm">{{t "Letzte Anmeldung"}}</th><th>{{t "Status"}}</th><th class="right"></th></tr></thead>
+  <tbody>
+  {{range .Data.Users}}
+  <tr class="click" onclick="location.href='/access/users/{{.ID}}'">
+    <td class="t-name"><b>{{.Name}}{{if .Self}} <span class="chip">{{t "du"}}</span>{{end}}</b><span>{{if .Email}}{{.Email}}{{else}}{{if not .HasPassword}}{{t "nur Einmalanmeldung"}}{{else}}–{{end}}{{end}}</span></td>
+    <td>{{range .Roles}}<span class="chip role">{{.}}</span> {{else}}<span class="muted">{{t "keine Rechte"}}</span>{{end}}</td>
+    <td class="hide-sm">{{range .Groups}}<span class="chip">{{.}}</span> {{else}}<span class="muted">–</span>{{end}}</td>
+    <td class="hide-sm num">{{if .LastLogin.IsZero}}<span class="muted">{{t "nie"}}</span>{{else}}{{dt .LastLogin}}{{end}}</td>
+    <td>{{if .Disabled}}<span class="pill s-stopped">{{t "gesperrt"}}</span>{{else}}<span class="pill s-running">{{t "aktiv"}}</span>{{end}}{{if .Sessions}}<div class="muted" style="font-size:12px;margin-top:4px">{{t "%d Sitzung(en)" .Sessions}}</div>{{end}}</td>
+    <td class="right"><a class="btn sm ghost" href="/access/users/{{.ID}}" style="text-decoration:none">{{t "Öffnen"}}</a></td>
+  </tr>
+  {{end}}
+  </tbody></table></div></div>
+<div class="callout info"><div><b>{{t "Datenbank"}}</b><span class="muted">{{t "Konten, Rollen, Sitzungen und das Audit-Log liegen in cubeherd.db (%s). Für eine Sicherung: cubeherd db backup <Datei>." (mb .Data.DBSize)}}</span></div></div>
+<details class="panel panel-pad off-mode"><summary>{{t "Mehrbenutzermodus beenden"}}</summary>
+  <form class="stack" hx-post="/access/disable" style="margin-top:12px" hx-confirm="{{t "{} Alle Konten außer dem gemeinsamen Passwort gelten dann nicht mehr."}}" data-dlg-title="{{t "Mehrbenutzermodus beenden?"}}" data-dlg-ok="{{t "Beenden"}}" data-dlg-tone="danger" data-dlg-icon="trash">
+    <p class="muted">{{t "Zurück zu einem gemeinsamen Passwort. Konten, Rollen und das Audit-Log bleiben in der Datenbank und werden nicht mehr verwendet. Setze jetzt das neue Passwort."}}</p>
+    <div class="grid-2">
+      <label class="field"><span>{{t "Neues Passwort"}}</span><input class="input" type="password" name="password" minlength="10" autocomplete="new-password" required></label>
+      <label class="field"><span>{{t "Passwort wiederholen"}}</span><input class="input" type="password" name="password2" minlength="10" autocomplete="new-password" required></label>
+    </div>
+    <div><button class="btn danger">{{t "Beenden"}} <span class="spin-on-req"></span></button></div>
+  </form>
+</details>
+{{end}}
+
+{{define "userNew"}}
+<div class="modal-head"><h2>{{t "Benutzer anlegen"}}</h2><button class="btn sm ghost" data-close aria-label="{{t "Schließen"}}">✕</button></div>
+<form hx-post="/access/users">
+<div class="modal-body">
+  <div class="grid-2">
+    <label class="field"><span>{{t "Benutzername"}}</span><input class="input" name="name" required autofocus autocomplete="off"></label>
+    <label class="field"><span>{{t "E-Mail"}}</span><input class="input" name="email" type="email" autocomplete="off"><small>{{t "Optional. Dient dem Verknüpfen mit der Einmalanmeldung."}}</small></label>
+  </div>
+  <label class="field"><span>{{t "Passwort"}}</span><input class="input" name="password" type="password" minlength="10" autocomplete="new-password"><small>{{t "Mindestens 10 Zeichen. Leer lassen, wenn sich die Person nur per Einmalanmeldung anmeldet."}}</small></label>
+  <p class="muted">{{t "Ein neues Konto hat keine Rechte. Sie vergibst du im nächsten Schritt."}}</p>
+</div>
+<div class="modal-foot"><button class="btn ghost" type="button" data-close>{{t "Abbrechen"}}</button><button class="btn primary">{{t "Anlegen"}} <span class="spin-on-req"></span></button></div>
+</form>
+{{end}}
+
+{{define "accUser"}}{{$u := .Data.User}}
+<p><a href="/access/users" class="back">← {{t "Alle Benutzer"}}</a></p>
+<div class="srv-head" style="margin-bottom:4px"><div><div class="srv-title"><h1>{{$u.Name}}</h1>{{if $u.Disabled}}<span class="pill s-stopped">{{t "gesperrt"}}</span>{{else}}<span class="pill s-running">{{t "aktiv"}}</span>{{end}}</div>
+  <div class="srv-meta"><span>{{t "angelegt %s" (dt $u.Created)}}</span>{{if not $u.LastLogin.IsZero}}<span>{{t "zuletzt angemeldet %s" (ago $u.LastLogin)}}</span>{{end}}</div></div></div>
+<div class="stack">
+<form class="panel" hx-post="/access/users/{{$u.ID}}">
+  <div class="panel-head"><h2>{{t "Konto"}}</h2></div>
+  <div class="panel-pad stack">
+    <div class="grid-2">
+      <label class="field"><span>{{t "Benutzername"}}</span><input class="input" name="name" value="{{$u.Name}}" required></label>
+      <label class="field"><span>{{t "E-Mail"}}</span><input class="input" name="email" type="email" value="{{$u.Email}}"></label>
+    </div>
+    <label class="switch"><input type="checkbox" name="disabled" {{if $u.Disabled}}checked{{end}} {{if $u.Self}}disabled{{end}}><span class="txt">{{t "Konto sperren"}}<small>{{t "Beendet alle Sitzungen sofort. Die Zuweisungen bleiben erhalten."}}</small></span></label>
+    <div class="actions"><button class="btn primary">{{t "Speichern"}} <span class="spin-on-req"></span></button></div>
+  </div>
+</form>
+
+<div class="panel">
+  <div class="panel-head"><h2>{{t "Zuweisungen"}}</h2><button class="btn sm" hx-get="/access/grants/new?user={{$u.ID}}" hx-target="#modal-card">{{template "plus"}}{{t "Zuweisung hinzufügen"}}</button></div>
+  {{template "grantTable" (grantCtx $u.Grants (print "/access/users/" $u.ID))}}
+  {{if $u.ViaGroups}}<div class="panel-pad" style="padding-top:0"><p class="muted" style="margin:10px 0 6px">{{t "Über Gruppen"}}</p></div>{{template "grantTable" (grantCtx $u.ViaGroups "")}}{{end}}
+</div>
+
+<div class="panel">
+  <div class="panel-head"><h2>{{t "Wirksame Rechte"}}</h2><span class="muted" style="font-size:12px">{{t "Alles zusammen, was dieser Benutzer heute darf"}}</span></div>
+  <div class="panel-pad stack">
+  {{range $u.Effective}}<div><b>{{.Label}}</b><div class="permchips">{{range .Perms}}<span class="chip">{{t (permName .)}}</span>{{end}}</div></div>
+  {{else}}<p class="muted">{{t "Keine Rechte. Der Benutzer kann sich anmelden, sieht aber nichts."}}</p>{{end}}
+  </div>
+</div>
+
+<form class="panel" hx-post="/access/users/{{$u.ID}}/groups">
+  <div class="panel-head"><h2>{{t "Gruppen"}}</h2><button class="btn sm">{{t "Speichern"}}</button></div>
+  <div class="panel-pad">
+    {{range $u.Groups}}<label class="switch" style="margin-bottom:8px"><input type="checkbox" name="group" value="{{.ID}}" {{if .Member}}checked{{end}}><span class="txt">{{.Name}}{{if .OIDC}}<small>{{t "Aus dem Anbieter: %s" .OIDC}}</small>{{end}}</span></label>
+    {{else}}<p class="muted">{{t "Es gibt noch keine Gruppen."}} <a href="/access/groups">{{t "Gruppen verwalten"}}</a></p>{{end}}
+  </div>
+</form>
+
+<div class="panel">
+  <div class="panel-head"><h2>{{t "Anmeldung"}}</h2>
+    <div class="actions">{{if $u.Sessions}}<button class="btn sm ghost" hx-post="/access/users/{{$u.ID}}/sessions/end" hx-confirm="{{t "Alle Sitzungen von {} werden beendet."}}" data-dlg-title="{{t "Überall abmelden?"}}" data-dlg-detail="{{$u.Name}}" data-dlg-ok="{{t "Abmelden"}}" data-dlg-icon="trash">{{t "Überall abmelden"}}</button>{{end}}</div></div>
+  <div class="panel-pad stack">
+    <form class="stack" hx-post="/access/users/{{$u.ID}}/password">
+      <div class="grid-2" style="align-items:end">
+        <label class="field"><span>{{t "Neues Passwort setzen"}}</span><input class="input" type="password" name="password" minlength="10" autocomplete="new-password" placeholder="{{if $u.HasPassword}}{{t "Passwort ändern"}}{{else}}{{t "Kein Passwort gesetzt"}}{{end}}" required></label>
+        <div><button class="btn">{{t "Passwort setzen"}}</button></div>
+      </div>
+      <small class="muted">{{t "Beendet alle Sitzungen des Benutzers."}}</small>
+    </form>
+    {{if $u.Identities}}<div><b>{{t "Verknüpfte Anmeldungen"}}</b>{{range $u.Identities}}<div class="muted mono" style="font-size:12.5px">{{.Issuer}} · {{.Email}}</div>{{end}}</div>{{end}}
+    <div><b>{{t "Aktive Sitzungen"}}</b>
+      {{range $u.Sessions}}<div class="muted" style="font-size:12.5px">{{.IP}} · {{.UserAgent}} · {{t "zuletzt aktiv %s" (ago .LastSeen)}}</div>{{else}}<div class="muted" style="font-size:12.5px">{{t "Keine."}}</div>{{end}}
+    </div>
+  </div>
+</div>
+
+{{if not $u.Self}}<div class="panel panel-pad danger-zone"><div class="actions" style="justify-content:space-between"><div><b>{{t "Konto löschen"}}</b><p class="muted" style="margin:2px 0 0">{{t "Entfernt das Konto und seine Zuweisungen. Einträge im Audit-Log bleiben."}}</p></div>
+  <button class="btn danger" hx-post="/access/users/{{$u.ID}}/delete" hx-confirm="{{t "{} wird gelöscht."}}" data-dlg-title="{{t "Konto löschen?"}}" data-dlg-detail="{{$u.Name}}" data-dlg-ok="{{t "Löschen"}}" data-dlg-tone="danger" data-dlg-icon="trash">{{t "Löschen"}}</button></div></div>{{end}}
+</div>
+{{end}}
+
+{{define "grantTable"}}
+<div class="tbl-wrap"><table class="tbl"><thead><tr><th>{{t "Rolle"}}</th><th>{{t "Bereich"}}</th><th class="hide-sm">{{t "Rechte"}}</th><th class="hide-sm">{{t "Seit"}}</th><th class="hide-sm">{{t "Läuft ab"}}</th><th class="right"></th></tr></thead><tbody>
+{{$ret := .Return}}
+{{range .Rows}}<tr {{if .Expired}}style="opacity:.55"{{end}}>
+  <td><span class="chip role">{{.RoleName}}</span>{{if .Group}} <span class="muted" style="font-size:12px">{{t "über Gruppe %s" .Who}}</span>{{end}}</td>
+  <td>{{.Label}}</td>
+  <td class="hide-sm num">{{.Perms}}{{if .Sensitive}} <span class="pill s-warn" title="{{t "Enthält Rechte mit Zugriff auf Geheimnisse oder Operator-Steuerung."}}">{{t "sensibel"}}</span>{{end}}</td>
+  <td class="hide-sm num">{{dt .Created}}{{with .CreatedBy}}<div class="muted" style="font-size:12px">{{.}}</div>{{end}}</td>
+  <td class="hide-sm num">{{if .Expires.IsZero}}<span class="muted">{{t "nie"}}</span>{{else if .Expired}}<span class="pill s-stopped">{{t "abgelaufen"}}</span>{{else}}{{dt .Expires}}{{end}}</td>
+  <td class="right">{{if $ret}}<button class="btn sm ghost" hx-post="/access/grants/{{.ID}}/delete" hx-vals='{"return":"{{$ret}}"}' hx-confirm="{{t "{} wird entzogen."}}" data-dlg-title="{{t "Zuweisung entfernen?"}}" data-dlg-detail="{{.RoleName}} · {{.Label}}" data-dlg-ok="{{t "Entfernen"}}" data-dlg-tone="danger" data-dlg-icon="trash">{{t "Entfernen"}}</button>{{end}}</td>
+</tr>{{else}}<tr><td colspan="6" class="muted" style="padding:18px">{{t "Keine Zuweisungen."}}</td></tr>{{end}}
+</tbody></table></div>
+{{end}}
+
+{{/* ---------- Groups ---------- */}}
+{{define "accGroups"}}
+<div class="stack">
+<form class="panel" hx-post="/access/groups">
+  <div class="panel-head"><h2>{{t "Neue Gruppe"}}</h2></div>
+  <div class="panel-pad"><div class="grid-2" style="align-items:start">
+    <label class="field"><span>{{t "Name"}}</span><input class="input" name="name" placeholder="{{t "z. B. Moderatoren"}}" required autocomplete="off"></label>
+    <label class="field"><span>{{t "Gruppe beim Anbieter (optional)"}}</span><input class="input mono" name="oidc" autocomplete="off" placeholder="mc-mods"><small>{{t "Wert des Gruppen-Claims, der beim Anmelden auf diese Gruppe abgebildet wird."}}</small></label>
+  </div><div class="actions" style="margin-top:12px"><button class="btn primary">{{t "Gruppe anlegen"}}</button></div></div>
+</form>
+{{range .Data.Groups}}{{$g := .}}
+<div class="panel">
+  <form hx-post="/access/groups/{{.ID}}">
+  <div class="panel-head"><h2>{{.Name}}</h2><div class="actions"><button class="btn sm primary">{{t "Speichern"}}</button>
+    <button class="btn sm ghost danger" type="button" hx-post="/access/groups/{{.ID}}/delete" hx-confirm="{{t "{} wird gelöscht."}}" data-dlg-title="{{t "Gruppe löschen?"}}" data-dlg-detail="{{.Name}}" data-dlg-note="{{t "Die Zuweisungen der Gruppe fallen weg."}}" data-dlg-ok="{{t "Löschen"}}" data-dlg-tone="danger" data-dlg-icon="trash">{{t "Löschen"}}</button></div></div>
+  <div class="panel-pad stack">
+    <div class="grid-2">
+      <label class="field"><span>{{t "Name"}}</span><input class="input" name="name" value="{{.Name}}" required></label>
+      <label class="field"><span>{{t "Gruppe beim Anbieter"}}</span><input class="input mono" name="oidc" value="{{.OIDC}}"></label>
+    </div>
+    <details class="members">
+      <summary><b>{{t "Mitglieder"}}</b> <span class="chip num">{{len .Members}}</span>
+        <span class="chips">{{range $i, $m := .Members}}{{if lt $i 6}}<span class="chip">{{$m.Name}}</span>{{end}}{{end}}{{if gt (len .Members) 6}}<span class="muted">+{{minus (len .Members) 6}}</span>{{end}}</span></summary>
+      <input class="input member-filter" type="search" placeholder="{{t "Benutzer suchen …"}}" autocomplete="off" aria-label="{{t "Benutzer suchen …"}}">
+      <div class="memberlist">{{range .Pick}}<label class="pick" data-name="{{lower .Name}}"><input type="checkbox" name="member" value="{{.ID}}" {{if .Member}}checked{{end}}><span>{{.Name}}</span>{{if .Email}}<small class="muted">{{.Email}}</small>{{end}}</label>{{end}}</div>
+      <small class="muted">{{t "Haken setzen oder entfernen und oben speichern."}}</small>
+    </details>
+  </div>
+  </form>
+  <div class="panel-head" style="border-top:1px solid var(--line)"><h3 style="margin:0;font-size:13px">{{t "Zuweisungen der Gruppe"}}</h3><button class="btn sm" hx-get="/access/grants/new?principal=g:{{.ID}}" hx-target="#modal-card">{{template "plus"}}{{t "Zuweisung hinzufügen"}}</button></div>
+  {{template "grantTable" (grantCtx .Grants "/access/groups")}}
+</div>
+{{else}}<div class="panel panel-pad"><p class="muted">{{t "Es gibt noch keine Gruppen. Mit Gruppen vergibst du Rechte einmal und gibst sie vielen Benutzern."}}</p></div>{{end}}
+</div>
+{{end}}
+
+{{/* ---------- Roles ---------- */}}
+{{define "accRoles"}}
+<div class="panel"><div class="tbl-wrap"><table class="tbl">
+  <thead><tr><th>{{t "Rolle"}}</th><th class="hide-sm">{{t "Beschreibung"}}</th><th>{{t "Rechte"}}</th><th class="hide-sm">{{t "Zugewiesen"}}</th><th class="right"></th></tr></thead><tbody>
+  {{range .Data.Roles}}
+  <tr>
+    <td class="t-name"><b>{{.Name}}</b><span>{{if .Builtin}}{{t "eingebaut"}}{{else}}{{t "eigene Rolle"}}{{end}}</span></td>
+    <td class="hide-sm" style="max-width:380px">{{if .Builtin}}{{t .Desc}}{{else}}{{.Desc}}{{end}}</td>
+    <td class="num">{{len .Perms}}{{if .Sensitive}} <span class="pill s-warn" title="{{t "Enthält Rechte mit Zugriff auf Geheimnisse oder Operator-Steuerung."}}">{{t "%d sensibel" .Sensitive}}</span>{{end}}</td>
+    <td class="hide-sm num">{{.Grants}}</td>
+    <td class="right"><div class="actions" style="justify-content:flex-end">
+      <button class="btn sm ghost" hx-get="/access/roles/{{.ID}}" hx-target="#modal-card">{{if .Builtin}}{{t "Ansehen"}}{{else}}{{t "Bearbeiten"}}{{end}}</button>
+      <button class="btn sm ghost" hx-get="/access/roles/new?from={{.ID}}" hx-target="#modal-card">{{t "Duplizieren"}}</button>
+      {{if not .Builtin}}<button class="btn sm ghost" hx-post="/access/roles/{{.ID}}/delete" hx-confirm="{{t "{} wird gelöscht."}}" data-dlg-title="{{t "Rolle löschen?"}}" data-dlg-detail="{{.Name}}" data-dlg-ok="{{t "Löschen"}}" data-dlg-tone="danger" data-dlg-icon="trash" {{if .Grants}}disabled title="{{t "Die Rolle ist noch zugewiesen."}}"{{end}}>{{t "Löschen"}}</button>{{end}}
+    </div></td>
+  </tr>{{end}}
+  </tbody></table></div></div>
+<div class="callout info"><div><b>{{t "So wirken Rollen"}}</b><span class="muted">{{t "Eine Rolle ist eine Sammlung von Rechten. Erst die Zuweisung sagt, wo sie gilt: überall, auf einem Node oder auf einem einzelnen Server. Rechte addieren sich, es gibt kein Verbieten."}}</span></div></div>
+{{end}}
+
+{{define "roleForm"}}
+<div class="modal-head"><h2>{{if .ReadOnly}}{{.Name}}{{else if .ID}}{{t "Rolle bearbeiten"}}{{else}}{{t "Rolle anlegen"}}{{end}}</h2><button class="btn sm ghost" data-close aria-label="{{t "Schließen"}}">✕</button></div>
+<form {{if not .ReadOnly}}hx-post="/access/roles{{if .ID}}/{{.ID}}{{end}}"{{end}}>
+<div class="modal-body role-form">
+  {{if .ReadOnly}}<div class="callout info"><div><b>{{t "Eingebaute Rolle"}}</b><span class="muted">{{t "Sie lässt sich nicht ändern. Dupliziere sie, um eine eigene Variante anzulegen."}}</span></div></div>{{end}}
+  {{if not .ReadOnly}}<div class="grid-2">
+    <label class="field"><span>{{t "Name"}}</span><input class="input" name="name" value="{{.Name}}" required autofocus autocomplete="off"></label>
+    <label class="field"><span>{{t "Beschreibung"}}</span><input class="input" name="description" value="{{.Description}}" autocomplete="off"></label>
+  </div>{{end}}
+  {{range .Groups}}<fieldset class="permgroup"><legend>{{t .Name}}</legend>
+    {{range .Items}}<label class="perm {{if .Sensitive}}sens{{end}}"><input type="checkbox" name="perm" value="{{.ID}}" {{if .Checked}}checked{{end}} {{if $.ReadOnly}}disabled{{end}}>
+      <span class="txt"><span><b>{{t .Name}}</b>{{if .Sensitive}} <span class="pill s-warn">{{t "sensibel"}}</span>{{end}}</span><small>{{t .Desc}}</small></span>
+      <span class="chip scope">{{if eq .Scope "Alles"}}{{t "nur Dashboard"}}{{else if eq .Scope "Node"}}{{t "ab Node"}}{{else}}{{t "ab Server"}}{{end}}</span></label>{{end}}
+  </fieldset>{{end}}
+</div>
+<div class="modal-foot"><button class="btn ghost" type="button" data-close>{{t "Schließen"}}</button>{{if not .ReadOnly}}<button class="btn primary">{{t "Speichern"}} <span class="spin-on-req"></span></button>{{end}}</div>
+</form>
+{{end}}
+
+{{/* ---------- Grants ---------- */}}
+{{define "accGrants"}}
+<div class="panel">{{template "grantTableWho" (grantCtx .Data.Grants "/access/grants")}}</div>
+<div class="callout info"><div><b>{{t "Vererbung"}}</b><span class="muted">{{t "Eine Zuweisung auf einem Node gilt für alle seine Server, auch für später angelegte. Eine Zuweisung auf „Alles“ gilt überall. Rechte, die es nur für das ganze Dashboard gibt (Nodes, Einstellungen, Benutzer), wirken nur bei „Alles“."}}</span></div></div>
+{{end}}
+
+{{define "grantTableWho"}}
+<div class="tbl-wrap"><table class="tbl"><thead><tr><th>{{t "Wer"}}</th><th>{{t "Rolle"}}</th><th>{{t "Bereich"}}</th><th class="hide-sm">{{t "Rechte"}}</th><th class="hide-sm">{{t "Läuft ab"}}</th><th class="right"></th></tr></thead><tbody>
+{{$ret := .Return}}
+{{range .Rows}}<tr {{if .Expired}}style="opacity:.55"{{end}}>
+  <td class="t-name"><b>{{.Who}}</b><span>{{if .Group}}{{t "Gruppe"}}{{else}}{{t "Konto"}}{{end}}</span></td>
+  <td><span class="chip role">{{.RoleName}}</span></td>
+  <td>{{.Label}}</td>
+  <td class="hide-sm num">{{.Perms}}{{if .Sensitive}} <span class="pill s-warn" title="{{t "Enthält Rechte mit Zugriff auf Geheimnisse oder Operator-Steuerung."}}">{{t "sensibel"}}</span>{{end}}</td>
+  <td class="hide-sm num">{{if .Expires.IsZero}}<span class="muted">{{t "nie"}}</span>{{else if .Expired}}<span class="pill s-stopped">{{t "abgelaufen"}}</span>{{else}}{{dt .Expires}}{{end}}</td>
+  <td class="right"><button class="btn sm ghost" hx-post="/access/grants/{{.ID}}/delete" hx-vals='{"return":"{{$ret}}"}' hx-confirm="{{t "{} wird entzogen."}}" data-dlg-title="{{t "Zuweisung entfernen?"}}" data-dlg-detail="{{.Who}} · {{.RoleName}} · {{.Label}}" data-dlg-ok="{{t "Entfernen"}}" data-dlg-tone="danger" data-dlg-icon="trash">{{t "Entfernen"}}</button></td>
+</tr>{{else}}<tr><td colspan="6" class="muted" style="padding:18px">{{t "Noch keine Zuweisungen. Ohne Zuweisung sieht ein Benutzer nichts."}}</td></tr>{{end}}
+</tbody></table></div>
+{{end}}
+
+{{define "grantNew"}}
+<div class="modal-head"><h2>{{t "Zuweisung hinzufügen"}}</h2><button class="btn sm ghost" data-close aria-label="{{t "Schließen"}}">✕</button></div>
+<form hx-post="/access/grants">
+<input type="hidden" name="return" value="{{.Return}}">
+<div class="modal-body">
+  <label class="field"><span>{{t "Wer"}}</span>
+    <select class="input" name="principal" required>
+      <optgroup label="{{t "Benutzer"}}">{{range .Users}}<option value="u:{{.ID}}" {{if eq $.Fixed (print "u:" .ID)}}selected{{end}}>{{.Name}}</option>{{end}}</optgroup>
+      {{if .Groups}}<optgroup label="{{t "Gruppen"}}">{{range .Groups}}<option value="g:{{.ID}}" {{if eq $.Fixed (print "g:" .ID)}}selected{{end}}>{{.Name}}</option>{{end}}</optgroup>{{end}}
+    </select></label>
+  <label class="field"><span>{{t "Rolle"}}</span>
+    <select class="input" name="role" required>{{range .Roles}}<option value="{{.ID}}">{{.Name}} ({{len .Perms}}){{if .Builtin}} · {{t "eingebaut"}}{{end}}</option>{{end}}</select></label>
+  <label class="field"><span>{{t "Bereich"}}</span>
+    <select class="input" name="scope" required>
+      <option value="g">{{t "Alles (ganzes Dashboard)"}}</option>
+      {{range .Nodes}}<optgroup label="{{.Name}}"><option value="n:{{.ID}}">{{t "Node %s, alle Server" .Name}}</option>
+        {{$nid := .ID}}{{range .Servers}}<option value="s:{{$nid}}:{{.ID}}">{{t "Nur Server %s" .Name}}</option>{{end}}</optgroup>{{end}}
+    </select><small>{{t "Ein Node gilt für alle seine Server, auch für später angelegte."}}</small></label>
+  <label class="field"><span>{{t "Läuft ab am (optional)"}}</span><input class="input" type="date" name="expires"><small>{{t "Danach fällt die Zuweisung automatisch weg. Praktisch für Gäste und Vertretungen."}}</small></label>
+</div>
+<div class="modal-foot"><button class="btn ghost" type="button" data-close>{{t "Abbrechen"}}</button><button class="btn primary">{{t "Zuweisen"}} <span class="spin-on-req"></span></button></div>
+</form>
+{{end}}
+
+{{/* ---------- Audit log ---------- */}}
+{{define "accAudit"}}{{$a := .Data.Audit}}
+<form class="panel audit-filter" method="get" action="/access/audit">
+  <div class="panel-pad">
+    <div class="audit-grid">
+      <label class="field"><span>{{t "Benutzer"}}</span><input class="input" name="actor" value="{{$a.F.Actor}}" autocomplete="off"></label>
+      <label class="field"><span>{{t "Aktion"}}</span><select class="input" name="action"><option value="">{{t "Alle"}}</option>{{range $a.Cats}}<option value="{{.Prefix}}" {{if eq $a.F.Action .Prefix}}selected{{end}}>{{t .Label}}</option>{{end}}</select></label>
+      <label class="field"><span>{{t "Ergebnis"}}</span><select class="input" name="outcome"><option value="">{{t "Alle"}}</option><option value="ok" {{if eq $a.F.Outcome "ok"}}selected{{end}}>{{t "Erfolgreich"}}</option><option value="fail" {{if eq $a.F.Outcome "fail"}}selected{{end}}>{{t "Fehlgeschlagen"}}</option><option value="denied" {{if eq $a.F.Outcome "denied"}}selected{{end}}>{{t "Abgelehnt"}}</option></select></label>
+      <label class="field"><span>Node</span><select class="input" name="node"><option value="">{{t "Alle"}}</option>{{range $a.Nodes}}<option value="{{.ID}}" {{if eq $a.F.Node .ID}}selected{{end}}>{{.Name}}</option>{{end}}</select></label>
+      <label class="field"><span>{{t "Von"}}</span><input class="input" type="date" name="from" value="{{$a.F.From}}"></label>
+      <label class="field"><span>{{t "Bis"}}</span><input class="input" type="date" name="to" value="{{$a.F.To}}"></label>
+      <label class="field wide"><span>{{t "Enthält"}}</span><input class="input" name="q" value="{{$a.F.Text}}" placeholder="{{t "Ziel oder Detail, z. B. Dateiname oder Befehl"}}" autocomplete="off"></label>
+    </div>
+    <div class="actions" style="margin-top:12px"><button class="btn primary">{{t "Filtern"}}</button><a class="btn ghost" href="/access/audit" style="text-decoration:none">{{t "Zurücksetzen"}}</a></div>
+  </div>
+</form>
+<div class="panel">
+  <div class="panel-head"><h2>{{t "Einträge"}} <span class="muted num" style="font-weight:400">{{$a.Total}}</span></h2>
+    <div class="actions">
+      {{if $a.Export}}<a class="btn sm ghost" href="/access/audit/export?format=csv&{{$a.Query}}" style="text-decoration:none">CSV</a><a class="btn sm ghost" href="/access/audit/export?format=json&{{$a.Query}}" style="text-decoration:none">JSON</a>{{end}}
+      {{if $a.Global}}<button class="btn sm ghost" hx-post="/access/audit/verify" title="{{t "Prüft die Hash-Kette auf Änderungen und Lücken."}}">{{t "Kette prüfen"}}</button>{{end}}
+    </div></div>
+  <div class="tbl-wrap"><table class="tbl audit-tbl">
+    <thead><tr><th>{{t "Zeit"}}</th><th>{{t "Benutzer"}}</th><th>{{t "Aktion"}}</th><th class="hide-sm">{{t "Bereich"}}</th><th>{{t "Ergebnis"}}</th><th class="hide-sm">IP</th></tr></thead><tbody>
+    {{range $a.Rows}}<tr class="click" hx-get="/access/audit/{{.ID}}" hx-target="#modal-card">
+      <td class="num">{{dt .Time}}</td>
+      <td>{{if .Actor}}{{.Actor}}{{else}}<span class="muted">–</span>{{end}}</td>
+      <td><span class="mono act">{{.Action}}</span>{{with .Target}}<div class="muted tgt">{{.}}</div>{{end}}</td>
+      <td class="hide-sm">{{if .ServerName}}{{.ServerName}}<div class="muted" style="font-size:12px">{{.NodeName}}</div>{{else if .NodeName}}{{.NodeName}}{{else}}<span class="muted">–</span>{{end}}</td>
+      <td>{{if eq .Outcome "ok"}}<span class="pill s-running">{{t "ok"}}</span>{{else if eq .Outcome "denied"}}<span class="pill s-warn">{{t "abgelehnt"}}</span>{{else}}<span class="pill s-stopped">{{t "fehlgeschlagen"}}</span>{{end}}</td>
+      <td class="hide-sm mono" style="font-size:12.5px">{{.IP}}</td>
+    </tr>{{else}}<tr><td colspan="6" class="muted" style="padding:22px">{{t "Keine Einträge für diese Auswahl."}}</td></tr>{{end}}
+    </tbody></table></div>
+  {{if gt $a.Pages 1}}<div class="panel-pad pager"><span class="muted">{{t "Seite %d von %d" $a.Page $a.Pages}}</span>
+    <span class="actions">{{if gt $a.Page 1}}<a class="btn sm ghost" href="/access/audit?{{$a.Query}}&page={{dec $a.Page}}" style="text-decoration:none">← {{t "Neuere"}}</a>{{end}}{{if lt $a.Page $a.Pages}}<a class="btn sm ghost" href="/access/audit?{{$a.Query}}&page={{inc $a.Page}}" style="text-decoration:none">{{t "Ältere"}} →</a>{{end}}</span></div>{{end}}
+</div>
+{{if $a.Manage}}
+<form class="panel" hx-post="/access/audit/retention">
+  <div class="panel-head"><h2>{{t "Aufbewahrung"}}</h2></div>
+  <div class="panel-pad"><div class="grid-2" style="align-items:end">
+    <label class="field"><span>{{t "Einträge behalten (Tage)"}}</span><input class="input num" name="days" type="number" min="0" max="3650" value="{{if lt $a.Days 0}}0{{else}}{{$a.Days}}{{end}}"><small>{{t "0 behält alles. Es gibt %d Einträge, die Datenbank belegt %s." $a.Count (mb $a.Size)}}</small></label>
+    <div><button class="btn">{{t "Speichern"}}</button></div></div>
+    <p class="muted" style="font-size:12px;margin-top:10px">{{t "Das Audit-Log lässt sich in der Oberfläche weder ändern noch löschen. Nur die Aufbewahrung entfernt alte Einträge. Jeder Eintrag trägt den Hash seines Vorgängers; „Kette prüfen“ findet nachträgliche Änderungen an der Datei. Wer Zugriff auf den Host hat, kann die ganze Kette neu schreiben."}}</p></div>
+</form>{{end}}
+{{end}}
+
+{{define "auditEntry"}}
+<div class="modal-head"><h2>{{t "Audit-Eintrag %d" .E.ID}}</h2><button class="btn sm ghost" data-close aria-label="{{t "Schließen"}}">✕</button></div>
+<div class="modal-body">
+  <dl class="kv">
+    <dt>{{t "Zeit"}}</dt><dd>{{dt .E.Time}}</dd>
+    <dt>{{t "Benutzer"}}</dt><dd>{{if .E.Actor}}{{.E.Actor}}{{else}}–{{end}}</dd>
+    <dt>IP</dt><dd class="mono">{{.E.IP}}</dd>
+    <dt>{{t "Aktion"}}</dt><dd class="mono">{{.E.Action}}</dd>
+    <dt>{{t "Ergebnis"}}</dt><dd>{{.E.Outcome}}</dd>
+    {{if .E.Node}}<dt>Node</dt><dd>{{.Node}} <span class="muted mono">({{.E.Node}})</span></dd>{{end}}
+    {{if .E.Server}}<dt>Server</dt><dd>{{.Srv}} <span class="muted mono">({{.E.Server}})</span></dd>{{end}}
+    {{if .E.Target}}<dt>{{t "Ziel"}}</dt><dd class="mono" style="overflow-wrap:anywhere">{{.E.Target}}</dd>{{end}}
+  </dl>
+  {{if .Detail}}<b>{{t "Details"}}</b><pre class="code">{{.Detail}}</pre>{{end}}
+  <p class="muted mono" style="font-size:11.5px;overflow-wrap:anywhere">hash {{.E.Hash}}<br>prev {{.E.Prev}}</p>
+</div>
+<div class="modal-foot"><button class="btn ghost" type="button" data-close>{{t "Schließen"}}</button></div>
+{{end}}
+
+{{define "accSSO"}}{{$d := .Data.SSO}}
+<div class="stack">
+{{with $d.Message}}<div class="callout accent"><div>{{.}}</div></div>{{end}}
+<form class="panel" hx-post="/access/sso">
+  <input type="hidden" name="op" value="global">
+  <div class="panel-head"><h2>{{t "Öffentliche Adresse"}}</h2><button class="btn sm primary">{{t "Speichern"}}</button></div>
+  <div class="panel-pad stack">
+    <label class="field"><span>{{t "Adresse des Dashboards"}}</span><input class="input mono" name="publicUrl" value="{{$d.PublicURL}}" placeholder="https://cubeherd.example.com" autocomplete="off" spellcheck="false"><small>{{if $d.Derived}}{{t "Leer: Cubeherd nimmt die Adresse dieser Anfrage."}}{{else}}{{t "Unter dieser Adresse erreichen die Benutzer das Dashboard."}}{{end}}</small></label>
+    <div><b>{{t "Rückruf-Adresse beim Anbieter eintragen"}}</b><div class="callbackrow"><code class="mono" id="callback-url">{{$d.Callback}}</code></div></div>
+    <label class="switch"><input type="checkbox" name="noLocal" {{if $d.NoLocal}}checked{{end}} {{if and (not $d.NoLocal) (not $d.CanNoLocal)}}disabled{{end}}><span class="txt">{{t "Anmeldung mit Passwort ausschalten"}}<small>{{if $d.CanNoLocal}}{{t "Dann gilt nur noch die Anmeldung über einen Anbieter. Notfall: cubeherd user reset-owner auf dem Host schaltet das Passwort wieder ein."}}{{else}}{{t "Erst möglich, wenn ein Owner mit einem Anbieter verknüpft ist (Konto → Verknüpfte Anmeldungen)."}}{{end}}</small></span></label>
+  </div>
+</form>
+
+{{range $d.Providers}}
+<div class="panel">
+  <form hx-post="/access/sso">
+    <input type="hidden" name="op" value="provider"><input type="hidden" name="id" value="{{.ID}}">
+    <div class="panel-head"><h2>{{.Label}} <span class="chip">{{if eq .Kind "google"}}Google{{else}}OpenID Connect{{end}}</span></h2>
+      <div class="actions"><a class="btn sm ghost" href="/login/sso?p={{.ID}}&test=1" style="text-decoration:none">{{t "Anmeldung testen"}}</a><button class="btn sm primary">{{t "Speichern"}}</button>
+        <button class="btn sm ghost danger" type="button" hx-post="/access/sso" hx-vals='{"op":"delete","id":"{{.ID}}"}' hx-confirm="{{t "{} wird entfernt."}}" data-dlg-title="{{t "Anbieter entfernen?"}}" data-dlg-detail="{{.Label}}" data-dlg-ok="{{t "Entfernen"}}" data-dlg-tone="danger" data-dlg-icon="trash">{{t "Entfernen"}}</button></div></div>
+    <div class="panel-pad stack">{{template "ssoFields" (ssoForm . $d)}}</div>
+  </form>
+</div>
+{{end}}
+
+<div class="panel"><div class="panel-head"><h2>{{t "Anbieter hinzufügen"}}</h2></div>
+  <div class="panel-pad stack">
+    <details class="adder"><summary>{{t "Google"}}</summary>
+      <form hx-post="/access/sso" class="stack" style="margin-top:12px"><input type="hidden" name="op" value="provider"><input type="hidden" name="kind" value="google">
+        <p class="muted">{{t "Lege in der Google Cloud Console OAuth-Zugangsdaten vom Typ „Webanwendung“ an und trage oben die Rückruf-Adresse ein. Mit der Domain beschränkst du die Anmeldung auf ein Google-Workspace."}}</p>
+        {{template "ssoFields" (ssoForm nil $d)}}
+        <div><button class="btn primary">{{t "Google hinzufügen"}} <span class="spin-on-req"></span></button></div></form></details>
+    <details class="adder"><summary>{{t "Anderer OpenID-Connect-Anbieter"}}</summary>
+      <form hx-post="/access/sso" class="stack" style="margin-top:12px"><input type="hidden" name="op" value="provider"><input type="hidden" name="kind" value="oidc">
+        <p class="muted">{{t "Funktioniert mit Keycloak, Authentik, Authelia, Zitadel, Entra ID, Okta und anderen. Der Aussteller ist die Basis-Adresse, unter der /.well-known/openid-configuration liegt."}}</p>
+        <div class="grid-2"><label class="field"><span>{{t "Name der Schaltfläche"}}</span><input class="input" name="label" placeholder="Authentik" autocomplete="off"></label>
+          <label class="field"><span>{{t "Aussteller (Issuer)"}}</span><input class="input mono" name="issuer" placeholder="https://auth.example.com/application/o/cubeherd/" autocomplete="off" spellcheck="false" required></label></div>
+        {{template "ssoFields" (ssoForm nil $d)}}
+        <div><button class="btn primary">{{t "Anbieter hinzufügen"}} <span class="spin-on-req"></span></button></div></form></details>
+  </div>
+</div>
+<div class="callout info"><div><b>{{t "So werden Konten zugeordnet"}}</b><span class="muted">{{t "Beim ersten Anmelden sucht Cubeherd ein Konto mit derselben bestätigten E-Mail-Adresse, wenn „Per E-Mail verknüpfen“ an ist, oder legt ein Konto ohne Rechte an, wenn „Konten automatisch anlegen“ an ist. Sonst bleibt die Anmeldung abgelehnt, bis ein Owner das Konto verknüpft. Mit einem Gruppen-Claim folgen die Gruppen dem Anbieter bei jeder Anmeldung."}}</span></div></div>
+</div>
+{{end}}
+
+{{define "ssoFields"}}{{$p := .P}}
+<div class="grid-2">
+  <label class="field"><span>{{t "Client-ID"}}</span><input class="input mono" name="clientId" value="{{if $p}}{{$p.ClientID}}{{end}}" autocomplete="off" spellcheck="false" required></label>
+  <label class="field"><span>{{t "Client-Secret"}}</span><input class="input mono" name="clientSecret" type="password" autocomplete="new-password" placeholder="{{if and $p $p.HasSecret}}{{t "gespeichert, leer lassen zum Beibehalten"}}{{end}}" {{if not $p}}required{{end}}></label>
+</div>
+{{if and $p (ne $p.Kind "google")}}<div class="grid-2"><label class="field"><span>{{t "Name der Schaltfläche"}}</span><input class="input" name="label" value="{{$p.Label}}"></label><label class="field"><span>{{t "Aussteller (Issuer)"}}</span><input class="input mono" name="issuer" value="{{$p.Issuer}}" spellcheck="false"></label></div>{{end}}
+<div class="grid-2">
+  <label class="field"><span>{{t "Erlaubte E-Mail-Domains"}}</span><input class="input" name="domains" value="{{if $p}}{{$p.Domains}}{{end}}" placeholder="example.com, example.org" autocomplete="off"><small>{{t "Leer: jede Domain."}}</small></label>
+  {{if or (not $p) (eq $p.Kind "google")}}<label class="field"><span>{{t "Google-Workspace-Domain"}}</span><input class="input" name="hd" value="{{if $p}}{{$p.HostedDomain}}{{end}}" placeholder="example.com" autocomplete="off"><small>{{t "Optional. Lässt nur Konten dieser Workspace-Domain zu."}}</small></label>{{else}}
+  <label class="field"><span>{{t "Gruppen-Claim"}}</span><input class="input mono" name="groupClaim" value="{{$p.GroupClaim}}" placeholder="groups" autocomplete="off"><small>{{t "Optional. Die Werte werden den Gruppen mit passender „Gruppe beim Anbieter“ zugeordnet."}}</small></label>{{end}}
+</div>
+<div class="grid-2">
+  <label class="switch"><input type="checkbox" name="linkByEmail" {{if and $p $p.LinkByEmail}}checked{{end}}><span class="txt">{{t "Per E-Mail verknüpfen"}}<small>{{t "Ordnet die Anmeldung einem Konto mit derselben bestätigten E-Mail-Adresse zu."}}</small></span></label>
+  <label class="switch"><input type="checkbox" name="autoProvision" {{if and $p $p.AutoProvision}}checked{{end}}><span class="txt">{{t "Konten automatisch anlegen"}}<small>{{t "Neue Personen bekommen ein Konto ohne Rechte oder mit der Rolle unten."}}</small></span></label>
+</div>
+<label class="field" style="max-width:380px"><span>{{t "Rolle für neue Konten"}}</span><select class="input" name="defaultRole"><option value="">{{t "Keine Rechte"}}</option>{{range .D.Roles}}<option value="{{.ID}}" {{if and $p (eq $p.DefaultRole .ID)}}selected{{end}}>{{.Name}}</option>{{end}}</select><small>{{t "Gilt global. Nur wirksam mit „Konten automatisch anlegen“."}}</small></label>
+{{end}}

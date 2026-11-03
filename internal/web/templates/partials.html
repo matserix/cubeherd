@@ -19,7 +19,7 @@
 <div class="panel self"><span class="label">{{t "Cubeherd selbst"}}</span><div class="val"><b>{{.SelfMB}} MB</b><span>{{t "%d Goroutinen" .Goroutines}}</span></div><span class="muted" style="font-size:12px">{{t "Werte werden nur abgefragt, solange diese Seite offen ist."}}</span></div>
 {{end}}
 
-{{define "ovHost"}}{{if not .Cards}}<div class="callout accent" style="grid-column:1/-1"><div><b>{{t "Es gibt noch keinen Node."}}</b><span class="muted">{{t "Füge einen Node hinzu, auf dem die Server laufen sollen."}}</span></div><a class="btn primary" href="/nodes" style="text-decoration:none">{{t "Nodes verwalten"}}</a></div>
+{{define "ovHost"}}{{if .HideHost}}{{else if not .Cards}}<div class="callout accent" style="grid-column:1/-1"><div><b>{{t "Es gibt noch keinen Node."}}</b><span class="muted">{{t "Füge einen Node hinzu, auf dem die Server laufen sollen."}}</span></div><a class="btn primary" href="/nodes" style="text-decoration:none">{{t "Nodes verwalten"}}</a></div>
 {{else if .Multi}}{{range .Cards}}{{template "nodeCard" (dict "C" . "Filter" $.Filter)}}{{end}}
 {{else}}{{with index .Cards 0}}{{template "hostTiles" .}}{{end}}{{end}}{{end}}
 
@@ -56,7 +56,8 @@
 {{end}}
 
 {{define "rowAction"}}
-{{if .Status.Unknown}}<button class="btn sm" disabled title="{{t "Der Node ist nicht erreichbar."}}">{{t "Starten"}}</button>
+{{if not .Can.Power}}
+{{else if .Status.Unknown}}<button class="btn sm" disabled title="{{t "Der Node ist nicht erreichbar."}}">{{t "Starten"}}</button>
 {{else if .Status.Busy}}<button class="btn sm" disabled>{{t .Status.Label}} …</button>
 {{else if .Status.Up}}<button class="btn sm" hx-post="{{srv .S}}/action/stop" hx-vals='{"ctx":"row"}' hx-target="#row-{{.S.Node}}-{{.S.ID}}" hx-swap="outerHTML">{{t "Stoppen"}}</button>
 {{else}}<button class="btn sm" hx-post="{{srv .S}}/action/start" hx-vals='{"ctx":"row"}' hx-target="#row-{{.S.Node}}-{{.S.ID}}" hx-swap="outerHTML">{{t "Starten"}}</button>{{end}}
@@ -78,19 +79,20 @@
     </div>
   </div>
   <div class="actions">
-    {{if $st.Busy}}<button class="btn" disabled><span class="spin-on-req" style="display:inline-block"></span>{{t $st.Label}} …</button>
+    {{if not .V.Can.Power}}{{if $st.Busy}}<button class="btn" disabled><span class="spin-on-req" style="display:inline-block"></span>{{t $st.Label}} …</button>{{end}}
+    {{else if $st.Busy}}<button class="btn" disabled><span class="spin-on-req" style="display:inline-block"></span>{{t $st.Label}} …</button>
     {{else if $st.Up}}<button class="btn" hx-post="/servers/{{$s.ID}}/action/restart" hx-target="#srv-head">{{t "Neu starten"}}</button><button class="btn" hx-post="/servers/{{$s.ID}}/action/stop" hx-target="#srv-head">{{t "Stoppen"}}</button>
     {{else}}<button class="btn primary" hx-post="/servers/{{$s.ID}}/action/start" hx-target="#srv-head">{{t "Starten"}}</button>{{end}}
-    <button class="btn" hx-get="/servers/{{$s.ID}}/update" hx-target="#modal-card" {{if $st.Busy}}disabled{{end}}>{{t "Update"}}{{if .Update}} <span class="badge">1</span>{{end}}</button>
-    <button class="btn danger" hx-get="/servers/{{$s.ID}}/uninstall" hx-target="#modal-card" {{if $st.Busy}}disabled{{end}}>{{t "Deinstallieren"}}</button>
+    {{if .V.Can.Update}}<button class="btn" hx-get="/servers/{{$s.ID}}/update" hx-target="#modal-card" {{if $st.Busy}}disabled{{end}}>{{t "Update"}}{{if .Update}} <span class="badge">1</span>{{end}}</button>{{end}}
+    {{if .V.Can.Delete}}<button class="btn danger" hx-get="/servers/{{$s.ID}}/uninstall" hx-target="#modal-card" {{if $st.Busy}}disabled{{end}}>{{t "Deinstallieren"}}</button>{{end}}
   </div>
 </div>
 {{if eq (print $st) "crashed"}}
 <div class="callout crit"><div><b>{{t "Server ist abgestürzt"}}</b><span class="mono" style="white-space:pre-wrap;font-size:12.5px">{{.V.CrashReason}}</span></div>
-  <div class="actions" style="flex:none"><button class="btn sm" hx-get="/servers/{{$s.ID}}/update" hx-target="#modal-card">{{t "Version ändern"}}</button><button class="btn sm" hx-post="/servers/{{$s.ID}}/action/start" hx-target="#srv-head">{{t "Erneut starten"}}</button></div></div>
+  <div class="actions" style="flex:none">{{if .V.Can.Update}}<button class="btn sm" hx-get="/servers/{{$s.ID}}/update" hx-target="#modal-card">{{t "Version ändern"}}</button>{{end}}{{if .V.Can.Power}}<button class="btn sm" hx-post="/servers/{{$s.ID}}/action/start" hx-target="#srv-head">{{t "Erneut starten"}}</button>{{end}}</div></div>
 {{else if .V.AutoStopped}}
 <div class="callout info"><div><b>{{t "Im Leerlauf automatisch gestoppt"}}</b><span class="muted">{{t "Nach %d Minuten ohne Spieler. Der Container belegt jetzt weder CPU noch Arbeitsspeicher. Starte ihn, wenn wieder jemand spielen will." $s.IdleMinutes}}</span></div>
-  <div class="actions" style="flex:none"><button class="btn sm primary" hx-post="/servers/{{$s.ID}}/action/start" hx-target="#srv-head">{{t "Starten"}}</button></div></div>
+  {{if .V.Can.Power}}<div class="actions" style="flex:none"><button class="btn sm primary" hx-post="/servers/{{$s.ID}}/action/start" hx-target="#srv-head">{{t "Starten"}}</button></div>{{end}}</div>
 {{else if eq (print $st) "paused"}}
 <div class="callout info"><div><b>{{t "Pausiert, weil niemand online ist"}}</b><span class="muted">{{t "Autopause hält den Prozess an und spart CPU. Der Server wacht beim nächsten Verbindungsversuch automatisch auf."}}</span></div></div>
 {{else if or (eq (print $st) "installing") (eq (print $st) "preparing")}}
@@ -100,11 +102,11 @@
 {{else if .V.OpError}}
 <div class="callout crit"><div><b>{{t "Letzte Aktion fehlgeschlagen"}}</b><span class="mono" style="font-size:12.5px">{{t .V.OpError}}</span></div></div>
 {{else if .Update}}
-<div class="callout accent"><div><b>{{t "Update verfügbar"}}</b><span class="muted">{{.Update}}</span></div><div class="actions" style="flex:none"><button class="btn sm primary" hx-get="/servers/{{$s.ID}}/update" hx-target="#modal-card">{{t "Ansehen"}}</button></div></div>
+<div class="callout accent"><div><b>{{t "Update verfügbar"}}</b><span class="muted">{{.Update}}</span></div>{{if .V.Can.Update}}<div class="actions" style="flex:none"><button class="btn sm primary" hx-get="/servers/{{$s.ID}}/update" hx-target="#modal-card">{{t "Ansehen"}}</button></div>{{end}}</div>
 {{end}}
 {{if and .V.Restarts (ne (print $st) "crashed")}}
 <div class="callout warn"><div><b>{{t "Der Server ist %d-mal abgestürzt und wurde automatisch neu gestartet" .V.Restarts}}</b>{{with .V.CrashReason}}<span class="mono" style="white-space:pre-wrap;font-size:12.5px">{{.}}</span>{{end}}<span class="muted">{{t "Bei Modpacks ist meist zu wenig Arbeitsspeicher die Ursache. Aktuell: %d GB Container, davon %s GB Java-Heap." $s.MemoryGB (heapGB $s.MemoryGB $s.Modded)}}</span></div>
-  <div class="actions" style="flex:none"><a class="btn sm" href="/servers/{{$s.ID}}?tab=settings" style="text-decoration:none">{{t "RAM anpassen"}}</a></div></div>
+  {{if .V.Can.Settings}}<div class="actions" style="flex:none"><a class="btn sm" href="/servers/{{$s.ID}}?tab=settings" style="text-decoration:none">{{t "RAM anpassen"}}</a></div>{{end}}</div>
 {{end}}
 {{end}}
 
@@ -118,6 +120,6 @@
 
 {{define "players"}}
 <div class="val"><span class="label">{{t "Online"}}</span><span class="muted num" style="font-size:12px">{{len .Online}} / {{.Max}}</span></div>
-{{if .Online}}<ul class="plist">{{range .Online}}<li><span class="who">{{avatar .}}<span>{{.}}</span></span><button class="btn sm ghost" hx-post="/servers/{{$.ID}}/command" hx-vals='{{jsonVals "cmd" (print "kick " .)}}' hx-target="#log" hx-swap="beforeend">{{t "Kicken"}}</button></li>{{end}}</ul>
+{{if .Online}}<ul class="plist">{{range .Online}}<li><span class="who">{{avatar .}}<span>{{.}}</span></span>{{if $.Kick}}<button class="btn sm ghost" hx-post="/servers/{{$.ID}}/command" hx-vals='{{jsonVals "cmd" (print "kick " .)}}' hx-target="#log" hx-swap="beforeend">{{t "Kicken"}}</button>{{end}}</li>{{end}}</ul>
 {{else}}<p class="empty">{{if .Live}}{{t "Niemand online."}}{{else}}{{t "Server läuft nicht."}}{{end}}</p>{{end}}
 {{end}}

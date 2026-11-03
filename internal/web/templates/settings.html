@@ -112,6 +112,27 @@
       </div>
     </div>
   </form>
+
+  {{if .Data.Accounts}}
+  <div class="panel form-sections">
+    <div class="form-sec">
+      <div class="intro"><h2>{{t "Benutzerkonten"}}</h2><p>{{t "Der Mehrbenutzermodus ist eingeschaltet."}}</p></div>
+      <div class="body"><p class="muted">{{t "Konten, Rollen, Zuweisungen und das Audit-Log verwaltest du unter Zugriff."}}</p><div><a class="btn" href="/access/users" style="text-decoration:none">{{t "Zugriff verwalten"}}</a></div></div>
+    </div>
+  </div>
+  {{else}}
+  <form class="panel form-sections" hx-post="/settings/accounts">
+    <div class="form-sec">
+      <div class="intro"><h2>{{t "Benutzerkonten"}}</h2><p>{{t "Mehrere Benutzer, eigene Rollen und ein Audit-Log. Optional."}}</p></div>
+      <div class="body">
+        <p class="muted">{{t "Statt einem gemeinsamen Passwort bekommt jede Person ein Konto. Rechte lassen sich pro Node und pro Server vergeben, jede Aktion wird im Audit-Log festgehalten, und eine Anmeldung mit Google oder einem eigenen OpenID-Connect-Anbieter ist möglich. Die Daten liegen in einer SQLite-Datei (cubeherd.db) im Datenordner."}}</p>
+        <p class="muted">{{t "Dein bisheriges Passwort wird zum Konto „admin“ mit der Rolle Owner. Du bleibst angemeldet."}}</p>
+        <div class="grid-3"><label class="field"><span>{{t "Aktuelles Passwort"}}</span><input class="input" name="current" type="password" autocomplete="current-password" required></label></div>
+        <div><button class="btn">{{t "Mehrbenutzermodus einschalten"}} <span class="spin-on-req"></span></button></div>
+      </div>
+    </div>
+  </form>
+  {{end}}
 </section>
 {{end}}
 

@@ -23,14 +23,14 @@
   <div class="panel console">
     <div class="console-head"><span class="live">Live</span><span class="muted">{{t "Stream nur, solange diese Seite offen ist"}}</span></div>
     <div class="log" id="log" sse-swap="log" hx-swap="beforeend"></div>
-    <form class="cmd" id="cmd-form" hx-post="/servers/{{$s.ID}}/command" hx-target="#log" hx-swap="beforeend">
+    {{if .V.Can.Command}}<form class="cmd" id="cmd-form" hx-post="/servers/{{$s.ID}}/command" hx-target="#log" hx-swap="beforeend">
       <span class="prompt">&gt;</span>
       <input id="cmd-input" name="cmd" placeholder="{{t "Befehl per RCON senden, z. B. list"}}" autocomplete="off" maxlength="400">
       <button class="btn sm">{{t "Senden"}}</button>
-    </form>
+    </form>{{end}}{{if .V.Can.Command}}
     <div class="quick">
       {{range list "list" "save-all" "weather clear" "time set day"}}<button class="btn sm ghost" hx-post="/servers/{{$s.ID}}/command" hx-vals='{"cmd":"{{.}}"}' hx-target="#log" hx-swap="beforeend">{{.}}</button>{{end}}
-    </div>
+    </div>{{end}}
   </div>
   <div class="stack">
     <div class="stack" id="stats" sse-swap="stats">{{template "stats" .Stats}}</div>
@@ -118,7 +118,7 @@
 {{$p := .Plan}}
 <div class="stack">
   <div id="backup-health">{{template "backupHealth" .}}</div>
-  <form class="panel" hx-post="/servers/{{.ID}}/backups/plan" hx-target="#backup-list">
+  {{if .Can.BackupsCreate}}<form class="panel" hx-post="/servers/{{.ID}}/backups/plan" hx-target="#backup-list">
     <div class="panel-head"><h2>{{t "Zeitplan"}}</h2><button class="btn primary" type="button" hx-post="/servers/{{.ID}}/backups" hx-target="#backup-list">{{t "Jetzt sichern"}}</button></div>
     <div class="panel-pad stack">
       <div class="grid-3">
@@ -147,7 +147,7 @@
         <button class="btn">{{t "Zeitplan speichern"}}</button>
       </div>
     </div>
-  </form>
+  </form>{{end}}
   <div id="backup-list">{{template "backupList" .}}</div>
 </div>
 {{end}}
@@ -165,11 +165,11 @@
     {{if $.Remote}}<td class="hide-sm">{{if and .Local .Remote}}{{t "Lokal + extern"}}{{else if .Remote}}{{t "Extern"}}{{else}}{{t "Lokal"}}{{end}}</td>{{end}}
     <td class="hide-sm">{{if eq .Check "ok"}}<span class="pill ok">{{t "Geprüft"}}</span>{{else if eq .Check "bad"}}<span class="pill crit" title="{{.CheckErr}}">{{t "Defekt"}}</span>{{else}}<span class="pill warn" title="{{t "Noch nicht geprüft"}}">{{t "Ungeprüft"}}</span>{{end}}</td>
     <td class="right"><div class="actions" style="justify-content:flex-end">
-      <button class="btn sm" hx-get="/servers/{{$.ID}}/backups/{{.Name}}/restore" hx-target="#modal-card" {{if $.Busy}}disabled{{end}}>{{t "Wiederherstellen"}}</button>
-      {{if and $.Remote .Local (not .Remote) (ne .Check "bad")}}<button class="btn sm ghost" hx-post="/servers/{{$.ID}}/backups/{{.Name}}/upload" hx-target="#backup-list" {{if $.Busy}}disabled{{end}}>{{t "Hochladen"}}</button>{{end}}
+      {{if $.Can.BackupsRestore}}<button class="btn sm" hx-get="/servers/{{$.ID}}/backups/{{.Name}}/restore" hx-target="#modal-card" {{if $.Busy}}disabled{{end}}>{{t "Wiederherstellen"}}</button>{{end}}
+      {{if and $.Can.BackupsCreate $.Remote .Local (not .Remote) (ne .Check "bad")}}<button class="btn sm ghost" hx-post="/servers/{{$.ID}}/backups/{{.Name}}/upload" hx-target="#backup-list" {{if $.Busy}}disabled{{end}}>{{t "Hochladen"}}</button>{{end}}
       <button class="btn sm ghost" hx-post="/servers/{{$.ID}}/backups/{{.Name}}/verify" hx-target="#backup-list" {{if $.Busy}}disabled{{end}}>{{t "Prüfen"}}</button>
       <a class="btn sm ghost" href="/servers/{{$.ID}}/backups/{{.Name}}" download style="text-decoration:none">{{t "Herunterladen"}}</a>
-      <button class="btn sm ghost" hx-post="/servers/{{$.ID}}/backups/{{.Name}}/delete" hx-target="#backup-list" {{if .Remote}}hx-confirm="{{t "{} wird gelöscht."}}" data-dlg-title="{{t "Backup löschen?"}}" data-dlg-detail="{{.Name}}" data-dlg-note="{{t "Das Backup wird auch aus dem externen Speicher gelöscht."}}" data-dlg-ok="{{t "Löschen"}}" data-dlg-tone="danger" data-dlg-icon="trash"{{end}} {{if $.Busy}}disabled{{end}}>{{t "Löschen"}}</button>
+      {{if $.Can.BackupsDelete}}<button class="btn sm ghost" hx-post="/servers/{{$.ID}}/backups/{{.Name}}/delete" hx-target="#backup-list" {{if .Remote}}hx-confirm="{{t "{} wird gelöscht."}}" data-dlg-title="{{t "Backup löschen?"}}" data-dlg-detail="{{.Name}}" data-dlg-note="{{t "Das Backup wird auch aus dem externen Speicher gelöscht."}}" data-dlg-ok="{{t "Löschen"}}" data-dlg-tone="danger" data-dlg-icon="trash"{{end}} {{if $.Busy}}disabled{{end}}>{{t "Löschen"}}</button>{{end}}
     </div></td></tr>
   {{else}}<tr><td colspan="6" class="muted">{{t "Noch keine Backups. „Jetzt sichern“ erstellt das erste."}}</td></tr>{{end}}
   </tbody></table></div>
@@ -255,11 +255,11 @@
 {{$s := .V.S}}
 <div class="stack">
   <div class="actions">
-    <a class="btn" href="/servers/{{$s.ID}}/world.zip" download style="text-decoration:none">{{t "Welt herunterladen (ZIP)"}}</a>
-    <form id="world-form" hx-post="/servers/{{$s.ID}}/world" hx-encoding="multipart/form-data" hx-trigger="change" hx-confirm="{{t "Die aktuelle Welt wird durch {} ersetzt."}}" data-dlg-title="{{t "Welt ersetzen?"}}" data-dlg-note="{{t "Vorher entsteht automatisch ein Backup. Der Server wird dafür kurz gestoppt."}}" data-dlg-ok="{{t "Welt ersetzen"}}" data-dlg-icon="upload">
+    {{if .V.Can.WorldExport}}<a class="btn" href="/servers/{{$s.ID}}/world.zip" download style="text-decoration:none">{{t "Welt herunterladen (ZIP)"}}</a>{{end}}
+    {{if .V.Can.WorldImport}}<form id="world-form" hx-post="/servers/{{$s.ID}}/world" hx-encoding="multipart/form-data" hx-trigger="change" hx-confirm="{{t "Die aktuelle Welt wird durch {} ersetzt."}}" data-dlg-title="{{t "Welt ersetzen?"}}" data-dlg-note="{{t "Vorher entsteht automatisch ein Backup. Der Server wird dafür kurz gestoppt."}}" data-dlg-ok="{{t "Welt ersetzen"}}" data-dlg-icon="upload">
       <label class="btn"><input type="file" name="world" accept=".zip" hidden>{{t "Welt hochladen (ZIP)"}} <span class="spin-on-req"></span></label>
     </form>
-    <span class="muted" style="font-size:12px">{{t "Singleplayer-Welten funktionieren direkt. Vor dem Ersetzen wird automatisch gesichert."}}</span>
+    <span class="muted" style="font-size:12px">{{t "Singleplayer-Welten funktionieren direkt. Vor dem Ersetzen wird automatisch gesichert."}}</span>{{end}}
   </div>
   <div class="panel panel-pad upload" id="world-up" hidden role="status" aria-live="polite">
     <div class="upload-head"><b id="wu-name" class="mono"></b><span class="muted num" id="wu-pct"></span></div>
@@ -286,10 +286,10 @@
   {{else}}<button type="button" hx-get="/servers/{{$.ID}}/files/view?path={{urlquery $p}}" hx-target="#file-editor"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M3.5 1.5h6l3 3v10h-9z"/></svg>{{.Name}}<span class="sz">{{size .Size}}</span></button>{{end}}
 {{else}}{{if not .Error}}<p class="empty" style="padding:8px">{{t "Leerer Ordner."}}</p>{{end}}{{end}}
 {{if .Truncated}}<p class="muted" style="padding:8px;font-size:12px">{{t "Nur die ersten 1000 Einträge werden angezeigt."}}</p>{{end}}
-<form class="tree-upload" hx-post="/servers/{{.ID}}/files/upload" hx-encoding="multipart/form-data" hx-trigger="change" hx-target="#file-tree">
+{{if .Can.FilesWrite}}<form class="tree-upload" hx-post="/servers/{{.ID}}/files/upload" hx-encoding="multipart/form-data" hx-trigger="change" hx-target="#file-tree">
   <input type="hidden" name="path" value="{{.Path}}">
   <label class="btn sm ghost"><input type="file" name="file" hidden>{{t "Datei hierher hochladen"}} <span class="spin-on-req"></span></label>
-</form>
+</form>{{end}}
 {{end}}
 
 {{define "fileEditor"}}
@@ -298,8 +298,8 @@
   <div class="editor-head"><span class="mono" style="overflow-wrap:anywhere">/data/{{.Path}}</span>
     <div class="actions">
       <a class="btn sm ghost" href="/servers/{{.ID}}/files/download?path={{.Path}}" download style="text-decoration:none">{{t "Herunterladen"}}</a>
-      <button class="btn sm ghost danger" type="button" hx-post="/servers/{{.ID}}/files/delete" hx-vals='{{jsonVals "path" .Path}}' hx-confirm="{{t "{} wird endgültig gelöscht. Das lässt sich nicht rückgängig machen."}}" data-dlg-title="{{t "Datei löschen?"}}" data-dlg-detail="{{.Entry.Name}}" data-dlg-ok="{{t "Löschen"}}" data-dlg-tone="danger" data-dlg-icon="trash">{{t "Löschen"}}</button>
-      {{if .IsText}}<button class="btn sm primary">{{t "Speichern"}}</button>{{end}}
+      {{if .Can.FilesWrite}}<button class="btn sm ghost danger" type="button" hx-post="/servers/{{.ID}}/files/delete" hx-vals='{{jsonVals "path" .Path}}' hx-confirm="{{t "{} wird endgültig gelöscht. Das lässt sich nicht rückgängig machen."}}" data-dlg-title="{{t "Datei löschen?"}}" data-dlg-detail="{{.Entry.Name}}" data-dlg-ok="{{t "Löschen"}}" data-dlg-tone="danger" data-dlg-icon="trash">{{t "Löschen"}}</button>{{end}}
+      {{if and .IsText .Can.FilesWrite}}<button class="btn sm primary">{{t "Speichern"}}</button>{{end}}
     </div></div>
   {{with .Hint}}<div class="callout info" style="margin:12px 14px"><div><span class="muted">{{t .}}</span></div></div>{{end}}
   {{if .IsText}}<textarea name="content" spellcheck="false" aria-label="{{t "Inhalt von %s" .Entry.Name}}">{{.Text}}</textarea>

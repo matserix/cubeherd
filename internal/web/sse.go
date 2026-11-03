@@ -37,7 +37,7 @@ func (a *App) serverEvents(w http.ResponseWriter, r *http.Request) {
 	fl.Flush()
 
 	ctx := r.Context()
-	console := r.FormValue("tab") == "console"
+	console := r.FormValue("tab") == "console" && a.caps(r.Context(), s.ID).Console
 	events := make(chan sseEvent, 64)
 	emit := func(name, data string) {
 		select {
@@ -117,7 +117,7 @@ func (a *App) serverEvents(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *App) pushPlayers(ctx context.Context, s *server.Server, v manager.View, last *string, emit func(string, string)) {
-	d := playersData{ID: s.ID, Max: s.Props.MaxPlayers, Live: v.Status.Live()}
+	d := playersData{ID: s.ID, Max: s.Props.MaxPlayers, Live: v.Status.Live(), Kick: v.Can.Command}
 	if d.Live {
 		if on, max, err := a.M.Players(ctx, s); err == nil {
 			d.Online, d.Max = on, max

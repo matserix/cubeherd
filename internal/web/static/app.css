@@ -546,3 +546,73 @@ details summary::marker { color: var(--faint); }
 .intro .scope { display: inline-block; margin: 4px 0 6px; padding: 1px 8px; border-radius: 10px; font-size: 11.5px; font-weight: 600; border: 1px solid var(--line-strong); color: var(--muted); }
 .intro .scope-all { color: var(--ok); border-color: var(--ok); background: var(--ok-soft); }
 .intro .scope-local { color: var(--accent); border-color: var(--accent-3); background: var(--accent-soft); }
+
+/* ---------- Access: users, roles, audit ---------- */
+.chip.role { color: var(--accent); border-color: var(--accent-3); background: var(--accent-soft); font-weight: 600; }
+.chip.scope { flex: none; align-self: flex-start; font-size: 11px; }
+.permchips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.back { color: var(--muted); text-decoration: none; font-size: 13px; }
+.back:hover { color: var(--text); }
+.danger-zone { border-color: var(--crit); }
+.off-mode summary { cursor: pointer; font-weight: 600; }
+.sso-btn { text-decoration: none; justify-content: center; }
+.role-form { display: flex; flex-direction: column; gap: 14px; max-height: min(66vh, 640px); overflow: auto; }
+.permgroup { border: 1px solid var(--line); border-radius: 8px; padding: 6px 14px 10px; margin: 0; }
+.permgroup legend { padding: 0 6px; font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); font-weight: 600; }
+.perm { display: flex; align-items: flex-start; gap: 10px; padding: 7px 0; cursor: pointer; border-bottom: 1px solid var(--line); }
+.perm:last-child { border-bottom: 0; }
+
+.perm .txt { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.perm .txt small { color: var(--muted); font-size: 12px; }
+.perm.sens .txt b::after { content: ""; }
+.audit-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px 14px; }
+.audit-grid .wide { grid-column: 1 / -1; }
+.audit-tbl .act { font-size: 12.5px; }
+.audit-tbl .tgt { font-size: 12px; max-width: 460px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--font-mono); }
+.pager { display: flex; justify-content: space-between; align-items: center; border-top: 1px solid var(--line); }
+@media (max-width: 720px) {
+  .audit-tbl .tgt { max-width: 200px; }
+}
+.callbackrow { margin-top: 6px; }
+.callbackrow code { display: block; padding: 8px 10px; border: 1px solid var(--line); border-radius: 6px; background: var(--surface-2); overflow-wrap: anywhere; font-size: 12.5px; }
+details.adder { border: 1px solid var(--line); border-radius: 8px; padding: 10px 14px; }
+details.adder summary { cursor: pointer; font-weight: 600; }
+
+/* user menu at the foot of the sidebar */
+.usermenu { position: relative; }
+.usermenu summary { list-style: none; display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 8px; cursor: pointer; color: var(--fg); font-size: 13px; min-width: 0; }
+.usermenu summary::-webkit-details-marker { display: none; }
+.usermenu summary:hover, .usermenu[open] summary, .usermenu[data-current] summary { background: var(--surface-2); }
+.usermenu summary svg { width: 16px; height: 16px; flex: none; color: var(--muted); }
+.usermenu summary span { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
+.usermenu .chev { transition: transform .15s; }
+.usermenu[open] .chev { transform: rotate(180deg); }
+.usermenu .menu { position: absolute; left: 0; right: 0; bottom: calc(100% + 6px); background: var(--surface); border: 1px solid var(--line-strong); border-radius: 8px; padding: 4px; box-shadow: 0 8px 24px rgba(0,0,0,.25); z-index: 30; display: flex; flex-direction: column; }
+.usermenu .menu a, .usermenu .menu button { display: block; width: 100%; text-align: left; padding: 8px 10px; border: 0; background: none; border-radius: 6px; color: var(--fg); font: inherit; font-size: 13px; text-decoration: none; cursor: pointer; }
+.usermenu .menu a:hover, .usermenu .menu button:hover { background: var(--surface-2); }
+.usermenu .menu form { margin: 0; }
+@media (max-width: 760px) {
+  .usermenu summary span, .usermenu .chev { display: none; }
+  .usermenu .menu { left: auto; right: 0; bottom: auto; top: calc(100% + 6px); min-width: 170px; }
+}
+
+details.members { border: 1px solid var(--line); border-radius: 8px; padding: 10px 14px; display: block; }
+details.members summary { cursor: pointer; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+details.members .chips { display: flex; gap: 6px; flex-wrap: wrap; min-width: 0; }
+details.members[open] .chips { display: none; }
+details.members .member-filter { margin: 12px 0 8px; max-width: 320px; }
+.memberlist { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 2px 12px; max-height: 260px; overflow: auto; margin-bottom: 8px; border: 1px solid var(--line); border-radius: 6px; padding: 6px; }
+.memberlist .pick { display: flex; align-items: center; gap: 8px; padding: 4px 6px; border-radius: 4px; cursor: pointer; min-width: 0; }
+.memberlist .pick[hidden] { display: none; }
+.memberlist .pick:hover { background: var(--surface-2); }
+
+.memberlist .pick span { font-weight: 500; }
+.memberlist .pick small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* checkboxes in lists look like the other inputs: same surface and border, accent when ticked */
+.perm input[type=checkbox], .memberlist .pick input[type=checkbox] { appearance: none; flex: none; width: 16px; height: 16px; margin: 0; border-radius: 4px; background: var(--surface-3); border: 1px solid var(--line-strong); cursor: pointer; position: relative; transition: background .12s, border-color .12s; }
+.perm input[type=checkbox]:checked, .memberlist .pick input[type=checkbox]:checked { background: var(--accent); border-color: var(--accent); }
+.perm input[type=checkbox]:checked::after, .memberlist .pick input[type=checkbox]:checked::after { content: ""; position: absolute; left: 4.5px; top: 1.5px; width: 4px; height: 8px; border: solid var(--accent-fg); border-width: 0 2px 2px 0; transform: rotate(45deg); }
+.perm input[type=checkbox]:focus-visible, .memberlist .pick input[type=checkbox]:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.perm input[type=checkbox]:disabled { opacity: .55; cursor: default; }
+.perm input[type=checkbox] { margin-top: 2px; }

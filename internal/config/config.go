@@ -38,6 +38,14 @@ type Settings struct {
 	Nodes []Node `json:"nodes,omitempty"`
 	// LocalName is the display name of the embedded local node; "" = the host name.
 	LocalName string `json:"localName,omitempty"`
+
+	// Accounts turns on the multi-user mode (users, roles, audit log in cubeherd.db). PasswordHash then only
+	// matters again if the mode is switched off.
+	Accounts bool `json:"accounts,omitempty"`
+	// AuditDays is how long audit entries are kept: 0 = the default of 365 days, -1 = forever.
+	AuditDays int `json:"auditDays,omitempty"`
+	// PublicURL is the address users reach the dashboard at; single sign-on needs it for its callback.
+	PublicURL string `json:"publicUrl,omitempty"`
 }
 
 // Node is one remote agent. The token is stored like the CurseForge key (file mode 0600).
