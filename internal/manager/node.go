@@ -153,6 +153,13 @@ func (m *Manager) ApplyConfig(c api.Config) error {
 	}
 	m.InvalidateRemote()
 	m.WakeScheduler()
+	if c.Metrics != nil {
+		mc := config.Metrics{Enabled: c.Metrics.Enabled, Keep1mHours: c.Metrics.Keep1mHours, Keep5mDays: c.Metrics.Keep5mDays, Keep1hDays: c.Metrics.Keep1hDays, MaxMB: c.Metrics.MaxMB}
+		if err := m.Config.Update(func(s *config.Settings) { s.Metrics = mc }); err != nil {
+			return err
+		}
+		return m.ApplyMetrics(*c.Metrics)
+	}
 	return nil
 }
 

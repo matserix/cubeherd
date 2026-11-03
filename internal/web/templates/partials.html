@@ -123,3 +123,21 @@
 {{if .Online}}<ul class="plist">{{range .Online}}<li><span class="who">{{avatar .}}<span>{{.}}</span></span>{{if $.Kick}}<button class="btn sm ghost" hx-post="/servers/{{$.ID}}/command" hx-vals='{{jsonVals "cmd" (print "kick " .)}}' hx-target="#log" hx-swap="beforeend">{{t "Kicken"}}</button>{{end}}</li>{{end}}</ul>
 {{else}}<p class="empty">{{if .Live}}{{t "Niemand online."}}{{else}}{{t "Server läuft nicht."}}{{end}}</p>{{end}}
 {{end}}
+
+{{/* ---------- Statistik-Verlauf (Server-Tab und Node-Seite) ---------- */}}
+{{define "statsPanel"}}
+<section class="panel stats-panel">
+  <div class="panel-head"><h2>{{t "Verlauf"}}{{with .Availability}} <span class="pill s-running" title="{{t "Anteil der Zeit, in der der Server lief"}}">{{t "Verfügbar %s" .}}</span>{{end}}</h2>
+    <div class="range-chips" role="group" aria-label="{{t "Zeitraum"}}">{{range .Ranges}}{{if $.Fragment}}<button class="btn sm {{if eq $.Range .Key}}primary{{else}}ghost{{end}}" hx-get="{{$.Base}}?range={{.Key}}" hx-target="#stats-box" hx-swap="innerHTML">{{t .Label}}</button>{{else}}<a class="btn sm {{if eq $.Range .Key}}primary{{else}}ghost{{end}}" href="{{$.Base}}?range={{.Key}}" style="text-decoration:none">{{t .Label}}</a>{{end}}{{end}}</div></div>
+  {{if .Err}}<div class="callout warn"><div>{{.Err}}</div></div>
+  {{else if and .Empty (not .Enabled)}}<div class="callout info"><div><b>{{t "Die Statistik wird auf diesem Node nicht aufgezeichnet."}}</b><span class="muted">{{t "Ein Owner kann sie unter Nodes → Bearbeiten einschalten. Danach füllt sich der Verlauf Minute für Minute."}}</span></div></div>
+  {{else if .Empty}}<div class="panel-pad"><p class="muted">{{t "Für diesen Zeitraum gibt es keine Messwerte."}}</p></div>
+  {{else}}
+  <div class="charts">{{range .Charts}}<figure class="chartbox"><figcaption>{{.Title}}{{range .Legend}}<span class="lg"><i class="sw {{.Class}}"></i>{{.Name}}</span>{{end}}</figcaption>{{.SVG}}</figure>{{end}}</div>
+  {{if .Events}}<div class="panel-pad events"><b>{{t "Ereignisse"}}</b>
+    <ul class="evlist">{{range .Events}}<li><time>{{.Time}}</time><span class="evk ek-{{.Class}}">{{t .Kind}}</span>{{with .Detail}}<span class="muted evd">{{.}}</span>{{end}}</li>{{end}}</ul></div>{{end}}
+  {{end}}
+  <div class="panel-pad stats-foot muted">{{if not .Enabled}}{{if not .Empty}}{{t "Die Aufzeichnung ist aus. Der vorhandene Verlauf bleibt sichtbar."}}{{end}}{{end}}
+    {{if .CanManage}}<button class="btn sm ghost danger" hx-post="/nodes/{{.Node}}/stats/purge" {{if .ID}}hx-vals='{"server":"{{.ID}}"}'{{end}} hx-confirm="{{t "{} wird endgültig gelöscht."}}" data-dlg-title="{{if .ID}}{{t "Verlauf dieses Servers löschen?"}}{{else}}{{t "Den gesamten Verlauf dieses Nodes löschen?"}}{{end}}" data-dlg-detail="{{.Name}}" data-dlg-ok="{{t "Löschen"}}" data-dlg-tone="danger" data-dlg-icon="trash">{{t "Verlauf löschen"}}</button>{{end}}</div>
+</section>
+{{end}}

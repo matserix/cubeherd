@@ -108,7 +108,7 @@ func (a *App) loadTemplates() error {
 			return err
 		}
 		a.pages[l.Code] = map[string]*template.Template{}
-		for _, p := range []string{"login", "forbidden", "access", "account", "overview", "wizard", "server", "settings", "nodes", "nodepick", "nodedown"} {
+		for _, p := range []string{"login", "forbidden", "access", "account", "nodestats", "overview", "wizard", "server", "settings", "nodes", "nodepick", "nodedown"} {
 			t, err := base.Clone()
 			if err != nil {
 				return err
@@ -145,6 +145,7 @@ func (a *App) Handler() http.Handler {
 	mux.Handle("GET /static/", http.StripPrefix("/static/", cacheForever(fileServer)))
 	rt := &router{a: a, mux: mux}
 
+	rt.handle("GET /metrics", public(), a.p((*App).metricsEndpoint))
 	rt.handle("GET /login", public(), a.p((*App).loginPage))
 	rt.handle("POST /login", public(), a.p((*App).loginPost))
 	rt.handle("GET /login/sso", public(), a.p((*App).ssoStart))
@@ -195,18 +196,22 @@ func (a *App) Handler() http.Handler {
 	rt.handle("POST /servers/{id}/backups/{name}/delete", onServer(access.BackupsDelete).log("backup.delete", pathValue("name")), a.h((*App).backupDelete))
 	rt.handle("GET /servers/{id}/backups/{name}/restore", onServer(access.BackupsRestore), a.h((*App).restoreModal))
 	rt.handle("POST /servers/{id}/backups/{name}/restore", onServer(access.BackupsRestore).log("backup.restore", pathValue("name")), a.h((*App).restorePost))
+	rt.handle("GET /servers/{id}/stats", onServer(access.StatsServer), a.h((*App).serverStats))
 	rt.handle("GET /servers/{id}/uninstall", onServer(access.ServerDelete), a.h((*App).uninstallModal))
 	rt.handle("POST /servers/{id}/uninstall", onServer(access.ServerDelete).log("server.delete"), a.h((*App).uninstallPost))
 
 	rt.handle("GET /settings", global(access.SettingsManage), a.p((*App).settingsPage))
 	rt.handle("POST /settings", global(access.SettingsManage).log("settings.change"), a.p((*App).settingsPost))
 	rt.handle("POST /settings/password", open(), a.p((*App).passwordPost))
+	rt.handle("POST /settings/prometheus", global(access.SettingsManage).log("prometheus.token", form("op")), a.p((*App).prometheusToken))
 	rt.handle("POST /settings/accounts", global(access.SettingsManage), a.p((*App).enableAccounts))
 	rt.handle("POST /settings/cf-check", global(access.SettingsManage), a.p((*App).cfCheck))
 	rt.handle("POST /settings/remote-check", global(access.SettingsManage), a.p((*App).remoteCheck))
 	rt.handle("POST /update/dismiss", global(access.SettingsManage), a.p((*App).updateDismiss))
 
-	rt.handle("GET /nodes", anywhere(access.NodesView), a.p((*App).nodesPage))
+	rt.handle("GET /stats", onNode(access.StatsNode), a.h((*App).nodeStats))
+	rt.handle("POST /nodes/{id}/stats/purge", global(access.NodesManage).log("stats.purge", form("server")), a.p((*App).purgeStats))
+	rt.handle("GET /nodes", anywhereOf(access.NodesView, access.StatsNode), a.p((*App).nodesPage))
 	rt.handle("GET /nodes/new", global(access.NodesManage), a.p((*App).nodeNew))
 	rt.handle("POST /nodes/probe", global(access.NodesManage), a.p((*App).nodeProbe))
 	rt.handle("POST /nodes", global(access.NodesManage).log("node.add", form("name")), a.p((*App).nodeAdd))

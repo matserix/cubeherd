@@ -45,6 +45,7 @@ func newFuncs(lang string) template.FuncMap {
 	return template.FuncMap{
 		"can":        func(p Page, perm string) bool { return p.P.Can(access.Perm(perm), p.CurrentNode, p.Current) },
 		"canG":       func(p Page, perm string) bool { return p.P.Global(access.Perm(perm)) },
+		"canN":       func(p Page, perm, node string) bool { return p.P.Can(access.Perm(perm), node, "") },
 		"canAny":     func(p Page, perm string) bool { return p.P.Anywhere(access.Perm(perm)) },
 		"accessHome": accessHome,
 		"grantCtx": func(rows []grantRow, ret string) struct {

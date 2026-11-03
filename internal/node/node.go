@@ -27,6 +27,7 @@ type Node interface {
 	Addons
 	Backups
 	Host
+	Metrics
 }
 
 // Servers covers definitions, status and lifecycle.
@@ -108,6 +109,18 @@ type Backups interface {
 	InvalidateRemote()
 	NextBackupFor(s *server.Server) time.Time
 	WakeScheduler()
+}
+
+// Metrics covers the optional statistics history. Every method works when recording is off: history that exists
+// stays readable, and the answers are empty otherwise.
+type Metrics interface {
+	MetricsStatus(ctx context.Context) (api.MetricsStatus, error)
+	NodeHistory(ctx context.Context, from, to time.Time, points int) (api.History, error)
+	ServerHistory(ctx context.Context, id string, from, to time.Time, points int) (api.History, error)
+	// MetricsLatest is the newest sample of the node ("node") and of each server (by id).
+	MetricsLatest(ctx context.Context) (map[string]api.MetricPoint, error)
+	// PurgeMetrics deletes the history of "node" or one server id; "" deletes all of it.
+	PurgeMetrics(ctx context.Context, scope string) error
 }
 
 // Host covers the machine itself.

@@ -28,6 +28,7 @@ type Backend interface {
 	node.Addons
 	node.Backups
 	node.Host
+	node.Metrics
 
 	// ApplyConfig takes over the global settings the dashboard pushes.
 	ApplyConfig(c api.Config) error

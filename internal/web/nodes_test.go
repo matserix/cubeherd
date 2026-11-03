@@ -34,6 +34,7 @@ type fakeHost struct {
 	node.Addons
 	node.Backups
 	node.Host
+	node.Metrics
 	prefix string
 }
 
@@ -512,3 +513,17 @@ func TestConcurrentRequestsWhileNodesChange(t *testing.T) {
 	close(done)
 	wg.Wait()
 }
+
+func (f *fakeHost) MetricsStatus(context.Context) (api.MetricsStatus, error) {
+	return api.MetricsStatus{}, nil
+}
+func (f *fakeHost) NodeHistory(_ context.Context, from, to time.Time, _ int) (api.History, error) {
+	return api.History{Scope: "node", From: from.Unix(), To: to.Unix()}, nil
+}
+func (f *fakeHost) ServerHistory(_ context.Context, id string, from, to time.Time, _ int) (api.History, error) {
+	return api.History{Scope: id, From: from.Unix(), To: to.Unix()}, nil
+}
+func (f *fakeHost) MetricsLatest(context.Context) (map[string]api.MetricPoint, error) {
+	return nil, nil
+}
+func (f *fakeHost) PurgeMetrics(context.Context, string) error { return nil }

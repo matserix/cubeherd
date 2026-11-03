@@ -26,6 +26,8 @@ const (
 	BackupsCreate  Perm = "backups.create"
 	BackupsRestore Perm = "backups.restore"
 	BackupsDelete  Perm = "backups.delete"
+	StatsServer    Perm = "stats.server"
+	StatsNode      Perm = "stats.node"
 	NodesView      Perm = "nodes.view"
 	NodesManage    Perm = "nodes.manage"
 	SettingsManage Perm = "settings.manage"
@@ -73,6 +75,8 @@ var Catalog = []Info{
 	{BackupsCreate, "backups", LevelServer, false},
 	{BackupsRestore, "backups", LevelServer, false},
 	{BackupsDelete, "backups", LevelServer, false},
+	{StatsServer, "stats", LevelServer, false},
+	{StatsNode, "stats", LevelNode, false},
 	{NodesView, "admin", LevelNode, false},
 	{NodesManage, "admin", LevelGlobal, true},
 	{SettingsManage, "admin", LevelGlobal, true},
@@ -84,7 +88,7 @@ var Catalog = []Info{
 }
 
 // Groups are the sections of the catalogue, in display order.
-var Groups = []string{"server", "files", "addons", "backups", "admin", "access"}
+var Groups = []string{"server", "files", "addons", "backups", "stats", "admin", "access"}
 
 var catalog = func() map[Perm]Info {
 	m := make(map[Perm]Info, len(Catalog))
@@ -117,7 +121,7 @@ type builtin struct {
 var viewer = []Perm{ServerView, ServerConsole, BackupsView}
 var moderator = append(slices.Clone(viewer), ServerPower, ServerPlayers, ServerCommand)
 var operator = append(slices.Clone(moderator), ServerSettings, ServerUpdate, AddonsManage, BackupsCreate, BackupsRestore,
-	FilesRead, FilesWrite, WorldExport, WorldImport)
+	FilesRead, FilesWrite, WorldExport, WorldImport, StatsServer)
 
 func allPerms(without ...Perm) []Perm {
 	var out []Perm

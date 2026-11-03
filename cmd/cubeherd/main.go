@@ -112,6 +112,7 @@ func main() {
 		schedCtx, stopSched := context.WithCancel(context.Background())
 		defer stopSched()
 		go m.RunScheduler(schedCtx)
+		startMetrics(m, cfg, dataDir)
 		local, dockerHost = m, dc.Host
 	}
 	reg := nodes.New(cfg, local, web.Version)
@@ -145,6 +146,9 @@ func main() {
 	stop := make(chan os.Signal, 1)
 	signal.Notify(stop, syscall.SIGINT, syscall.SIGTERM)
 	<-stop
+	if mgr, ok := local.(*manager.Manager); ok {
+		mgr.CloseMetrics()
+	}
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	_ = srv.Shutdown(ctx)
@@ -184,6 +188,8 @@ func runAgent(dataDir string) {
 	schedCtx, stopSched := context.WithCancel(context.Background())
 	defer stopSched()
 	go m.RunScheduler(schedCtx)
+	startMetrics(m, cfg, dataDir)
+	defer m.CloseMetrics()
 
 	stateDir := filepath.Join(dataDir, "agent")
 	cert, err := agent.LoadOrCreateCert(stateDir)
@@ -212,4 +218,20 @@ func runAgent(dataDir string) {
 	ctx, cancel = context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	_ = srv.Shutdown(ctx)
+}
+
+// startMetrics points the manager at its statistics directory and starts the recorder when the setting says so.
+// CUBEHERD_METRICS=true switches it on for setups without a dashboard that could push the setting.
+func startMetrics(m *manager.Manager, cfg *config.Store, dataDir string) {
+	m.MetricsDir = filepath.Join(dataDir, "metrics")
+	if envBool("CUBEHERD_METRICS", false) && !cfg.Get().Metrics.Enabled {
+		if err := cfg.Update(func(s *config.Settings) { s.Metrics.Enabled = true }); err != nil {
+			log.Printf("statistics: saving the setting: %v", err)
+		}
+	}
+	if mc := cfg.Get().Metrics; mc.Enabled {
+		if err := m.ApplyMetrics(api.MetricsConfig{Enabled: true, Keep1mHours: mc.Keep1mHours, Keep5mDays: mc.Keep5mDays, Keep1hDays: mc.Keep1hDays, MaxMB: mc.MaxMB}); err != nil {
+			log.Printf("statistics: %v", err)
+		}
+	}
 }

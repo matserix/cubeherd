@@ -16,6 +16,7 @@ const maxBody = 4 << 20 // definitions and commands are small
 func (a *Agent) routes(mux *http.ServeMux) {
 	a.fileRoutes(mux)
 	a.backupRoutes(mux)
+	a.metricsRoutes(mux)
 	mux.HandleFunc("GET /v1/docker", a.dockerInfo)
 	mux.HandleFunc("GET /v1/servers", a.servers)
 	mux.HandleFunc("POST /v1/servers", a.create)

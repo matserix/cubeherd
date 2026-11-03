@@ -133,7 +133,39 @@
     </div>
   </form>
   {{end}}
+  <div class="panel form-sections" id="prometheus">
+    <div class="form-sec">
+      <div class="intro"><h2>Prometheus</h2><p>{{t "Aktuelle Werte für Prometheus und Grafana."}}</p></div>
+      <div class="body">
+        <p class="muted">{{t "Das Dashboard liefert unter /metrics Auslastung und Zustand aller Nodes und Server im Prometheus-Format. Der Zugriff läuft über ein eigenes Token, das alles lesen darf und an den Benutzerrechten vorbeigeht. Es wird einmal angezeigt, gespeichert wird nur sein Hash."}}</p>
+        {{if .Data.ScrapeOn}}<p><span class="pill s-running">{{t "Eingeschaltet"}}</span> <code class="mono">{{.Data.ScrapeURL}}</code></p>{{end}}
+        <div class="actions">
+          <button class="btn" hx-post="/settings/prometheus" hx-vals='{"op":"token"}' hx-target="#modal-card" hx-confirm="{{if .Data.ScrapeOn}}{{t "{} Das bisherige Token funktioniert danach nicht mehr."}}{{else}}{{t "{} Das Token wird einmal angezeigt."}}{{end}}" data-dlg-title="{{if .Data.ScrapeOn}}{{t "Token erneuern?"}}{{else}}{{t "Prometheus-Zugriff einschalten?"}}{{end}}" data-dlg-ok="{{t "Weiter"}}" data-dlg-icon="upload">{{if .Data.ScrapeOn}}{{t "Token erneuern"}}{{else}}{{t "Einschalten"}}{{end}}</button>
+          {{if .Data.ScrapeOn}}<button class="btn ghost danger" hx-post="/settings/prometheus" hx-vals='{"op":"off"}' hx-confirm="{{t "{} Der Zugriff wird abgeschaltet."}}" data-dlg-title="{{t "Prometheus-Zugriff ausschalten?"}}" data-dlg-ok="{{t "Ausschalten"}}" data-dlg-tone="danger" data-dlg-icon="trash">{{t "Ausschalten"}}</button>{{end}}
+        </div>
+      </div>
+    </div>
+  </div>
 </section>
+{{end}}
+
+{{define "promToken"}}
+<div class="modal-head"><h2>{{t "Prometheus-Token"}}</h2><button class="btn sm ghost" data-close aria-label="{{t "Schließen"}}">✕</button></div>
+<div class="modal-body">
+  <div class="callout warn"><div><b>{{t "Jetzt kopieren"}}</b><span class="muted">{{t "Das Token wird nicht noch einmal angezeigt."}}</span></div></div>
+  <label class="field"><span>{{t "Token"}}</span><input class="input mono" value="{{.Token}}" readonly onfocus="this.select()"></label>
+  <p class="muted">{{t "Beispiel für prometheus.yml:"}}</p>
+  <pre class="code">scrape_configs:
+  - job_name: cubeherd
+    metrics_path: /metrics
+    scheme: {{.Scheme}}
+    authorization:
+      credentials: {{.Token}}
+    static_configs:
+      - targets: ["{{.Host}}"]</pre>
+  <p class="muted">{{t "Trage bei targets nur Host und Port ein, ohne http:// und ohne Pfad."}}</p>
+</div>
+<div class="modal-foot"><button class="btn primary" type="button" data-close>{{t "Fertig"}}</button></div>
 {{end}}
 
 {{define "scope"}}{{if .D.Multi}}{{if eq .Kind "all"}}<span class="scope scope-all" title="{{t "Das Dashboard gibt diese Einstellung an alle Agents weiter."}}">{{t "Alle Nodes"}}</span>{{else if eq .Kind "dash"}}<span class="scope scope-dash">{{t "Nur das Dashboard"}}</span>{{else if .D.HasLocal}}<span class="scope scope-local" title="{{t "Für andere Nodes unter Nodes → Bearbeiten einstellen."}}">{{t "Nur %s" .D.LocalName}}</span>{{end}}{{end}}{{end}}

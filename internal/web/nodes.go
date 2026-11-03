@@ -1,6 +1,7 @@
 package web
 
 import (
+	"context"
 	"errors"
 	"net/http"
 	"slices"
@@ -37,6 +38,7 @@ func (a *App) nodeError(err error) string {
 }
 
 type nodeDialog struct {
+	Metrics                        metricsFields
 	Name, Addr, Token, Fingerprint string
 	Error                          string
 	Version, Hostname              string // identity of the agent, once it has answered
@@ -116,7 +118,12 @@ func (a *App) nodeEntry(w http.ResponseWriter, r *http.Request) (nodes.Info, boo
 func (a *App) nodeEdit(w http.ResponseWriter, r *http.Request) {
 	if r.PathValue("id") == nodes.LocalID {
 		if info, ok := a.Reg.Get(nodes.LocalID); ok {
-			a.partial(w, "nodes", "nodeEditLocal", info)
+			f := fieldsOf(a.localMetrics(), false)
+			a.statusLine(r.Context(), info.Node, &f)
+			a.partial(w, "nodes", "nodeEditLocal", struct {
+				ID, Name string
+				Metrics  metricsFields
+			}{info.ID, info.Name, f})
 			return
 		}
 	}
@@ -125,8 +132,10 @@ func (a *App) nodeEdit(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	e := info.Entry
+	f := fieldsOf(e.Metrics, true)
+	a.statusLine(r.Context(), info.Node, &f)
 	a.partial(w, "nodes", "nodeEdit", nodeDialog{ID: e.ID, Name: e.Name, Addr: e.Addr, Fingerprint: e.Fingerprint,
-		PortMin: e.PortMin, PortMax: e.PortMax, BindIPs: strings.Join(e.BindIPs, "\n"), DefaultBindIP: e.DefaultBindIP})
+		PortMin: e.PortMin, PortMax: e.PortMax, BindIPs: strings.Join(e.BindIPs, "\n"), DefaultBindIP: e.DefaultBindIP, Metrics: f})
 }
 
 // nodeReprobe fetches the agent's current fingerprint, for the case that its certificate was replaced.
@@ -152,6 +161,10 @@ func (a *App) nodeSaveLocal(w http.ResponseWriter, r *http.Request) {
 	name := strings.TrimSpace(r.FormValue("name"))
 	if err := a.Cfg.Update(func(s *config.Settings) { s.LocalName = name }); err != nil {
 		fail(w, a.t(err.Error()))
+		return
+	}
+	if err := a.applyLocalMetrics(metricsForm(r)); err != nil {
+		a.fail(w, "Die Statistik konnte nicht eingestellt werden: %s", err.Error())
 		return
 	}
 	redirect(w, r, "/nodes")
@@ -199,11 +212,14 @@ func (a *App) nodeSave(w http.ResponseWriter, r *http.Request) {
 	err := a.Reg.Edit(info.ID, func(n *config.Node) {
 		n.Name, n.Addr, n.Token, n.Fingerprint = name, addr, token, fp
 		n.PortMin, n.PortMax, n.BindIPs, n.DefaultBindIP = pmin, pmax, ips, def
+		n.Metrics = metricsForm(r)
 	})
 	if err != nil {
 		fail(w, a.t(err.Error()))
 		return
 	}
+	a.Reg.ForgetPushed()
+	go a.Reg.Refresh(context.Background(), false, 0) // hands the recorder setting to the agent at once
 	redirect(w, r, "/nodes")
 }
 

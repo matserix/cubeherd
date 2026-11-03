@@ -368,6 +368,33 @@ func (r rawStats) toStats() Stats {
 	return s
 }
 
+// Counters are the cumulative figures behind CPU use: two readings give the share in between.
+type Counters struct {
+	CPUTotal uint64 // container CPU time, nanoseconds
+	SysTotal uint64 // host CPU time, nanoseconds, over all cores
+	MemUsed  uint64
+	MemLimit uint64
+}
+
+// CountersOnce reads the counters in one call without waiting for a second sample, as `docker stats` has to.
+func (c *Client) CountersOnce(ctx context.Context, id string) (Counters, error) {
+	var r rawStats
+	if err := c.getJSON(ctx, "/containers/"+url.PathEscape(id)+"/stats?stream=false&one-shot=true", &r); err != nil {
+		return Counters{}, err
+	}
+	st := r.toStats()
+	return Counters{CPUTotal: r.CPUStats.CPUUsage.TotalUsage, SysTotal: r.CPUStats.SystemUsage, MemUsed: st.MemUsed, MemLimit: st.MemLimit}, nil
+}
+
+// CPUShare is the percent of the whole host that the container used between two readings; ok is false when the
+// counters went backwards (the container restarted) or did not advance.
+func CPUShare(prev, cur Counters) (pct float64, ok bool) {
+	if cur.CPUTotal < prev.CPUTotal || cur.SysTotal <= prev.SysTotal {
+		return 0, false
+	}
+	return float64(cur.CPUTotal-prev.CPUTotal) / float64(cur.SysTotal-prev.SysTotal) * 100, true
+}
+
 // StatsOnce returns memory figures quickly; CPU is not meaningful in one-shot mode.
 func (c *Client) StatsOnce(ctx context.Context, id string) (Stats, error) {
 	var r rawStats

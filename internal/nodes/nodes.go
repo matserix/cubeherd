@@ -203,7 +203,11 @@ func (r *Registry) Default() (Info, bool) {
 // Config builds what an agent needs from the dashboard's global settings.
 func (r *Registry) config(e config.Node) api.Config {
 	s := r.cfg.Get()
-	return api.Config{Timezone: s.Timezone, Language: s.Language, CFAPIKey: s.CFAPIKey, Remote: s.Remote, PortMin: e.PortMin, PortMax: e.PortMax}
+	c := api.Config{Timezone: s.Timezone, Language: s.Language, CFAPIKey: s.CFAPIKey, Remote: s.Remote, PortMin: e.PortMin, PortMax: e.PortMax}
+	if e.Metrics != nil {
+		c.Metrics = &api.MetricsConfig{Enabled: e.Metrics.Enabled, Keep1mHours: e.Metrics.Keep1mHours, Keep5mDays: e.Metrics.Keep5mDays, Keep1hDays: e.Metrics.Keep1hDays, MaxMB: e.Metrics.MaxMB}
+	}
+	return c
 }
 
 func hash(c api.Config) string {

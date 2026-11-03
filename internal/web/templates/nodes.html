@@ -12,13 +12,15 @@
         {{range .Data.Rows}}
         <tr data-node="{{.ID}}">
           <td class="t-name"><b>{{.Name}}</b><span>{{if .Local}}{{t "eingebetteter Agent in diesem Dashboard"}}{{else}}{{t "Agent auf einem anderen Host"}}{{end}}</span></td>
+          {{if canN $ "nodes.view" .ID}}
           <td class="mono hide-sm">{{if .Local}}{{t "eingebettet"}}{{else}}{{.Addr}}{{end}}</td>
           <td><span class="pill s-{{nodeCSS .Status.State}}">{{nodeState .Status.State}}</span>
             {{if eq .Status.State "offline"}}<div class="muted" style="font-size:12px;margin-top:4px">{{nodeReason .Status}}{{if not .Status.LastSeen.IsZero}} · {{t "zuletzt gesehen: %s" (ago .Status.LastSeen)}}{{end}}</div>{{end}}</td>
           <td class="hide-sm mono">{{with .Status.Version}}v{{.}}{{else}}–{{end}}</td>
           <td class="hide-sm num">{{if or .Local (eq .Status.State "offline")}}–{{else}}{{latency .Status.Latency}}{{end}}</td>
           <td class="hide-sm num">{{len .Views}}</td>
-          <td class="right">{{if canG $ "nodes.manage"}}<button class="btn sm ghost" hx-get="/nodes/{{.ID}}/edit" hx-target="#modal-card">{{t "Bearbeiten"}}</button>{{if not .Local}}<button class="btn sm ghost" hx-get="/nodes/{{.ID}}/remove" hx-target="#modal-card">{{t "Entfernen"}}</button>{{end}}{{end}}</td>
+          {{else}}<td class="hide-sm"></td><td></td><td class="hide-sm"></td><td class="hide-sm"></td><td class="hide-sm"></td><td class="hide-sm num">{{len .Views}}</td>{{end}}
+          <td class="right">{{if canN $ "stats.node" .ID}}<a class="btn sm ghost" href="/n/{{.ID}}/stats" style="text-decoration:none">{{t "Statistik"}}</a>{{end}}{{if canG $ "nodes.manage"}}<button class="btn sm ghost" hx-get="/nodes/{{.ID}}/edit" hx-target="#modal-card">{{t "Bearbeiten"}}</button>{{if not .Local}}<button class="btn sm ghost" hx-get="/nodes/{{.ID}}/remove" hx-target="#modal-card">{{t "Entfernen"}}</button>{{end}}{{end}}</td>
         </tr>
         {{else}}
         <tr><td colspan="7" class="muted" style="padding:28px 18px">{{t "Noch keine Nodes."}}</td></tr>
@@ -95,6 +97,7 @@
     <label class="field"><span>{{t "Standard-IP"}}</span><input class="input mono" name="defaultBindIp" value="{{.DefaultBindIP}}" placeholder="{{t "alle Schnittstellen"}}" spellcheck="false"></label>
   </div>
   <label class="field"><span>{{t "IP-Adressen dieses Hosts"}}</span><textarea class="input mono" name="bindIps" rows="3" spellcheck="false">{{.BindIPs}}</textarea><small>{{t "Eine Adresse pro Zeile. Auf diesen Adressen darf ein Server seinen Port veröffentlichen."}}</small></label>
+  {{template "metricsFields" .Metrics}}
 </div>
 <div class="modal-foot"><button class="btn ghost" type="button" data-close>{{t "Abbrechen"}}</button><button class="btn primary">{{t "Speichern"}} <span class="spin-on-req"></span></button></div>
 </form>
@@ -113,7 +116,26 @@
 <form hx-post="/nodes/{{.ID}}">
 <div class="modal-body">
   <label class="field"><span>{{t "Name"}}</span><input class="input" name="name" value="{{.Name}}" placeholder="{{t "Name des Hosts"}}" autofocus autocomplete="off"><small>{{t "Leer lassen, um den Namen des Docker-Hosts zu verwenden. Port-Bereich, IP-Adressen und Zeitzone dieses Nodes stehen in den Einstellungen."}}</small></label>
+  {{template "metricsFields" .Metrics}}
 </div>
 <div class="modal-foot"><button class="btn ghost" type="button" data-close>{{t "Abbrechen"}}</button><button class="btn primary">{{t "Speichern"}} <span class="spin-on-req"></span></button></div>
 </form>
+{{end}}
+
+{{define "metricsFields"}}
+<div class="form-group">
+  <label class="field"><span>{{t "Statistik aufzeichnen"}}</span>
+    <select class="input" name="metrics">
+      {{if .CanInherit}}<option value="" {{if eq .Mode ""}}selected{{end}}>{{t "Der Agent entscheidet (CUBEHERD_METRICS)"}}</option>{{end}}
+      <option value="on" {{if eq .Mode "on"}}selected{{end}}>{{t "Aufzeichnen"}}</option>
+      <option value="off" {{if eq .Mode "off"}}selected{{end}}>{{t "Aus"}}</option>
+    </select>
+    <small>{{t "Einmal pro Minute Auslastung des Nodes und seiner Server, Spielerzahlen und TPS. Der Verlauf liegt auf dem Node in metrics.db."}}{{if .Size}} {{t "Aktuell %s, seit %s." .Size .Since}}{{end}}{{if .Capped}} <b>{{t "Die Größengrenze ist erreicht, es wird nicht mehr aufgezeichnet."}}</b>{{end}}</small></label>
+  <div class="grid-4">
+    <label class="field"><span>{{t "Minuten-Werte (Std.)"}}</span><input class="input num" name="keep1m" type="number" min="1" max="720" value="{{if .Keep1m}}{{.Keep1m}}{{end}}" placeholder="48"></label>
+    <label class="field"><span>{{t "5-Minuten-Werte (Tage)"}}</span><input class="input num" name="keep5m" type="number" min="1" max="365" value="{{if .Keep5m}}{{.Keep5m}}{{end}}" placeholder="30"></label>
+    <label class="field"><span>{{t "Stunden-Werte (Tage)"}}</span><input class="input num" name="keep1h" type="number" min="1" max="3650" value="{{if .Keep1h}}{{.Keep1h}}{{end}}" placeholder="365"></label>
+    <label class="field"><span>{{t "Größengrenze (MB)"}}</span><input class="input num" name="maxmb" type="number" min="16" max="100000" value="{{if .MaxMB}}{{.MaxMB}}{{end}}" placeholder="256"></label>
+  </div>
+</div>
 {{end}}

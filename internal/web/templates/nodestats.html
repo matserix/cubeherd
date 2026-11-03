@@ -1,0 +1,8 @@
+{{define "content"}}
+<section class="view">
+  <div class="view-head">
+    <div><h1>{{t "Statistik"}} · {{.Data.Name}}</h1><p class="sub">{{t "Verlauf der Auslastung dieses Nodes, aufgezeichnet vom Agent."}}</p></div>
+  </div>
+  <div id="stats-box">{{template "statsPanel" .Data}}</div>
+</section>
+{{end}}

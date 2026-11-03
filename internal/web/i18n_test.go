@@ -88,6 +88,12 @@ func usedKeys(t *testing.T) map[string]bool {
 	for _, tb := range tabs {
 		add(tb.Label)
 	}
+	for _, r := range statRanges {
+		add(r.Label)
+	}
+	for _, v := range eventKinds {
+		add(v)
+	}
 	for _, v := range permText {
 		add(v[0])
 		add(v[1])

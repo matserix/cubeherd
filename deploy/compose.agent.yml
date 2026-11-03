@@ -18,5 +18,6 @@ services:
       CUBEHERD_DATA: /srv/cubeherd
       # A long random string; compose refuses to start without it. The dashboard's "Add node" dialog can generate one.
       CUBEHERD_AGENT_TOKEN: ${CUBEHERD_AGENT_TOKEN:?set CUBEHERD_AGENT_TOKEN to a long random token}
+      # CUBEHERD_METRICS: "true"  # record load statistics on this node (metrics/metrics.db)
       TZ: Europe/Berlin
     mem_limit: 96m

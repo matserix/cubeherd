@@ -94,6 +94,17 @@ An opt-in mode (`config.Settings.Accounts`); without it nothing here runs and no
 - **Single sign-on.** `access/oidc.go` implements discovery, the authorization code flow with PKCE, and ID token validation (RS256 and ES256 against the provider's keys, issuer, audience, expiry, nonce) with the standard library. Attempts are bound to the browser by state and a cookie. Client secrets are encrypted with AES-GCM; the key is `access.key` next to the database. Providers can restrict e-mail domains and Workspace domains, link by verified e-mail, create accounts and map a claim to groups.
 - **Operations.** `cubeherd user reset-owner [name]` and `cubeherd db backup <file>` work on the database directly.
 
+## Statistics
+
+Optional per node (`config.Settings.Metrics` for the embedded node and for an agent, `config.Node.Metrics` on the dashboard side, pushed to the agent with the other settings; `nil` leaves an agent to its own setting or `CUBEHERD_METRICS`). Nothing runs while it is off.
+
+- **Recorder** (`manager/metrics.go`). One goroutine, started only while on: every minute it takes `Views`, the host reading and, for each really running server (4 at a time), the Docker counters (CPU share from the difference of two readings; a restarted container or a backwards counter is skipped), the player count and TPS/MSPT over RCON. Paused, stopped, starting, busy and crashed servers only get an `up` flag, so autopause and autostop are untouched. Start, stop, restart and update events are written by the manager's actions, crashes by the sampler.
+- **Store** (`internal/metrics`). `metrics.db` next to the agent state: `samples(res, scope, ts, …)` with `res` 60, 300 or 3600, plus `events`. Samples are buffered and written every five minutes and on shutdown. An hourly job builds the five-minute and hourly rows from complete finer buckets (average, maximum, minimum for TPS) with a watermark per level, then prunes by retention but never drops rows that are not yet rolled up. A size cap stops writing. An unreadable file is set aside and recreated.
+- **Queries.** `Query` picks the finest resolution whose retention covers the range and thins to at most N points, weighting averages by the number of samples. Gaps stay gaps; the charts break the line.
+- **API** (additive, API v1): `GET /v1/metrics/{status,latest,node,servers/{id}}`, `DELETE /v1/metrics[/{scope}]`. `remote.ErrUnsupported` is a plain 404, which an older agent answers.
+- **UI.** `web/charts.go` renders server-side SVG (hover texts in `<title>`, no script, CSP unchanged). Server → Performance loads its panel by htmx; the node page is `/n/<node>/stats`. Rights `stats.server` and `stats.node` follow the route table; the server panel also needs `server.view`.
+- **Prometheus.** `GET /metrics` is public in the route table but needs the scrape token (`Settings.ScrapeTokenHash`, SHA-256, constant-time compare, failures throttled). It reads the registry's cached views and the recorder's latest samples and sends no RCON of its own except through the same cached player count the overview uses.
+
 ## Status model
 
 | Display | Source |
@@ -111,6 +122,7 @@ An opt-in mode (`config.Settings.Accounts`); without it nothing here runs and no
 cmd/cubeherd        main: read configuration from env, start the HTTP server
 internal/config       global settings (JSON, written atomically)
 internal/auth         password, session cookie (single-user mode), login throttling
+internal/metrics      statistics store (SQLite): write buffer, thinning into 1 min / 5 min / 1 h rows, retention, size cap, queries
 internal/access       multi-user mode: SQLite store, permissions and roles, grants and scopes, sessions, audit log, OpenID Connect
 internal/docker       minimal Engine API client (list, inspect, start/stop, logs, stats, exec, info)
 internal/api          wire types shared by dashboard and agent (View, Info, fingerprint helper)
@@ -133,6 +145,7 @@ internal/web          handlers, templates, SSE, static assets
 | `CUBEHERD_LISTEN` | `:8420` | Web server address |
 | `CUBEHERD_LOCAL` | `true` | `false`: no embedded local node, the dashboard needs no Docker socket |
 | `CUBEHERD_ACCOUNTS` | `false` | `true`: multi-user mode (accounts, roles, audit log in `cubeherd.db`) |
+| `CUBEHERD_METRICS` | `false` | Record statistics on this node (`metrics/metrics.db`) |
 | `CUBEHERD_AUDIT_STDOUT` | `false` | Also write every audit entry as a JSON line to stdout |
 | `CUBEHERD_AGENT_TOKEN` | generated on first start | Agent mode: the bearer token (only its hash is stored when generated) |
 | `CUBEHERD_AGENT_LISTEN` | `:8421` | Agent mode: address of the node API |

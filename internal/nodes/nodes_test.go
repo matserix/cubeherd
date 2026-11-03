@@ -30,6 +30,7 @@ type fakeNode struct {
 	node.Addons
 	node.Backups
 	node.Host
+	node.Metrics
 	name   string
 	pushed atomic.Int32
 	last   atomic.Pointer[api.Config]
@@ -295,4 +296,31 @@ func TestConcurrentRefreshAndChanges(t *testing.T) {
 	}
 	close(done)
 	wg.Wait()
+}
+
+func TestRecorderSettingIsPushedOnlyWhenTheDashboardManagesIt(t *testing.T) {
+	a := startAgent(t, "vps", "tok", "1.0.0")
+	reg, cfg := newRegistry(t, nil, "1.0.0")
+	cfg.Update(func(s *config.Settings) {
+		s.Nodes = []config.Node{{ID: "vps", Name: "VPS", Addr: a.addr, Token: "tok", Fingerprint: a.fp}}
+	})
+	reg.Refresh(context.Background(), false, 0)
+	if c := a.node.last.Load(); c == nil || c.Metrics != nil {
+		t.Fatalf("an unmanaged node must be left alone: %+v", c)
+	}
+	if err := reg.Edit("vps", func(n *config.Node) { n.Metrics = &config.Metrics{Enabled: true, Keep1mHours: 12, MaxMB: 64} }); err != nil {
+		t.Fatal(err)
+	}
+	reg.ForgetPushed()
+	reg.Refresh(context.Background(), false, 0)
+	m := a.node.last.Load().Metrics
+	if m == nil || !m.Enabled || m.Keep1mHours != 12 || m.MaxMB != 64 {
+		t.Fatalf("pushed recorder setting = %+v", m)
+	}
+	reg.Edit("vps", func(n *config.Node) { n.Metrics = &config.Metrics{Enabled: false} })
+	reg.ForgetPushed()
+	reg.Refresh(context.Background(), false, 0)
+	if m := a.node.last.Load().Metrics; m == nil || m.Enabled {
+		t.Fatalf("switching off is pushed as well: %+v", m)
+	}
 }

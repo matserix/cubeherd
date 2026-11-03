@@ -89,7 +89,7 @@ func (a *App) migrateOwner() (access.User, error) {
 
 func isPublic(path string) bool {
 	switch path {
-	case "/login", "/setup", "/login/sso", "/login/sso/callback":
+	case "/login", "/setup", "/login/sso", "/login/sso/callback", "/metrics":
 		return true
 	}
 	return false
@@ -164,17 +164,19 @@ const (
 type rule struct {
 	kind   kind
 	perm   access.Perm
+	alt    access.Perm                // kAnywhere: this permission also does
 	action string                     // audit action, "" = not logged
 	target func(*http.Request) string // what the action was about
 }
 
-func public() rule                      { return rule{kind: kPublic} }
-func open() rule                        { return rule{kind: kOpen} }
-func global(p access.Perm) rule         { return rule{kind: kGlobal, perm: p} }
-func onNode(p access.Perm) rule         { return rule{kind: kNode, perm: p} }
-func onServer(p access.Perm) rule       { return rule{kind: kServer, perm: p} }
-func anywhere(p access.Perm) rule       { return rule{kind: kAnywhere, perm: p} }
-func nodeOrAnywhere(p access.Perm) rule { return rule{kind: kNodeOrAnywhere, perm: p} }
+func public() rule                       { return rule{kind: kPublic} }
+func open() rule                         { return rule{kind: kOpen} }
+func global(p access.Perm) rule          { return rule{kind: kGlobal, perm: p} }
+func onNode(p access.Perm) rule          { return rule{kind: kNode, perm: p} }
+func onServer(p access.Perm) rule        { return rule{kind: kServer, perm: p} }
+func anywhere(p access.Perm) rule        { return rule{kind: kAnywhere, perm: p} }
+func anywhereOf(p, alt access.Perm) rule { return rule{kind: kAnywhere, perm: p, alt: alt} }
+func nodeOrAnywhere(p access.Perm) rule  { return rule{kind: kNodeOrAnywhere, perm: p} }
 func (r rule) log(action string, target ...func(*http.Request) string) rule {
 	r.action = action
 	if len(target) > 0 {
@@ -229,7 +231,7 @@ func (a *App) allowed(p *access.Principal, rl rule, r *http.Request) bool {
 	case kServer:
 		return p.Can(rl.perm, a.nodeOf(r), r.PathValue("id"))
 	case kAnywhere:
-		return p.Anywhere(rl.perm)
+		return p.Anywhere(rl.perm) || rl.alt != "" && p.Anywhere(rl.alt)
 	case kNodeOrAnywhere:
 		if id, ok := explicitNode(r); ok {
 			return p.Can(rl.perm, id, "")

@@ -56,6 +56,7 @@ type Caps struct {
 	Power, Console, Command, Players, Settings, Update, Delete bool
 	FilesRead, FilesWrite, WorldExport, WorldImport, Addons    bool
 	BackupsView, BackupsCreate, BackupsRestore, BackupsDelete  bool
+	Stats                                                      bool
 }
 
 // Unmanaged is an itzg container that Cubeherd does not manage yet.
@@ -133,7 +134,68 @@ type Config struct {
 	Remote   *s3.Config // external backup storage; nil = local backups only
 	// PortMin and PortMax bound the ports the agent hands out for new servers (0 = keep the agent's own range).
 	PortMin, PortMax int
+	// Metrics switches the statistics recorder; nil leaves the agent's own setting alone.
+	Metrics *MetricsConfig
 }
+
+// MetricsConfig is the recorder setting a node receives (all zero values mean the defaults).
+type MetricsConfig struct {
+	Enabled     bool
+	Keep1mHours int // minute rows, default 48
+	Keep5mDays  int // five-minute rows, default 30
+	Keep1hDays  int // hourly rows, default 365
+	MaxMB       int // size cap of metrics.db, default 256
+}
+
+// MetricPoint is one sample (or one thinned bucket) of a node or a server. A nil field was not measured.
+// For a node, Up is the number of running servers and Players the players on all of them.
+type MetricPoint struct {
+	T          int64    `json:"t"` // UTC seconds, start of the bucket
+	Up         *float64 `json:"up,omitempty"`
+	CPU        *float64 `json:"cpu,omitempty"` // percent of the host
+	CPUMax     *float64 `json:"cpuMax,omitempty"`
+	Mem        *float64 `json:"mem,omitempty"` // bytes
+	MemMax     *float64 `json:"memMax,omitempty"`
+	Disk       *float64 `json:"disk,omitempty"` // bytes, node only
+	Players    *float64 `json:"players,omitempty"`
+	PlayersMax *float64 `json:"playersMax,omitempty"`
+	TPS        *float64 `json:"tps,omitempty"`
+	TPSMin     *float64 `json:"tpsMin,omitempty"`
+	MSPT       *float64 `json:"mspt,omitempty"`
+	MSPTMax    *float64 `json:"msptMax,omitempty"`
+}
+
+// MetricEvent marks something that happened to a server (start, stop, restart, update, crash).
+type MetricEvent struct {
+	T      int64  `json:"t"`
+	Kind   string `json:"kind"`
+	Detail string `json:"detail,omitempty"`
+}
+
+// History is the answer to a statistics query: the thinned series and the events in the range.
+type History struct {
+	Scope   string        `json:"scope"` // "node" or a server id
+	Res     int           `json:"res"`   // seconds per point of the finest data used
+	Step    int           `json:"step"`  // seconds per returned point
+	From    int64         `json:"from"`
+	To      int64         `json:"to"`
+	Points  []MetricPoint `json:"points"`
+	Events  []MetricEvent `json:"events,omitempty"`
+	Enabled bool          `json:"enabled"` // the recorder is on for this node
+}
+
+// MetricsStatus describes the recorder of a node.
+type MetricsStatus struct {
+	Enabled bool          `json:"enabled"`
+	Since   int64         `json:"since,omitempty"` // first sample ever recorded
+	Last    int64         `json:"last,omitempty"`  // newest sample
+	Size    int64         `json:"size"`            // bytes of metrics.db
+	Capped  bool          `json:"capped,omitempty"`
+	Config  MetricsConfig `json:"config"`
+}
+
+// Float returns a pointer to v for the optional fields of MetricPoint.
+func Float(v float64) *float64 { return &v }
 
 // Paths are where a server lives on its host (shown in the UI, never used by the dashboard itself).
 type Paths struct {

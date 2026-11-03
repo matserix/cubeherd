@@ -30,6 +30,8 @@ var (
 	ErrUnauthorized = errors.New("the agent rejected the token")
 	ErrAPIVersion   = errors.New("the agent speaks a different API version")
 	ErrFingerprint  = errors.New("the agent's certificate does not match the pinned fingerprint")
+	// ErrUnsupported means the agent predates the endpoint (an update of the agent adds it).
+	ErrUnsupported = errors.New("the agent does not know this request; update the agent")
 )
 
 // Client is a connection to one agent.
@@ -181,6 +183,8 @@ func decodeErr(resp *http.Response) error {
 		return fs.ErrNotExist
 	case e.Error != "":
 		return errors.New(e.Error)
+	case resp.StatusCode == http.StatusNotFound:
+		return ErrUnsupported
 	}
 	return fmt.Errorf("agent answered %s", resp.Status)
 }

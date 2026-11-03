@@ -29,6 +29,8 @@ var permText = map[access.Perm][2]string{
 	access.BackupsCreate:  {"Backups erstellen", "Backups starten, Zeitplan ändern, in den externen Speicher hochladen."},
 	access.BackupsRestore: {"Backups wiederherstellen", "Welt und Konfiguration aus einem Backup wiederherstellen."},
 	access.BackupsDelete:  {"Backups löschen", "Backups endgültig löschen."},
+	access.StatsServer:    {"Server-Statistik", "Den Verlauf eines Servers sehen: Auslastung, Spieler, TPS und Ereignisse."},
+	access.StatsNode:      {"Node-Statistik", "Den Verlauf eines Nodes sehen: CPU, Arbeitsspeicher, Festplatte und Server."},
 	access.NodesView:      {"Nodes ansehen", "Auslastung und Zustand eines Nodes sehen (CPU, RAM, Festplatte, Agent). Ohne dieses Recht sieht man nur die erlaubten Server."},
 	access.NodesManage:    {"Nodes verwalten", "Nodes hinzufügen, ändern und entfernen (Tokens!). Gilt nur für das ganze Dashboard."},
 	access.SettingsManage: {"Globale Einstellungen", "S3, CurseForge-Key, Zeitzone, Sprache. Gilt nur für das ganze Dashboard."},
@@ -48,7 +50,7 @@ var builtinDesc = map[string]string{
 	access.RoleViewer:    "Nur lesen: Status, Live-Konsole und die Liste der Backups.",
 }
 
-var groupText = map[string]string{"server": "Server", "files": "Dateien und Welt", "addons": "Mods und Plugins", "backups": "Backups", "admin": "Verwaltung", "access": "Zugriff"}
+var groupText = map[string]string{"server": "Server", "files": "Dateien und Welt", "addons": "Mods und Plugins", "backups": "Backups", "stats": "Statistik", "admin": "Verwaltung", "access": "Zugriff"}
 
 type permItem struct {
 	access.Info

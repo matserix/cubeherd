@@ -352,8 +352,13 @@
 {{end}}
 
 {{define "tabPerf"}}
-<div class="stack" id="perf-body" sse-swap="perf">{{template "perfBody" .Perf}}</div>
+<div class="stack">
+  <div class="stack" id="perf-body" sse-swap="perf">{{template "perfBody" .Perf}}</div>
+  {{if .V.Can.Stats}}<div id="stats-box" hx-get="/servers/{{.V.S.ID}}/stats" hx-trigger="load" hx-swap="innerHTML"><p class="muted" style="padding:8px">{{t "Lade …"}}</p></div>{{end}}
+</div>
 {{end}}
+
+{{define "statsBody"}}{{template "statsPanel" .}}{{end}}
 
 {{define "perfBody"}}
 {{if .Reason}}
@@ -389,5 +394,5 @@
 {{end}}
 
 <div class="callout info"><div><b>{{t "Tiefer analysieren"}}</b><span class="muted">{{t "Welche Mod oder welcher Chunk die Zeit frisst, zeigt ein Profiler. Starte „spark profiler“ im Spiel als Operator. spark antwortet nicht über RCON, deshalb kann Cubeherd es hier nicht anzeigen."}}</span></div></div>
-<p class="muted" style="font-size:12px">{{t "Quelle: %s über RCON. Cubeherd fragt nur, solange diese Seite offen ist, und speichert nichts. Der Verlauf verschwindet beim Schließen." .Src}}</p>
+<p class="muted" style="font-size:12px">{{t "Quelle: %s über RCON. Dieses Diagramm wird nur gefüllt, solange die Seite offen ist. Den gespeicherten Verlauf zeigt der Bereich darunter, wenn die Aufzeichnung eingeschaltet ist." .Src}}</p>
 {{end}}

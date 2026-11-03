@@ -17,12 +17,14 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"cubeherd/internal/config"
 	"cubeherd/internal/docker"
 	"cubeherd/internal/host"
 	"cubeherd/internal/i18n"
+	"cubeherd/internal/metrics"
 	"cubeherd/internal/server"
 	"cubeherd/internal/sources"
 )
@@ -35,6 +37,8 @@ type Manager struct {
 	Config  *config.Store
 	Sources *sources.Client
 	Hoster  *host.Reader // host CPU, memory and disk (set by main)
+	// MetricsDir is where metrics.db lives; "" = this node cannot record statistics (set by main).
+	MetricsDir string
 
 	mu    sync.Mutex
 	ops   map[string]*Op
@@ -45,6 +49,10 @@ type Manager struct {
 
 	rcache map[string]remoteEntry // external backup listings per server
 	hmu    sync.Mutex             // serialises backup-health.json updates
+
+	ms   atomic.Pointer[metrics.Store] // the statistics store, once opened
+	msMu sync.Mutex
+	rec  recorderState
 
 	started  time.Time            // scheduler: anchor for catching up missed runs
 	wake     chan struct{}        // scheduler: recompute next backup
@@ -496,6 +504,7 @@ func (m *Manager) Start(id string) error {
 	if err != nil {
 		return err
 	}
+	m.event(id, "start", "")
 	// Regenerate compose.yml so saved settings (and Cubeherd updates) apply on every start.
 	if err := m.Store.Save(s, m.globals()); err != nil {
 		return err
@@ -513,6 +522,7 @@ func (m *Manager) Stop(id string) error {
 	if err != nil {
 		return err
 	}
+	m.event(id, "stop", "")
 	return m.run(id, server.StatusStopping, func(o *Op) error {
 		o.add("[cubeherd] " + m.t("Server wird gestoppt, Welt wird gespeichert"))
 		return m.Docker.Stop(context.Background(), s.Container(), time.Minute)
@@ -524,6 +534,7 @@ func (m *Manager) Restart(id string) error {
 	if err != nil {
 		return err
 	}
+	m.event(id, "restart", "")
 	if err := m.Store.Save(s, m.globals()); err != nil {
 		return err
 	}
@@ -551,6 +562,7 @@ func (m *Manager) ApplyUpdate(s *server.Server, pull, restart, backupFirst bool)
 	if !restart && !pull {
 		return m.Store.Save(s, m.globals())
 	}
+	m.event(s.ID, "update", "")
 	return m.run(s.ID, server.StatusUpdating, func(o *Op) error {
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Hour)
 		defer cancel()

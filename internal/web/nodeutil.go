@@ -41,7 +41,7 @@ func capsOf(p *access.Principal, node, id string) api.Caps {
 		Players: c(access.ServerPlayers), Settings: c(access.ServerSettings), Update: c(access.ServerUpdate), Delete: c(access.ServerDelete),
 		FilesRead: c(access.FilesRead), FilesWrite: c(access.FilesWrite), WorldExport: c(access.WorldExport), WorldImport: c(access.WorldImport),
 		Addons: c(access.AddonsManage), BackupsView: c(access.BackupsView), BackupsCreate: c(access.BackupsCreate),
-		BackupsRestore: c(access.BackupsRestore), BackupsDelete: c(access.BackupsDelete)}
+		BackupsRestore: c(access.BackupsRestore), BackupsDelete: c(access.BackupsDelete), Stats: c(access.StatsServer)}
 }
 
 // nodeSettings are the per-node defaults: the local node uses the global settings, a remote one its own.

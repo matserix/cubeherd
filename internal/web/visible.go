@@ -38,5 +38,7 @@ func (a *App) refresh(ctx context.Context, withStats bool, maxAge time.Duration)
 func (a *App) visibleNodes(r *http.Request) []nodes.View {
 	all := a.Reg.Refresh(r.Context(), false, 0)
 	p := principalOf(r)
-	return slices.DeleteFunc(all, func(n nodes.View) bool { return !p.Can(access.NodesView, n.ID, "") })
+	return slices.DeleteFunc(all, func(n nodes.View) bool {
+		return !p.Can(access.NodesView, n.ID, "") && !p.Can(access.StatsNode, n.ID, "")
+	})
 }

@@ -62,6 +62,7 @@ sudo CUBEHERD_DATA=/srv/cubeherd ./cubeherd
 | `DOCKER_HOST` | `/var/run/docker.sock`, falling back to `~/.docker/run/docker.sock` | Docker socket |
 | `CUBEHERD_LOCAL` | `true` | Set to `false` for a dashboard that only manages remote agents (needs no Docker socket) |
 | `CUBEHERD_ACCOUNTS` | `false` | `true` starts in multi-user mode (see [Users and roles](#users-and-roles)); it can also be switched on in the settings |
+| `CUBEHERD_METRICS` | `false` | Record statistics on this node (see [Statistics](#statistics)); for an agent without a dashboard that could switch it on |
 | `CUBEHERD_AUDIT_STDOUT` | `false` | Also print every audit entry as one JSON line to stdout, for Docker log drivers |
 | `CUBEHERD_AGENT_TOKEN`, `CUBEHERD_AGENT_LISTEN` | – / `:8421` | Agent mode only, see below |
 | `TZ` | `UTC` | Default time zone, as long as none is chosen in the settings |
@@ -117,6 +118,17 @@ By default Cubeherd has one shared password. For teams and communities there is 
 - **Agents are not part of this.** An agent token still gives full control of its host. The rights protect the dashboard; do not give people access to a host or an agent token that they should not have.
 - **Going back:** *Access → Users → End multi-user mode* returns to one shared password. Accounts stay in the database and are ignored. An older Cubeherd release without accounts support uses the single password again.
 
+## Statistics
+
+Optional history of load, players and TPS, off by default. Switch it on per node under *Nodes → Edit* (the embedded node in the same dialog), or with `CUBEHERD_METRICS=true` on an agent. Nothing runs and no file exists while it is off.
+
+- **Recorded on the node.** Each agent (the embedded one too) samples once a minute and keeps the result in `metrics/metrics.db` in its data directory, so the history has no holes when the dashboard is down and stays with the host. The dashboard fetches charts only when you open them.
+- **What:** per node CPU, memory, disk, running servers and players; per server CPU, memory, players, TPS and MSPT, plus start, stop, restart, update and crash events and the availability for the range. Player *names* and play times are not stored. TPS and the player count use RCON, so a running server gets about two to three short `rcon-cli` calls a minute; paused, stopped and starting servers are never queried, so autopause and autostop behave as before.
+- **How long:** one-minute values for 48 hours, five-minute values for 30 days, hourly values for a year (each adjustable per node), capped at 256 MB by default; a full year is roughly 1.6 MB per server. Writes are batched every five minutes.
+- **Where:** *Server → Performance* shows the charts below the live values (1 hour to 1 year); a node's history is under *Nodes → Statistics* (or the chart icon next to the node in the sidebar). An agent from before the feature shows a hint to update it.
+- **Rights:** `stats.server` (per server) and `stats.node` (per node), separate from the live view and granted like every other right; Operator has the first, Owner and Admin both. Switching and deleting history needs `nodes.manage`.
+- **Prometheus:** *Settings → Prometheus* creates a scrape token (shown once, only its hash is stored) for `GET /metrics`. It reports live values of all nodes and servers (TPS and MSPT only where the recorder is on) and reads everything, bypassing user rights, so treat it like a password.
+
 ## Security
 
 Anyone who can operate Cubeherd controls Docker and therefore, in practice, the entire host.
@@ -138,6 +150,7 @@ Agents add a second entry point with the same reach: protect their token like th
 - **Backups:** manual, scheduled, automatic before updates, restore, download. Optionally uploaded to S3-compatible storage (AWS S3, Backblaze B2, Hetzner, Wasabi, Cloudflare R2, MinIO), and optionally kept only there.
 - **Backup checks:** every archive is read back after it is made, damaged ones are flagged, and a banner warns when backups fail or stay overdue.
 - **Performance:** live TPS, tick time (MSPT), CPU and memory with a short history, per dimension on Forge and NeoForge. Queried over RCON only while the tab is open.
+- **Statistics (optional):** history of node and server load, players and TPS recorded on each node, with events and availability, rights per node and server, and a Prometheus endpoint. See [Statistics](#statistics).
 - **Mods & plugins:** search Modrinth, CurseForge and Spigot, add and remove entries (itzg installs them on startup), upload your own JARs.
   Also works on top of modpacks.
 - **Files & worlds:** file browser with editor, upload, download and delete; export a world as a ZIP and import one.

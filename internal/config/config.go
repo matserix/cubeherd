@@ -44,17 +44,32 @@ type Settings struct {
 	Accounts bool `json:"accounts,omitempty"`
 	// AuditDays is how long audit entries are kept: 0 = the default of 365 days, -1 = forever.
 	AuditDays int `json:"auditDays,omitempty"`
+	// Metrics is the statistics recorder of this host (the embedded node, or an agent that the dashboard configures).
+	Metrics Metrics `json:"metrics,omitempty"`
+	// ScrapeTokenHash is the SHA-256 of the Prometheus scrape token; "" = the /metrics endpoint is off.
+	ScrapeTokenHash string `json:"scrapeTokenHash,omitempty"`
 	// PublicURL is the address users reach the dashboard at; single sign-on needs it for its callback.
 	PublicURL string `json:"publicUrl,omitempty"`
 }
 
 // Node is one remote agent. The token is stored like the CurseForge key (file mode 0600).
+// Metrics configures the statistics recorder. Zero retention values mean the defaults (48 h, 30 d, 365 d, 256 MB).
+type Metrics struct {
+	Enabled     bool `json:"enabled,omitempty"`
+	Keep1mHours int  `json:"keep1mHours,omitempty"`
+	Keep5mDays  int  `json:"keep5mDays,omitempty"`
+	Keep1hDays  int  `json:"keep1hDays,omitempty"`
+	MaxMB       int  `json:"maxMb,omitempty"`
+}
+
 type Node struct {
 	ID          string `json:"id"`
 	Name        string `json:"name"`
 	Addr        string `json:"addr"`        // https://host:port
 	Token       string `json:"token"`       // bearer token of the agent
 	Fingerprint string `json:"fingerprint"` // pinned SHA-256 of the agent's certificate
+	// Metrics is the recorder setting the dashboard pushes to this agent; nil leaves the agent's own setting alone.
+	Metrics *Metrics `json:"metrics,omitempty"`
 	// Per-node defaults, since host addresses and free ports differ between machines.
 	PortMin       int      `json:"portMin,omitempty"`
 	PortMax       int      `json:"portMax,omitempty"`

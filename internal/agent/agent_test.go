@@ -8,6 +8,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 	"time"
@@ -31,13 +32,16 @@ type fake struct {
 	node.Addons
 	node.Backups
 	node.Host
-	started  []string
-	err      error
-	logs     []string
-	created  *server.Server
-	forgot   []string
-	opsGone  chan struct{}
-	zipFirst bool
+	node.Metrics
+	started    []string
+	err        error
+	logs       []string
+	created    *server.Server
+	forgot     []string
+	opsGone    chan struct{}
+	zipFirst   bool
+	histPoints int
+	purged     []string
 }
 
 func (f *fake) Views(context.Context, bool) ([]api.View, error) {
@@ -382,5 +386,92 @@ func TestDownloadFailuresAreVisible(t *testing.T) {
 	buf.Reset()
 	if err := c.WorldZip(context.Background(), s, &buf); err == nil {
 		t.Fatalf("a truncated download looked complete (%q)", buf.String())
+	}
+}
+
+// ---- statistics endpoints ----
+
+func (f *fake) MetricsStatus(context.Context) (api.MetricsStatus, error) {
+	return api.MetricsStatus{Enabled: true, Size: 1234}, nil
+}
+func (f *fake) NodeHistory(_ context.Context, from, to time.Time, points int) (api.History, error) {
+	f.histPoints = points
+	return api.History{Scope: "node", From: from.Unix(), To: to.Unix(), Enabled: true, Points: []api.MetricPoint{{T: from.Unix(), CPU: api.Float(1.5)}}}, nil
+}
+func (f *fake) ServerHistory(_ context.Context, id string, from, to time.Time, _ int) (api.History, error) {
+	return api.History{Scope: id, From: from.Unix(), To: to.Unix(), Enabled: true, Events: []api.MetricEvent{{T: from.Unix(), Kind: "crash", Detail: "oom"}}}, nil
+}
+func (f *fake) MetricsLatest(context.Context) (map[string]api.MetricPoint, error) {
+	return map[string]api.MetricPoint{"node": {T: 5, CPU: api.Float(9)}}, nil
+}
+func (f *fake) PurgeMetrics(_ context.Context, scope string) error {
+	f.purged = append(f.purged, scope)
+	return nil
+}
+
+func TestStatisticsEndpoints(t *testing.T) {
+	f := &fake{}
+	addr, fp := start(t, f, "tok")
+	c, _ := remote.New(addr, "tok", fp)
+	ctx := context.Background()
+	st, err := c.MetricsStatus(ctx)
+	if err != nil || !st.Enabled || st.Size != 1234 {
+		t.Fatalf("status: %+v %v", st, err)
+	}
+	from, to := time.Now().Add(-time.Hour), time.Now()
+	h, err := c.NodeHistory(ctx, from, to, 120)
+	if err != nil || len(h.Points) != 1 || *h.Points[0].CPU != 1.5 || h.Points[0].Mem != nil || f.histPoints != 120 {
+		t.Fatalf("node history: %+v %v points=%d", h, err, f.histPoints)
+	}
+	sh, err := c.ServerHistory(ctx, "survival", from, to, 120)
+	if err != nil || sh.Scope != "survival" || len(sh.Events) != 1 || sh.Events[0].Kind != "crash" {
+		t.Fatalf("server history: %+v %v", sh, err)
+	}
+	l, err := c.MetricsLatest(ctx)
+	if err != nil || *l["node"].CPU != 9 {
+		t.Fatalf("latest: %+v %v", l, err)
+	}
+	if err := c.PurgeMetrics(ctx, "survival"); err != nil {
+		t.Fatal(err)
+	}
+	if err := c.PurgeMetrics(ctx, ""); err != nil {
+		t.Fatal(err)
+	}
+	if len(f.purged) != 2 || f.purged[0] != "survival" || f.purged[1] != "" {
+		t.Fatalf("purged %q", f.purged)
+	}
+}
+
+func TestStatisticsRangeIsValidated(t *testing.T) {
+	addr, fp := start(t, &fake{}, "tok")
+	c, _ := remote.New(addr, "tok", fp)
+	ctx := context.Background()
+	now := time.Now()
+	for name, rng := range map[string][2]time.Time{
+		"empty":    {now, now},
+		"reversed": {now, now.Add(-time.Hour)},
+		"too long": {now.Add(-3 * 366 * 24 * time.Hour), now},
+	} {
+		if _, err := c.NodeHistory(ctx, rng[0], rng[1], 100); err == nil {
+			t.Errorf("%s range was accepted", name)
+		}
+	}
+}
+
+func TestOldAgentReportsUnsupported(t *testing.T) {
+	// a server that knows nothing of /v1/metrics answers the way an agent from before the feature does: a plain 404
+	srv := httptest.NewTLSServer(http.NotFoundHandler())
+	defer srv.Close()
+	addr := strings.TrimPrefix(srv.URL, "https://")
+	fp, err := remote.Probe(context.Background(), addr)
+	if err != nil {
+		t.Fatal(err)
+	}
+	c, err := remote.New(addr, "tok", fp)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := c.NodeHistory(context.Background(), time.Now().Add(-time.Hour), time.Now(), 100); !errors.Is(err, remote.ErrUnsupported) {
+		t.Fatalf("err = %v, want ErrUnsupported", err)
 	}
 }

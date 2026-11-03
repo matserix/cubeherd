@@ -251,8 +251,8 @@ func (a *App) overviewPartial(w http.ResponseWriter, r *http.Request) {
 
 // rackPartial re-renders the sidebar server list, so it follows status changes without a reload.
 func (a *App) rackPartial(w http.ResponseWriter, r *http.Request) {
-	p := Page{Current: r.FormValue("current"), CurrentNode: r.FormValue("node")}
-	p.Nodes = a.Reg.Refresh(r.Context(), false, rackMaxAge)
+	p := Page{Current: r.FormValue("current"), CurrentNode: r.FormValue("node"), P: principalOf(r)}
+	p.Nodes = a.refresh(r.Context(), false, rackMaxAge)
 	for _, n := range p.Nodes {
 		p.RackCount += len(n.Views)
 	}
@@ -1033,7 +1033,9 @@ func (a *App) uninstallPost(w http.ResponseWriter, r *http.Request) {
 // ---------------- Einstellungen ----------------
 
 type settingsData struct {
-	Accounts   bool   // the multi-user mode is on
+	Accounts   bool // the multi-user mode is on
+	ScrapeOn   bool // a Prometheus scrape token is set
+	ScrapeURL  string
 	HasLocal   bool   // the dashboard has its own Docker access
 	Multi      bool   // remote nodes exist, so each setting says which nodes it applies to
 	LocalName  string // display name of the embedded node
@@ -1058,6 +1060,7 @@ func (a *App) settingsPage(w http.ResponseWriter, r *http.Request) {
 		Zones: commonZones, SystemZone: time.Local.String(), ZoneNow: time.Now().In(displayLoc()).Format("02.01.2006 15:04 MST")}
 	d.Multi = len(a.Cfg.Get().Nodes) > 0
 	d.Accounts = a.store() != nil
+	d.ScrapeOn, d.ScrapeURL = d.Cfg.ScrapeTokenHash != "", a.publicBase(r)+"/metrics"
 	if info, ok := a.Reg.Get(nodes.LocalID); ok {
 		d.LocalName = info.Name
 	}
