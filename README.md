@@ -138,10 +138,10 @@ Optional history of load, players and TPS, off by default. Switch it on per node
 
 ## Security
 
-Anyone who can operate Cubeherd controls Docker and therefore, in practice, the entire host.
+Cubeherd has access to the Docker socket, so an administrator can in practice reach the entire host: treat that account like root.
 Only expose Cubeherd on your LAN or via VPN, never directly to the internet.
-It has a single admin account (bcrypt), signed session cookies (`SameSite=Strict`), login throttling and CSRF protection. The [multi-user mode](#users-and-roles) replaces it with accounts, roles and an audit log.
-Agents add a second entry point with the same reach: protect their token like the admin password (see [Several hosts](#several-hosts)).
+By default there is a single admin account (bcrypt), with signed session cookies (`SameSite=Strict`), login throttling and CSRF protection. The [multi-user mode](#users-and-roles) adds accounts, roles and an audit log; roles keep a viewer or moderator away from the host, but anyone who may upload mods and plugins, edit files or send console commands can run code inside that server's container, so grant those rights with care.
+Agents add a second entry point with the same reach as an administrator: protect their token like the admin password (see [Several hosts](#several-hosts)).
 
 ## Features
 
