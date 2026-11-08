@@ -111,6 +111,48 @@ Whoever holds an agent's token controls Docker on that host, so keep port 8421 o
   Update an agent by pulling the new image on its host and recreating the container; its Minecraft servers keep running meanwhile.
 - **Going back to an older release** loses the node list the next time that release saves its settings, because it does not know the `nodes` entry in `cubeherd.json`. Keep a copy of the file if you may roll back.
 
+## Behind a reverse proxy
+
+Terminate HTTPS in a reverse proxy and let it forward to port 8420. Cubeherd is meant for a LAN or a VPN; if people reach it from the internet, put an access layer in front as well (a VPN, Authelia, Cloudflare Access, …) and see [Security](#security).
+
+1. The proxy must pass the original `Host` header (the CSRF check compares it with the browser's `Origin`), set `X-Forwarded-For` and `X-Forwarded-Proto`, switch off response buffering (the live console and charts stream), and allow large uploads (worlds, mods).
+2. In *Settings → Reverse proxy* list the address of the proxy under **Trusted proxies**. Only from those addresses are the forwarded headers believed; the page shows the address of your current request and the client Cubeherd derives from it. Then sign-in limits and the audit log see real client addresses, and the session cookie gets the `Secure` flag over HTTPS. Without this setting the headers are ignored, so a client cannot fake its address.
+3. Optionally switch on **HSTS** once HTTPS is permanent, and set the public address under *Access → Sign-in* if you use single sign-on.
+4. Never put an agent (port 8421) behind the proxy or on the internet.
+
+```nginx
+location / {
+    proxy_pass http://127.0.0.1:8420;
+    proxy_set_header Host $host;
+    proxy_set_header X-Forwarded-For $remote_addr;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_http_version 1.1;
+    proxy_buffering off;
+    proxy_read_timeout 1h;
+    client_max_body_size 4g;
+}
+```
+
+```caddy
+cubeherd.example.com {
+    reverse_proxy 127.0.0.1:8420 {
+        flush_interval -1
+    }
+}
+```
+
+```yaml
+# Traefik, as labels on the cubeherd container
+labels:
+  - traefik.enable=true
+  - traefik.http.routers.cubeherd.rule=Host(`cubeherd.example.com`)
+  - traefik.http.routers.cubeherd.entrypoints=websecure
+  - traefik.http.routers.cubeherd.tls.certresolver=letsencrypt
+  - traefik.http.services.cubeherd.loadbalancer.server.port=8420
+```
+
+**E-mail** (multi-user mode): *Access → E-Mail* takes the SMTP server (STARTTLS, TLS or none), user, password (stored encrypted), sender, and sends a test mail. Nothing else needs it yet; features that send mail stay off until it is configured.
+
 ## Users and roles
 
 By default Cubeherd has one shared password. For teams and communities there is an optional **multi-user mode**: personal accounts, roles, an audit log and single sign-on. Switch it on under *Settings → User accounts* (or start with `CUBEHERD_ACCOUNTS=true`). Your current password becomes the account `admin` with the Owner role and you stay signed in; nothing else changes until you add people. The data lives in one SQLite file, `cubeherd.db`, in the data directory; the servers themselves stay in their folders.

@@ -69,7 +69,7 @@ func TestSecurityMiddleware(t *testing.T) {
 	}
 	// Cross-site POST is refused even with a valid session.
 	sessRec := httptest.NewRecorder()
-	a.sess.Issue(sessRec)
+	a.sess.Issue(sessRec, false)
 	cookie := sessRec.Result().Cookies()[0]
 	req := httptest.NewRequest("POST", "/servers/x/action/stop", nil)
 	req.AddCookie(cookie)

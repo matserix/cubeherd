@@ -52,8 +52,8 @@ const (
 )
 
 // flash carries one message to the next page across a redirect; it is shown once.
-func flash(w http.ResponseWriter, msg string) {
-	http.SetCookie(w, &http.Cookie{Name: flashCookie, Value: base64.RawURLEncoding.EncodeToString([]byte(msg)), Path: "/", MaxAge: 120, HttpOnly: true, SameSite: http.SameSiteLaxMode})
+func flash(w http.ResponseWriter, r *http.Request, msg string) {
+	http.SetCookie(w, &http.Cookie{Name: flashCookie, Value: base64.RawURLEncoding.EncodeToString([]byte(msg)), Path: "/", MaxAge: 120, HttpOnly: true, SameSite: http.SameSiteLaxMode, Secure: httpsOf(r)})
 }
 
 func takeFlash(w http.ResponseWriter, r *http.Request) string {
@@ -88,7 +88,7 @@ func (a *App) publicBase(r *http.Request) string {
 		return u
 	}
 	scheme := "http"
-	if r.TLS != nil || r.Header.Get("X-Forwarded-Proto") == "https" {
+	if httpsOf(r) {
 		scheme = "https"
 	}
 	return scheme + "://" + r.Host
@@ -134,13 +134,13 @@ func (a *App) ssoStart(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	a.sso.put(state, pend)
-	http.SetCookie(w, &http.Cookie{Name: ssoCookie, Value: state, Path: "/login/sso", MaxAge: 600, HttpOnly: true, SameSite: http.SameSiteLaxMode})
+	http.SetCookie(w, &http.Cookie{Name: ssoCookie, Value: state, Path: "/login/sso", MaxAge: 600, HttpOnly: true, SameSite: http.SameSiteLaxMode, Secure: httpsOf(r)})
 	http.Redirect(w, r, u, http.StatusSeeOther)
 }
 
 func (a *App) ssoFail(w http.ResponseWriter, r *http.Request, p access.Provider, err error, test bool) {
 	msg := a.t("Die Anmeldung über %s ist fehlgeschlagen: %s", p.Label, err.Error())
-	flash(w, msg)
+	flash(w, r, msg)
 	a.recordAs(r, access.User{}, "", "login.fail", p.Label, access.Fail, "method", "sso", "reason", err.Error())
 	if test {
 		http.Redirect(w, r, "/access/sso", http.StatusSeeOther)
@@ -161,7 +161,7 @@ func (a *App) ssoCallback(w http.ResponseWriter, r *http.Request) {
 	c, err := r.Cookie(ssoCookie)
 	pend, ok := a.sso.take(state)
 	if err != nil || state == "" || c.Value != state || !ok {
-		flash(w, a.t("Die Anmeldung ist abgelaufen oder gehört zu einem anderen Browser. Bitte versuche es noch einmal."))
+		flash(w, r, a.t("Die Anmeldung ist abgelaufen oder gehört zu einem anderen Browser. Bitte versuche es noch einmal."))
 		http.Redirect(w, r, "/login", http.StatusSeeOther)
 		return
 	}
@@ -184,7 +184,7 @@ func (a *App) ssoCallback(w http.ResponseWriter, r *http.Request) {
 		if who == "" {
 			who = claims.Subject
 		}
-		flash(w, a.t("Der Test mit %s ist gelungen: Der Anbieter hat %s bestätigt.", p.Label, who))
+		flash(w, r, a.t("Der Test mit %s ist gelungen: Der Anbieter hat %s bestätigt.", p.Label, who))
 		a.record(r, "sso.test", p.Label, access.OK)
 		http.Redirect(w, r, "/access/sso", http.StatusSeeOther)
 		return
@@ -252,6 +252,7 @@ func (a *App) ssoUser(p access.Provider, c access.Claims) (access.User, error) {
 	if err := st.LinkIdentity(id, c.Issuer, c.Subject, c.Email); err != nil {
 		return access.User{}, err
 	}
+	_ = st.SetEmailVerified(id, c.EmailVerified) // the provider vouches for the address only when it says so
 	if p.DefaultRole != 0 {
 		_, _ = st.AddGrant(access.Grant{PrincipalID: id, RoleID: p.DefaultRole, CreatedBy: "sso"})
 	}

@@ -25,21 +25,22 @@ func isUnique(err error) bool {
 // ---------------- Users ----------------
 
 type User struct {
-	ID          int64
-	Name        string
-	Email       string
-	HasPassword bool
-	Disabled    bool
-	Created     time.Time
-	LastLogin   time.Time
+	ID            int64
+	Name          string
+	Email         string
+	EmailVerified bool // the address was confirmed (admin-created accounts and accounts from before the column count as confirmed)
+	HasPassword   bool
+	Disabled      bool
+	Created       time.Time
+	LastLogin     time.Time
 }
 
-const userCols = "id, name, email, password_hash != '', disabled, created_at, last_login_at"
+const userCols = "id, name, email, email_verified, password_hash != '', disabled, created_at, last_login_at"
 
 func scanUser(sc interface{ Scan(...any) error }) (User, error) {
 	var u User
 	var created, last int64
-	err := sc.Scan(&u.ID, &u.Name, &u.Email, &u.HasPassword, &u.Disabled, &created, &last)
+	err := sc.Scan(&u.ID, &u.Name, &u.Email, &u.EmailVerified, &u.HasPassword, &u.Disabled, &created, &last)
 	u.Created = time.Unix(created, 0)
 	if last > 0 {
 		u.LastLogin = time.Unix(last, 0)
@@ -64,6 +65,12 @@ func (s *Store) CreateUser(name, email, hash string) (int64, error) {
 		return 0, err
 	}
 	return r.LastInsertId()
+}
+
+// SetEmailVerified marks the user's address as confirmed or not.
+func (s *Store) SetEmailVerified(id int64, ok bool) error {
+	_, err := s.db.Exec("UPDATE users SET email_verified=? WHERE id=?", ok, id)
+	return err
 }
 
 func (s *Store) UserByID(id int64) (User, error) {

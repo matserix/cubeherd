@@ -1,6 +1,7 @@
 package access
 
 import (
+	"database/sql"
 	"errors"
 	"os"
 	"path/filepath"
@@ -358,5 +359,39 @@ func TestSecretsRoundTripAndNeedTheKey(t *testing.T) {
 	}
 	if _, err := s.open(enc); err == nil {
 		t.Fatal("a secret opened without its key")
+	}
+}
+
+func TestUsersFromBeforeTheEmailFlagCountAsConfirmed(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "cubeherd.db")
+	old, err := sql.Open("sqlite", "file:"+path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := old.Exec(migrations[0]); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := old.Exec(`INSERT INTO users(name,email,created_at) VALUES('olli','olli@example.com',1)`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := old.Exec("PRAGMA user_version = 1"); err != nil {
+		t.Fatal(err)
+	}
+	old.Close()
+	s, err := Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.Close()
+	u, _, err := s.UserByName("olli")
+	if err != nil || !u.EmailVerified {
+		t.Fatalf("an existing account must not be locked out by the new flag: %+v %v", u, err)
+	}
+	if err := s.SetEmailVerified(u.ID, false); err != nil {
+		t.Fatal(err)
+	}
+	if u, _ := s.UserByID(u.ID); u.EmailVerified {
+		t.Fatal("flag not stored")
 	}
 }

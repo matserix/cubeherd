@@ -223,7 +223,7 @@ func (a *App) Handler() http.Handler {
 
 	a.accessRoutes(rt)
 	a.routes = rt.table
-	return a.security(a.nodePrefix(mux))
+	return a.proxy(a.security(a.nodePrefix(mux)))
 }
 
 func playerTarget(r *http.Request) string {

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"log"
+	"net"
 	"net/http"
 	"strconv"
 	"strings"
@@ -133,17 +134,16 @@ func (a *App) startSession(w http.ResponseWriter, r *http.Request, u access.User
 	if err != nil {
 		return err
 	}
-	a.sess.Set(w, tok)
+	a.sess.Set(w, tok, a.secure(r))
 	st.TouchLogin(u.ID)
 	return nil
 }
 
 func clientAddr(r *http.Request) string {
-	h := r.RemoteAddr
-	if i := strings.LastIndex(h, ":"); i > 0 {
-		h = h[:i]
+	if h, _, err := net.SplitHostPort(r.RemoteAddr); err == nil {
+		return h
 	}
-	return strings.Trim(h, "[]")
+	return strings.Trim(r.RemoteAddr, "[]") // the proxy middleware leaves the bare address
 }
 
 // ---------------- Authorisation ----------------

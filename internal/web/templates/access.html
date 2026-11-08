@@ -14,6 +14,7 @@
   {{else if eq .Data.Tab "roles"}}{{template "accRoles" .}}
   {{else if eq .Data.Tab "grants"}}{{template "accGrants" .}}
   {{else if eq .Data.Tab "sso"}}{{template "accSSO" .}}
+  {{else if eq .Data.Tab "mail"}}{{template "accMail" .}}
   {{else if eq .Data.Tab "audit"}}{{template "accAudit" .}}{{end}}
 </section>
 {{end}}
@@ -27,7 +28,7 @@
   <tbody>
   {{range .Data.Users}}
   <tr class="click" onclick="location.href='/access/users/{{.ID}}'">
-    <td class="t-name"><b>{{.Name}}{{if .Self}} <span class="chip">{{t "du"}}</span>{{end}}</b><span>{{if .Email}}{{.Email}}{{else}}{{if not .HasPassword}}{{t "nur Einmalanmeldung"}}{{else}}–{{end}}{{end}}</span></td>
+    <td class="t-name"><b>{{.Name}}{{if .Self}} <span class="chip">{{t "du"}}</span>{{end}}</b><span>{{if .Email}}{{.Email}}{{if not .EmailVerified}} · {{t "nicht bestätigt"}}{{end}}{{else}}{{if not .HasPassword}}{{t "nur Einmalanmeldung"}}{{else}}–{{end}}{{end}}</span></td>
     <td>{{range .Roles}}<span class="chip role">{{.}}</span> {{else}}<span class="muted">{{t "keine Rechte"}}</span>{{end}}</td>
     <td class="hide-sm">{{range .Groups}}<span class="chip">{{.}}</span> {{else}}<span class="muted">–</span>{{end}}</td>
     <td class="hide-sm num">{{if .LastLogin.IsZero}}<span class="muted">{{t "nie"}}</span>{{else}}{{dt .LastLogin}}{{end}}</td>
@@ -76,6 +77,7 @@
       <label class="field"><span>{{t "Benutzername"}}</span><input class="input" name="name" value="{{$u.Name}}" required></label>
       <label class="field"><span>{{t "E-Mail"}}</span><input class="input" name="email" type="email" value="{{$u.Email}}"></label>
     </div>
+    <label class="switch"><input type="checkbox" name="emailVerified" {{if $u.EmailVerified}}checked{{end}}><span class="txt">{{t "E-Mail-Adresse bestätigt"}}<small>{{t "Ein Admin kann die Adresse als bestätigt markieren. Konten, die sich selbst registrieren, müssen sie über den Link in der E-Mail bestätigen."}}</small></span></label>
     <label class="switch"><input type="checkbox" name="disabled" {{if $u.Disabled}}checked{{end}} {{if $u.Self}}disabled{{end}}><span class="txt">{{t "Konto sperren"}}<small>{{t "Beendet alle Sitzungen sofort. Die Zuweisungen bleiben erhalten."}}</small></span></label>
     <div class="actions"><button class="btn primary">{{t "Speichern"}} <span class="spin-on-req"></span></button></div>
   </div>
@@ -385,4 +387,36 @@
   <label class="switch"><input type="checkbox" name="autoProvision" {{if and $p $p.AutoProvision}}checked{{end}}><span class="txt">{{t "Konten automatisch anlegen"}}<small>{{t "Neue Personen bekommen ein Konto ohne Rechte oder mit der Rolle unten."}}</small></span></label>
 </div>
 <label class="field" style="max-width:380px"><span>{{t "Rolle für neue Konten"}}</span><select class="input" name="defaultRole"><option value="">{{t "Keine Rechte"}}</option>{{range .D.Roles}}<option value="{{.ID}}" {{if and $p (eq $p.DefaultRole .ID)}}selected{{end}}>{{.Name}}</option>{{end}}</select><small>{{t "Gilt global. Nur wirksam mit „Konten automatisch anlegen“."}}</small></label>
+{{end}}
+
+{{define "accMail"}}{{$m := .Data.Mail}}
+<div class="stack">
+<form class="panel" hx-post="/access/mail">
+  <div class="panel-head"><h2>{{t "E-Mail-Versand (SMTP)"}}</h2><button class="btn sm primary">{{t "Speichern"}}</button></div>
+  <div class="panel-pad stack">
+    <p class="muted">{{t "Cubeherd verschickt damit Nachrichten an Benutzer, zum Beispiel zum Zurücksetzen eines Passworts. Ohne diese Angaben bleiben alle E-Mail-Funktionen aus. Beide Adressfelder leer zu speichern schaltet sie wieder ab."}}</p>
+    <div class="grid-2">
+      <label class="field"><span>{{t "SMTP-Server"}}</span><input class="input mono" name="host" value="{{$m.Cfg.Host}}" placeholder="smtp.example.com" autocomplete="off" spellcheck="false"></label>
+      <div class="grid-2" style="gap:12px">
+        <label class="field"><span>{{t "Port"}}</span><input class="input num" name="port" type="number" min="1" max="65535" value="{{$m.Cfg.Port}}"></label>
+        <label class="field"><span>{{t "Verbindung"}}</span><select class="input" name="security"><option value="starttls" {{if eq $m.Cfg.Security "starttls"}}selected{{end}}>STARTTLS (587)</option><option value="tls" {{if eq $m.Cfg.Security "tls"}}selected{{end}}>TLS (465)</option><option value="none" {{if eq $m.Cfg.Security "none"}}selected{{end}}>{{t "Unverschlüsselt (25)"}}</option></select></label>
+      </div>
+    </div>
+    <div class="grid-2">
+      <label class="field"><span>{{t "Benutzername"}}</span><input class="input" name="user" value="{{$m.Cfg.User}}" autocomplete="off"></label>
+      <label class="field"><span>{{t "Passwort"}}</span><input class="input" name="password" type="password" autocomplete="new-password" placeholder="{{if $m.HasPass}}{{t "gespeichert, leer lassen zum Beibehalten"}}{{end}}"></label>
+    </div>
+    <label class="field" style="max-width:520px"><span>{{t "Absender"}}</span><input class="input" name="from" value="{{$m.Cfg.From}}" placeholder="Cubeherd &lt;noreply@example.com&gt;" autocomplete="off"><small>{{t "Diese Adresse steht als Absender in den Nachrichten. Sie muss beim SMTP-Anbieter erlaubt sein."}}</small></label>
+  </div>
+</form>
+{{if $m.Configured}}
+<form class="panel" hx-post="/access/mail/test">
+  <div class="panel-head"><h2>{{t "Testmail"}}</h2></div>
+  <div class="panel-pad"><div class="grid-2" style="align-items:end">
+    <label class="field"><span>{{t "Empfänger"}}</span><input class="input" name="to" type="email" value="{{$m.TestTo}}" required autocomplete="off"></label>
+    <div><button class="btn">{{t "Testmail senden"}} <span class="spin-on-req"></span></button></div>
+  </div></div>
+</form>
+{{end}}
+</div>
 {{end}}

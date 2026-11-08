@@ -104,7 +104,7 @@ func newDashboard(t *testing.T, withLocal bool, remotes ...config.Node) *dashboa
 		t.Fatal(err)
 	}
 	rec := httptest.NewRecorder()
-	app.sess.Issue(rec)
+	app.sess.Issue(rec, false)
 	return &dashboard{app: app, h: app.Handler(), cookie: rec.Result().Cookies()[0], reg: reg, cfg: cfg}
 }
 

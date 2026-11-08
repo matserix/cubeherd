@@ -83,7 +83,7 @@ func (a *App) loginPost(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	a.lim.Reset(r)
-	a.sess.Issue(w)
+	a.sess.Issue(w, a.secure(r))
 	http.Redirect(w, r, "/", http.StatusSeeOther)
 }
 
@@ -136,7 +136,7 @@ func (a *App) setupPost(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/login", http.StatusSeeOther)
 		return
 	}
-	a.sess.Issue(w)
+	a.sess.Issue(w, a.secure(r))
 	http.Redirect(w, r, "/", http.StatusSeeOther)
 }
 
@@ -149,7 +149,7 @@ func (a *App) logout(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
-	a.sess.Clear(w)
+	a.sess.Clear(w, a.secure(r))
 	http.Redirect(w, r, "/login", http.StatusSeeOther)
 }
 
@@ -1036,6 +1036,10 @@ type settingsData struct {
 	Accounts   bool // the multi-user mode is on
 	ScrapeOn   bool // a Prometheus scrape token is set
 	ScrapeURL  string
+	Peer       string // the address this request really came from
+	ClientIP   string // the client address after the trusted proxies
+	Scheme     string // "HTTPS" or "HTTP", as the request reached the dashboard
+	ProxyText  string // the trusted proxies, one per line
 	HasLocal   bool   // the dashboard has its own Docker access
 	Multi      bool   // remote nodes exist, so each setting says which nodes it applies to
 	LocalName  string // display name of the embedded node
@@ -1060,6 +1064,10 @@ func (a *App) settingsPage(w http.ResponseWriter, r *http.Request) {
 		Zones: commonZones, SystemZone: time.Local.String(), ZoneNow: time.Now().In(displayLoc()).Format("02.01.2006 15:04 MST")}
 	d.Multi = len(a.Cfg.Get().Nodes) > 0
 	d.Accounts = a.store() != nil
+	d.Peer, d.ClientIP, d.Scheme, d.ProxyText = peerOf(r), clientAddr(r), "HTTP", strings.Join(d.Cfg.TrustedProxies, "\n")
+	if httpsOf(r) {
+		d.Scheme = "HTTPS"
+	}
 	d.ScrapeOn, d.ScrapeURL = d.Cfg.ScrapeTokenHash != "", a.publicBase(r)+"/metrics"
 	if info, ok := a.Reg.Get(nodes.LocalID); ok {
 		d.LocalName = info.Name
@@ -1104,6 +1112,11 @@ func (a *App) settingsPost(w http.ResponseWriter, r *http.Request) {
 		a.fail(w, "Die Standard-IP muss in der Liste der IP-Adressen stehen.")
 		return
 	}
+	proxies, bad := ParseProxies(strings.FieldsFunc(r.FormValue("trustedProxies"), func(c rune) bool { return c == '\n' || c == ',' || c == ' ' || c == ';' || c == '\t' || c == '\r' }))
+	if len(bad) > 0 {
+		a.fail(w, "„%s“ ist keine gültige IP-Adresse oder kein gültiger Adressbereich.", bad[0])
+		return
+	}
 	remote, rerr := a.remoteFromForm(r)
 	if rerr != nil {
 		fail(w, a.t(rerr.Error()))
@@ -1120,6 +1133,7 @@ func (a *App) settingsPost(w http.ResponseWriter, r *http.Request) {
 		s.DefaultAutopause = checked(r, "defaultAutopause")
 		s.BindIPs, s.DefaultBindIP = ips, defIP
 		s.NoUpdateCheck = !checked(r, "updateCheck")
+		s.TrustedProxies, s.HSTS = prefixStrings(proxies), checked(r, "hsts")
 	})
 	if err != nil {
 		fail(w, a.t(err.Error()))
@@ -1191,7 +1205,7 @@ func (a *App) passwordPost(w http.ResponseWriter, r *http.Request) {
 		fail(w, a.t(err.Error()))
 		return
 	}
-	a.sess.Issue(w) // the old cookie is now invalid
+	a.sess.Issue(w, a.secure(r)) // the old cookie is now invalid
 	a.toast(w, "ok", "Passwort geändert. Andere Sitzungen sind abgemeldet.")
 	w.WriteHeader(http.StatusNoContent)
 }

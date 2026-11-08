@@ -78,6 +78,14 @@
       </div>
     </div>
     <div class="form-sec">
+      <div class="intro"><h2>{{t "Reverse Proxy"}}</h2>{{template "scope" (dict "D" $d "Kind" "dash")}}<p>{{t "Wenn Cubeherd hinter einem Proxy läuft, steht hier, welchen Adressen die Weiterleitungs-Header glauben dürfen."}}</p></div>
+      <div class="body">
+        <label class="field"><span>{{t "Vertrauenswürdige Proxys"}}</span><textarea class="input mono" name="trustedProxies" rows="3" spellcheck="false" placeholder="127.0.0.1&#10;172.18.0.0/16">{{$d.ProxyText}}</textarea><small>{{t "Eine IP-Adresse oder ein Bereich pro Zeile. Nur von diesen Adressen werden X-Forwarded-For und X-Forwarded-Proto beachtet; sie liefern die echte Adresse für Anmeldelimits und Audit-Log und sorgen für ein Secure-Cookie über HTTPS."}}</small></label>
+        <label class="switch"><input type="checkbox" name="hsts" {{if $c.HSTS}}checked{{end}}><span class="txt">{{t "HSTS senden"}}<small>{{t "Weist Browser an, diese Adresse ein Jahr lang nur über HTTPS aufzurufen. Nur über HTTPS wirksam; erst einschalten, wenn HTTPS dauerhaft läuft."}}</small></span></label>
+        <p class="muted" style="font-size:12.5px">{{t "Diese Anfrage kam von %s, als Client gilt %s, %s." $d.Peer $d.ClientIP $d.Scheme}}</p>
+      </div>
+    </div>
+    <div class="form-sec">
       <div class="intro"><h2>{{t "Updates"}}</h2>{{template "scope" (dict "D" $d "Kind" "dash")}}<p>{{t "Cubeherd fragt GitHub nach neuen Versionen, solange du das Dashboard benutzt."}}</p></div>
       <div class="body">
         <label class="switch"><input type="checkbox" name="updateCheck" {{if not $c.NoUpdateCheck}}checked{{end}}><span class="txt">{{t "Auf neue Versionen prüfen"}}<small>{{t "Zeigt einen Hinweis mit den Release Notes, wenn es eine neuere Version gibt. Dafür geht eine Anfrage an api.github.com; es werden keine Daten über deine Server gesendet."}}</small></span></label>

@@ -57,6 +57,9 @@ func (a *App) accessRoutes(rt *router) {
 
 	rt.handle("GET /access/sso", sso, a.p((*App).ssoPage))
 	rt.handle("POST /access/sso", sso.log("sso.change"), a.p((*App).ssoSave))
+	rt.handle("GET /access/mail", global(access.SettingsManage), a.p((*App).mailPage))
+	rt.handle("POST /access/mail", global(access.SettingsManage).log("mail.config"), a.p((*App).mailSave))
+	rt.handle("POST /access/mail/test", global(access.SettingsManage).log("mail.test", form("to")), a.p((*App).mailTest))
 	rt.handle("POST /access/disable", users.log("accounts.disabled"), a.p((*App).disableAccounts))
 }
 
@@ -79,6 +82,9 @@ func (a *App) accTabs(p *access.Principal) []accTab {
 	if p.Global(access.SSOManage) {
 		out = append(out, accTab{"sso", "Anmeldung", "/access/sso"})
 	}
+	if p.Global(access.SettingsManage) {
+		out = append(out, accTab{"mail", "E-Mail", "/access/mail"})
+	}
 	if p.Anywhere(access.AuditView) {
 		out = append(out, accTab{"audit", "Audit-Log", "/access/audit"})
 	}
@@ -99,6 +105,7 @@ type accessData struct {
 	Opts   *grantOpts
 	Audit  *auditView
 	SSO    *ssoData
+	Mail   *mailData
 	DBSize int64
 }
 
@@ -387,6 +394,7 @@ func (a *App) userSave(w http.ResponseWriter, r *http.Request) {
 		a.storeErr(w, err)
 		return
 	}
+	_ = st.SetEmailVerified(id, checked(r, "emailVerified"))
 	redirect(w, r, "/access/users/"+strconv.FormatInt(id, 10))
 }
 
@@ -892,7 +900,7 @@ func (a *App) disableAccounts(w http.ResponseWriter, r *http.Request) {
 	st := a.store()
 	a.accs.p.Store(nil)
 	_ = st.Close()
-	a.sess.Issue(w)
+	a.sess.Issue(w, a.secure(r))
 	redirect(w, r, "/settings")
 }
 

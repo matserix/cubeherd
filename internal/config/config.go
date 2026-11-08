@@ -48,6 +48,11 @@ type Settings struct {
 	Metrics Metrics `json:"metrics,omitempty"`
 	// ScrapeTokenHash is the SHA-256 of the Prometheus scrape token; "" = the /metrics endpoint is off.
 	ScrapeTokenHash string `json:"scrapeTokenHash,omitempty"`
+	// TrustedProxies are the reverse proxies (IP addresses or CIDR ranges) whose X-Forwarded-For and
+	// X-Forwarded-Proto headers are believed; empty = headers are ignored.
+	TrustedProxies []string `json:"trustedProxies,omitempty"`
+	// HSTS adds a Strict-Transport-Security header to responses that were reached over HTTPS.
+	HSTS bool `json:"hsts,omitempty"`
 	// PublicURL is the address users reach the dashboard at; single sign-on needs it for its callback.
 	PublicURL string `json:"publicUrl,omitempty"`
 }
@@ -116,6 +121,7 @@ func (st *Store) Get() Settings {
 	defer st.mu.RUnlock()
 	s := st.s
 	s.BindIPs = slices.Clone(s.BindIPs)
+	s.TrustedProxies = slices.Clone(s.TrustedProxies)
 	if s.Nodes != nil {
 		s.Nodes = make([]Node, len(st.s.Nodes))
 		for i, n := range st.s.Nodes {

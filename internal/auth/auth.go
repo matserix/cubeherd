@@ -32,7 +32,6 @@ func CheckPassword(hash, pw string) bool {
 type Sessions struct {
 	Secret func() (secret, pwHash string)
 	Days   func() int
-	Secure bool
 }
 
 func (s Sessions) sign(payload string) string {
@@ -43,7 +42,7 @@ func (s Sessions) sign(payload string) string {
 	return base64.RawURLEncoding.EncodeToString(m.Sum(nil))
 }
 
-func (s Sessions) Issue(w http.ResponseWriter) {
+func (s Sessions) Issue(w http.ResponseWriter, secure bool) {
 	days := s.Days()
 	if days <= 0 {
 		days = 7
@@ -52,24 +51,24 @@ func (s Sessions) Issue(w http.ResponseWriter) {
 	payload := strconv.FormatInt(exp.Unix(), 10)
 	http.SetCookie(w, &http.Cookie{
 		Name: Cookie, Value: payload + "." + s.sign(payload), Path: "/", Expires: exp,
-		HttpOnly: true, SameSite: http.SameSiteStrictMode, Secure: s.Secure,
+		HttpOnly: true, SameSite: http.SameSiteStrictMode, Secure: secure,
 	})
 }
 
 // Set stores an opaque server-side session token in the cookie (accounts mode).
-func (s Sessions) Set(w http.ResponseWriter, token string) {
+func (s Sessions) Set(w http.ResponseWriter, token string, secure bool) {
 	days := s.Days()
 	if days <= 0 {
 		days = 7
 	}
 	http.SetCookie(w, &http.Cookie{
 		Name: Cookie, Value: token, Path: "/", Expires: time.Now().Add(time.Duration(days) * 24 * time.Hour),
-		HttpOnly: true, SameSite: http.SameSiteStrictMode, Secure: s.Secure,
+		HttpOnly: true, SameSite: http.SameSiteStrictMode, Secure: secure,
 	})
 }
 
-func (s Sessions) Clear(w http.ResponseWriter) {
-	http.SetCookie(w, &http.Cookie{Name: Cookie, Value: "", Path: "/", MaxAge: -1, HttpOnly: true, SameSite: http.SameSiteStrictMode})
+func (s Sessions) Clear(w http.ResponseWriter, secure bool) {
+	http.SetCookie(w, &http.Cookie{Name: Cookie, Value: "", Path: "/", MaxAge: -1, HttpOnly: true, SameSite: http.SameSiteStrictMode, Secure: secure})
 }
 
 func (s Sessions) Valid(r *http.Request) bool {
