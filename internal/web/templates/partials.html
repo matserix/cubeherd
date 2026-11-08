@@ -106,7 +106,7 @@
 {{end}}
 {{if and .V.Restarts (ne (print $st) "crashed")}}
 <div class="callout warn"><div><b>{{t "Der Server ist %d-mal abgestürzt und wurde automatisch neu gestartet" .V.Restarts}}</b>{{with .V.CrashReason}}<span class="mono" style="white-space:pre-wrap;font-size:12.5px">{{.}}</span>{{end}}<span class="muted">{{t "Bei Modpacks ist meist zu wenig Arbeitsspeicher die Ursache. Aktuell: %d GB Container, davon %s GB Java-Heap." $s.MemoryGB (heapGB $s.MemoryGB $s.Modded)}}</span></div>
-  {{if .V.Can.Settings}}<div class="actions" style="flex:none"><a class="btn sm" href="/servers/{{$s.ID}}?tab=settings" style="text-decoration:none">{{t "RAM anpassen"}}</a></div>{{end}}</div>
+  {{if .V.Can.Resources}}<div class="actions" style="flex:none"><a class="btn sm" href="/servers/{{$s.ID}}?tab=settings" style="text-decoration:none">{{t "RAM anpassen"}}</a></div>{{end}}</div>
 {{end}}
 {{end}}
 

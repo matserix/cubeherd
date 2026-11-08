@@ -170,6 +170,7 @@ type rule struct {
 	kind   kind
 	perm   access.Perm
 	alt    access.Perm                // kAnywhere: this permission also does
+	alts   []access.Perm              // kServer: any of these does as well
 	action string                     // audit action, "" = not logged
 	target func(*http.Request) string // what the action was about
 }
@@ -181,7 +182,10 @@ func onNode(p access.Perm) rule          { return rule{kind: kNode, perm: p} }
 func onServer(p access.Perm) rule        { return rule{kind: kServer, perm: p} }
 func anywhere(p access.Perm) rule        { return rule{kind: kAnywhere, perm: p} }
 func anywhereOf(p, alt access.Perm) rule { return rule{kind: kAnywhere, perm: p, alt: alt} }
-func nodeOrAnywhere(p access.Perm) rule  { return rule{kind: kNodeOrAnywhere, perm: p} }
+func onServerAny(p access.Perm, alts ...access.Perm) rule {
+	return rule{kind: kServer, perm: p, alts: alts}
+}
+func nodeOrAnywhere(p access.Perm) rule { return rule{kind: kNodeOrAnywhere, perm: p} }
 func (r rule) log(action string, target ...func(*http.Request) string) rule {
 	r.action = action
 	if len(target) > 0 {
@@ -255,7 +259,16 @@ func (a *App) allowed(p *access.Principal, rl rule, r *http.Request) bool {
 	case kNode:
 		return p.Can(rl.perm, a.nodeOf(r), "")
 	case kServer:
-		return p.Can(rl.perm, a.nodeOf(r), r.PathValue("id"))
+		node, id := a.nodeOf(r), r.PathValue("id")
+		if p.Can(rl.perm, node, id) {
+			return true
+		}
+		for _, alt := range rl.alts {
+			if p.Can(alt, node, id) {
+				return true
+			}
+		}
+		return false
 	case kAnywhere:
 		return p.Anywhere(rl.perm) || rl.alt != "" && p.Anywhere(rl.alt)
 	case kNodeOrAnywhere:

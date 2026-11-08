@@ -193,6 +193,10 @@ CREATE TABLE devices (
   ua TEXT NOT NULL DEFAULT '',
   PRIMARY KEY (user_id, hash)
 );
+`, `
+INSERT OR IGNORE INTO role_perms(role_id, perm) SELECT role_id, 'server.resources' FROM role_perms WHERE perm='server.settings';
+INSERT OR IGNORE INTO role_perms(role_id, perm) SELECT role_id, 'server.network' FROM role_perms WHERE perm='server.settings';
+INSERT OR IGNORE INTO role_perms(role_id, perm) SELECT role_id, 'server.advanced' FROM role_perms WHERE perm='server.settings';
 `}
 
 func (s *Store) migrate() error {

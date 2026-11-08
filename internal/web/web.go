@@ -171,7 +171,7 @@ func (a *App) Handler() http.Handler {
 	rt.handle("GET /servers/{id}/events", onServer(access.ServerView), a.h((*App).serverEvents))
 	rt.handle("POST /servers/{id}/action/{action}", onServer(access.ServerPower).log("server.power", pathValue("action")), a.h((*App).serverAction))
 	rt.handle("POST /servers/{id}/command", onServer(access.ServerCommand).log("server.command", form("cmd")), a.h((*App).serverCommand))
-	rt.handle("POST /servers/{id}/settings", onServer(access.ServerSettings).log("server.settings"), a.h((*App).serverSettings))
+	rt.handle("POST /servers/{id}/settings", onServerAny(access.ServerSettings, access.ServerResources, access.ServerNetwork, access.ServerAdvanced).log("server.settings"), a.h((*App).serverSettings))
 	rt.handle("POST /servers/{id}/players/{list}/{op}", onServer(access.ServerPlayers).log("server.players", playerTarget), a.h((*App).serverPlayers))
 	rt.handle("GET /servers/{id}/update", onServer(access.ServerUpdate), a.h((*App).updateModal))
 	rt.handle("POST /servers/{id}/update", onServer(access.ServerUpdate).log("server.update", form("version")), a.h((*App).updatePost))

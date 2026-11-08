@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"cubeherd/internal/access"
+	"cubeherd/internal/api"
 	"cubeherd/internal/auth"
 	"cubeherd/internal/config"
 	"cubeherd/internal/mailer"
@@ -641,5 +642,71 @@ func TestSSOLoginRefusesPendingAccounts(t *testing.T) {
 	id, _ := st.CreateUserWith(access.NewUser{Name: "pia", PasswordHash: h, Status: access.StatusPending})
 	if u, _ := st.UserByID(id); u.Status != access.StatusPending {
 		t.Fatal("status not stored")
+	}
+}
+
+func TestSettingsRightIsSplitIntoRulesResourcesNetworkAndAdvanced(t *testing.T) {
+	d, st := newAccounts(t)
+	scope := access.Scope{Level: access.LevelServer, Node: "local", Server: "loc-one"}
+	mk := func(name string, perms ...access.Perm) {
+		t.Helper()
+		u := addUser(t, st, name)
+		id, err := st.SaveRole(access.Role{Name: "r-" + name, Perms: append([]access.Perm{access.ServerView}, perms...)})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := st.AddGrant(access.Grant{PrincipalID: u.ID, RoleID: id, Scope: scope, CreatedBy: "test"}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	mk("rules", access.ServerSettings)
+	mk("res", access.ServerResources)
+	mk("net", access.ServerNetwork)
+	mk("adv", access.ServerAdvanced)
+	mk("none")
+	caps := func(name string) api.Caps {
+		u, _, _ := st.UserByName(name)
+		return capsOf(principal(t, st, u), "local", "loc-one")
+	}
+	if c := caps("rules"); !c.Settings || !c.Rules || c.Resources || c.Network || c.Advanced {
+		t.Errorf("rules: %+v", c)
+	}
+	if c := caps("res"); !c.Settings || c.Rules || !c.Resources || c.Network || c.Advanced {
+		t.Errorf("res: %+v", c)
+	}
+	if c := caps("net"); !c.Settings || !c.Network || c.Rules || c.Resources || c.Advanced {
+		t.Errorf("net: %+v", c)
+	}
+	if c := caps("adv"); !c.Settings || !c.Advanced || c.Rules || c.Resources || c.Network {
+		t.Errorf("adv: %+v", c)
+	}
+	if c := caps("none"); c.Settings {
+		t.Errorf("none: %+v", c)
+	}
+	// the route admits anyone with one of the four rights and nobody else
+	for name, want := range map[string]bool{"rules": true, "res": true, "net": true, "adv": true, "none": false} {
+		u, _, _ := st.UserByName(name)
+		req := httptest.NewRequest("POST", "/n/local/s/loc-one/settings", nil)
+		req.SetPathValue("id", "loc-one")
+		req.SetPathValue("node", "local")
+		rl := onServerAny(access.ServerSettings, access.ServerResources, access.ServerNetwork, access.ServerAdvanced)
+		if got := d.app.allowed(principal(t, st, u), rl, req); got != want {
+			t.Errorf("%s: settings reachable = %v, want %v", name, got, want)
+		}
+	}
+	// the built-in Operator keeps what it could do before; Customer-style roles do not get memory or ports by accident
+	rs, _ := st.ListRoles()
+	for _, r := range rs {
+		if r.Name == access.RoleOperator {
+			n := 0
+			for _, p := range r.Perms {
+				if p == access.ServerSettings || p == access.ServerResources || p == access.ServerNetwork || p == access.ServerAdvanced {
+					n++
+				}
+			}
+			if n != 4 {
+				t.Errorf("Operator has %d of the 4 settings rights", n)
+			}
+		}
 	}
 }

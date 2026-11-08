@@ -57,6 +57,7 @@ type Caps struct {
 	FilesRead, FilesWrite, WorldExport, WorldImport, Addons    bool
 	BackupsView, BackupsCreate, BackupsRestore, BackupsDelete  bool
 	Stats                                                      bool
+	Rules, Resources, Network, Advanced                        bool // parts of the settings; Settings is true when any of them is
 }
 
 // Unmanaged is an itzg container that Cubeherd does not manage yet.

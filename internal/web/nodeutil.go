@@ -38,7 +38,7 @@ func (a *App) caps(ctx context.Context, id string) api.Caps {
 func capsOf(p *access.Principal, node, id string) api.Caps {
 	c := func(perm access.Perm) bool { return p.Can(perm, node, id) }
 	return api.Caps{Power: c(access.ServerPower), Console: c(access.ServerConsole), Command: c(access.ServerCommand),
-		Players: c(access.ServerPlayers), Settings: c(access.ServerSettings), Update: c(access.ServerUpdate), Delete: c(access.ServerDelete),
+		Players: c(access.ServerPlayers), Settings: c(access.ServerSettings) || c(access.ServerResources) || c(access.ServerNetwork) || c(access.ServerAdvanced), Rules: c(access.ServerSettings), Resources: c(access.ServerResources), Network: c(access.ServerNetwork), Advanced: c(access.ServerAdvanced), Update: c(access.ServerUpdate), Delete: c(access.ServerDelete),
 		FilesRead: c(access.FilesRead), FilesWrite: c(access.FilesWrite), WorldExport: c(access.WorldExport), WorldImport: c(access.WorldImport),
 		Addons: c(access.AddonsManage), BackupsView: c(access.BackupsView), BackupsCreate: c(access.BackupsCreate),
 		BackupsRestore: c(access.BackupsRestore), BackupsDelete: c(access.BackupsDelete), Stats: c(access.StatsServer)}

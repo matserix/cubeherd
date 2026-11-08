@@ -409,7 +409,7 @@ func TestRolesCannotBeUsedToEscalate(t *testing.T) {
 	if !strings.Contains(rec.Header().Get("HX-Trigger"), "crit") {
 		t.Fatal("a role editor must not put rights they do not hold into a role")
 	}
-	if rs, _ := st.ListRoles(); len(rs) != 6 {
+	if rs, _ := st.ListRoles(); len(rs) != 7 {
 		t.Fatalf("a role was created: %d roles", len(rs))
 	}
 	rec = d.as(c, "POST", "/access/roles", url.Values{"name": {"Fine"}, "perm": {"users.manage"}}, true)

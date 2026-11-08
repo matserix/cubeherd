@@ -8,35 +8,38 @@ import "slices"
 type Perm string
 
 const (
-	ServerView     Perm = "server.view"
-	ServerPower    Perm = "server.power"
-	ServerConsole  Perm = "server.console"
-	ServerCommand  Perm = "server.command"
-	ServerPlayers  Perm = "server.players"
-	ServerSettings Perm = "server.settings"
-	ServerUpdate   Perm = "server.update"
-	ServerCreate   Perm = "server.create"
-	ServerDelete   Perm = "server.delete"
-	FilesRead      Perm = "files.read"
-	FilesWrite     Perm = "files.write"
-	WorldExport    Perm = "world.export"
-	WorldImport    Perm = "world.import"
-	AddonsManage   Perm = "addons.manage"
-	BackupsView    Perm = "backups.view"
-	BackupsCreate  Perm = "backups.create"
-	BackupsRestore Perm = "backups.restore"
-	BackupsDelete  Perm = "backups.delete"
-	StatsServer    Perm = "stats.server"
-	StatsNode      Perm = "stats.node"
-	NodesView      Perm = "nodes.view"
-	NodesManage    Perm = "nodes.manage"
-	SettingsManage Perm = "settings.manage"
-	UsersManage    Perm = "users.manage"
-	RolesManage    Perm = "roles.manage"
-	SSOManage      Perm = "sso.manage"
-	UsersApprove   Perm = "users.approve"
-	AuditView      Perm = "audit.view"
-	AuditExport    Perm = "audit.export"
+	ServerView      Perm = "server.view"
+	ServerPower     Perm = "server.power"
+	ServerConsole   Perm = "server.console"
+	ServerCommand   Perm = "server.command"
+	ServerPlayers   Perm = "server.players"
+	ServerSettings  Perm = "server.settings"
+	ServerResources Perm = "server.resources"
+	ServerNetwork   Perm = "server.network"
+	ServerAdvanced  Perm = "server.advanced"
+	ServerUpdate    Perm = "server.update"
+	ServerCreate    Perm = "server.create"
+	ServerDelete    Perm = "server.delete"
+	FilesRead       Perm = "files.read"
+	FilesWrite      Perm = "files.write"
+	WorldExport     Perm = "world.export"
+	WorldImport     Perm = "world.import"
+	AddonsManage    Perm = "addons.manage"
+	BackupsView     Perm = "backups.view"
+	BackupsCreate   Perm = "backups.create"
+	BackupsRestore  Perm = "backups.restore"
+	BackupsDelete   Perm = "backups.delete"
+	StatsServer     Perm = "stats.server"
+	StatsNode       Perm = "stats.node"
+	NodesView       Perm = "nodes.view"
+	NodesManage     Perm = "nodes.manage"
+	SettingsManage  Perm = "settings.manage"
+	UsersManage     Perm = "users.manage"
+	RolesManage     Perm = "roles.manage"
+	SSOManage       Perm = "sso.manage"
+	UsersApprove    Perm = "users.approve"
+	AuditView       Perm = "audit.view"
+	AuditExport     Perm = "audit.export"
 )
 
 // Level is how wide a scope is. A permission is only effective in grants that are at least as wide as its Lowest level.
@@ -64,6 +67,9 @@ var Catalog = []Info{
 	{ServerCommand, "server", LevelServer, true},
 	{ServerPlayers, "server", LevelServer, false},
 	{ServerSettings, "server", LevelServer, false},
+	{ServerResources, "server", LevelServer, false},
+	{ServerNetwork, "server", LevelServer, false},
+	{ServerAdvanced, "server", LevelServer, true},
 	{ServerUpdate, "server", LevelServer, false},
 	{ServerCreate, "server", LevelNode, false},
 	{ServerDelete, "server", LevelServer, false},
@@ -113,6 +119,7 @@ const (
 	RoleOperator  = "Operator"
 	RoleModerator = "Moderator"
 	RoleViewer    = "Viewer"
+	RoleCustomer  = "Customer"
 )
 
 type builtin struct {
@@ -122,7 +129,12 @@ type builtin struct {
 
 var viewer = []Perm{ServerView, ServerConsole, BackupsView}
 var moderator = append(slices.Clone(viewer), ServerPower, ServerPlayers, ServerCommand)
-var operator = append(slices.Clone(moderator), ServerSettings, ServerUpdate, AddonsManage, BackupsCreate, BackupsRestore,
+var operator = append(slices.Clone(moderator), ServerSettings, ServerResources, ServerNetwork, ServerAdvanced, ServerUpdate, AddonsManage, BackupsCreate, BackupsRestore,
+	FilesRead, FilesWrite, WorldExport, WorldImport, StatsServer)
+
+// customer is for people who rent a server: they run and configure the game, but memory, CPU, ports and the
+// raw environment are set by whoever hosts it. Create and delete stay with the host as well.
+var customer = append(slices.Clone(moderator), ServerSettings, ServerUpdate, AddonsManage, BackupsCreate, BackupsRestore, BackupsDelete,
 	FilesRead, FilesWrite, WorldExport, WorldImport, StatsServer)
 
 func allPerms(without ...Perm) []Perm {
@@ -140,5 +152,6 @@ var builtins = []builtin{
 	{RoleAdmin, "Servers, nodes and global settings, but no accounts or audit log.", allPerms(UsersManage, RolesManage, SSOManage, AuditView, AuditExport)},
 	{RoleOperator, "Runs servers: power, console, settings, files, add-ons and backups. Cannot create or delete servers.", operator},
 	{RoleModerator, "Starts and stops servers, manages players and sends commands.", moderator},
+	{RoleCustomer, "For people who rent a server: runs and configures the game, files, add-ons and backups, but not memory, CPU, ports or raw environment.", customer},
 	{RoleViewer, "Read-only: status, live console and the list of backups.", viewer},
 }

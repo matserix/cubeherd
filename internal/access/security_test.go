@@ -275,3 +275,43 @@ func TestSessionMethod(t *testing.T) {
 		t.Fatalf("%q %q", s.SessionMethod(a), s.SessionMethod(b))
 	}
 }
+
+func TestMigrationGivesCustomRolesTheSplitSettingsRights(t *testing.T) {
+	s := open(t)
+	id, err := s.SaveRole(Role{Name: "Custom", Perms: []Perm{ServerView, ServerSettings}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	other, err := s.SaveRole(Role{Name: "Watcher", Perms: []Perm{ServerView}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	// SaveRole already stores what is given; remove what the migration must add, then run it again
+	if _, err := s.db.Exec("DELETE FROM role_perms WHERE perm IN ('server.resources','server.network','server.advanced')"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.db.Exec(migrations[3]); err != nil {
+		t.Fatal(err)
+	}
+	rs, _ := s.ListRoles()
+	for _, r := range rs {
+		has := func(p Perm) bool {
+			for _, x := range r.Perms {
+				if x == p {
+					return true
+				}
+			}
+			return false
+		}
+		switch r.ID {
+		case id:
+			if !has(ServerResources) || !has(ServerNetwork) || !has(ServerAdvanced) {
+				t.Errorf("a role that could change settings lost something: %v", r.Perms)
+			}
+		case other:
+			if has(ServerResources) || has(ServerNetwork) || has(ServerAdvanced) {
+				t.Errorf("a role without settings gained rights: %v", r.Perms)
+			}
+		}
+	}
+}

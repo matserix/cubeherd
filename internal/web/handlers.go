@@ -774,7 +774,12 @@ func (a *App) serverSettings(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	extra, err := server.ParseEnv(r.FormValue("extraEnv"))
+	cp := capsOf(principalOf(r), a.NodeID, s.ID)
+	var extra []server.KV
+	var err error
+	if cp.Advanced {
+		extra, err = server.ParseEnv(r.FormValue("extraEnv"))
+	}
 	if err != nil {
 		var le *server.EnvLineError
 		if errors.As(err, &le) {
@@ -784,41 +789,51 @@ func (a *App) serverSettings(w http.ResponseWriter, r *http.Request) {
 		}
 		return
 	}
-	port := formInt(r, "port", s.Port, 1, 65535)
-	if a.M.PortTaken(port, s.ID) {
-		a.fail(w, "Port %d nutzt schon ein anderer Server.", port)
-		return
+	// Each part of the form needs its own right; what the user may not change keeps its stored value.
+	if cp.Network {
+		port := formInt(r, "port", s.Port, 1, 65535)
+		if a.M.PortTaken(port, s.ID) {
+			a.fail(w, "Port %d nutzt schon ein anderer Server.", port)
+			return
+		}
+		bind := strings.TrimSpace(r.FormValue("bindIp"))
+		if !a.bindIPAllowed(bind, s.BindIP) {
+			a.fail(w, "Diese IP-Adresse ist in den Einstellungen nicht hinterlegt.")
+			return
+		}
+		s.Port, s.BindIP = port, bind
+		s.Props.OnlineMode = checked(r, "onlineMode")
 	}
-	s.Port = port
-	bind := strings.TrimSpace(r.FormValue("bindIp"))
-	if !a.bindIPAllowed(bind, s.BindIP) {
-		a.fail(w, "Diese IP-Adresse ist in den Einstellungen nicht hinterlegt.")
-		return
+	if cp.Resources {
+		s.MemoryGB = formInt(r, "memory", s.MemoryGB, 1, 64)
+		if cpus, err := strconv.ParseFloat(r.FormValue("cpus"), 64); err == nil && cpus >= 0 && cpus <= 256 {
+			s.CPUs = cpus
+		}
 	}
-	s.BindIP = bind
-	s.MemoryGB = formInt(r, "memory", s.MemoryGB, 1, 64)
-	s.Aikar, s.Autostart = checked(r, "aikar"), checked(r, "autostart")
-	switch r.FormValue("idle") {
-	case "stop":
-		s.Autostop, s.Autopause = true, false
-	case "none":
-		s.Autostop, s.Autopause = false, false
-	default:
-		s.Autostop, s.Autopause = false, true
+	if cp.Advanced {
+		s.Aikar = checked(r, "aikar")
+		s.ExtraEnv = extra
 	}
-	s.AutostopMinutes = formInt(r, "idleMinutes", 30, 5, 1440)
-	if cpus, err := strconv.ParseFloat(r.FormValue("cpus"), 64); err == nil && cpus >= 0 && cpus <= 256 {
-		s.CPUs = cpus
+	if cp.Rules {
+		s.Autostart = checked(r, "autostart")
+		switch r.FormValue("idle") {
+		case "stop":
+			s.Autostop, s.Autopause = true, false
+		case "none":
+			s.Autostop, s.Autopause = false, false
+		default:
+			s.Autostop, s.Autopause = false, true
+		}
+		s.AutostopMinutes = formInt(r, "idleMinutes", 30, 5, 1440)
+		s.Props.MOTD = strings.TrimSpace(r.FormValue("motd"))
+		s.Props.Mode, s.Props.Difficulty = r.FormValue("mode"), r.FormValue("difficulty")
+		s.Props.MaxPlayers = formInt(r, "maxPlayers", s.Props.MaxPlayers, 1, 1000)
+		s.Props.ViewDistance = formInt(r, "viewDistance", 0, 0, 32)
+		s.Props.SimDistance = formInt(r, "simDistance", 0, 0, 32)
+		s.Props.Seed = strings.TrimSpace(r.FormValue("seed"))
+		s.Props.PVP, s.Props.Whitelist = checked(r, "pvp"), checked(r, "whitelist")
+		s.Props.AllowFlight = checked(r, "allowFlight")
 	}
-	s.Props.MOTD = strings.TrimSpace(r.FormValue("motd"))
-	s.Props.Mode, s.Props.Difficulty = r.FormValue("mode"), r.FormValue("difficulty")
-	s.Props.MaxPlayers = formInt(r, "maxPlayers", s.Props.MaxPlayers, 1, 1000)
-	s.Props.ViewDistance = formInt(r, "viewDistance", 0, 0, 32)
-	s.Props.SimDistance = formInt(r, "simDistance", 0, 0, 32)
-	s.Props.Seed = strings.TrimSpace(r.FormValue("seed"))
-	s.Props.PVP, s.Props.Whitelist, s.Props.OnlineMode = checked(r, "pvp"), checked(r, "whitelist"), checked(r, "onlineMode")
-	s.Props.AllowFlight = checked(r, "allowFlight")
-	s.ExtraEnv = extra
 	restart := r.FormValue("apply") == "1"
 	if err := a.M.Apply(s, false, restart); err != nil {
 		fail(w, a.t(err.Error()))

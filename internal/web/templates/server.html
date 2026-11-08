@@ -40,11 +40,11 @@
 {{end}}
 
 {{define "tabSettings"}}
-{{$s := .V.S}}{{$p := $s.Props}}
+{{$s := .V.S}}{{$p := $s.Props}}{{$c := .V.Can}}
 <form class="stack" hx-post="/servers/{{$s.ID}}/settings">
 <div class="panel form-sections">
   <div class="form-sec"><div class="intro"><h2>{{t "Spielwelt"}}</h2><p>{{t "Landet als Umgebungsvariablen im Container und von dort in server.properties."}}</p></div>
-    <div class="body">
+    <fieldset class="body" style="border:0;padding:0;margin:0;min-width:0" {{if not $c.Rules}}disabled{{end}}>
       <label class="field"><span>{{t "Nachricht im Serverbrowser (MOTD)"}}</span><input class="input" name="motd" value="{{$p.MOTD}}" maxlength="120"></label>
       <div class="grid-3">
         <label class="field"><span>{{t "Spielmodus"}}</span><select class="input" name="mode">{{range list "survival" "creative" "adventure" "spectator"}}<option value="{{.}}" {{if eq . $p.Mode}}selected{{end}}>{{modeName .}}</option>{{end}}</select></label>
@@ -59,32 +59,32 @@
         <label class="switch"><input type="checkbox" name="allowFlight" {{if $p.AllowFlight}}checked{{end}}><span class="txt">{{t "Fliegen erlauben"}}<small>{{t "Allow Flight: Spieler dürfen in Survival fliegen, etwa mit Mods oder Plugins. Ohne dies kickt der Server sie dafür."}}</small></span></label>
         <label class="switch"><input type="checkbox" name="whitelist" {{if $p.Whitelist}}checked{{end}}><span class="txt">{{t "Whitelist aktiv"}}<small>{{t "Nur eingetragene Spieler dürfen beitreten."}}</small></span></label>
       </div>
-    </div></div>
+    </fieldset></div>
   <div class="form-sec"><div class="intro"><h2>{{t "Ressourcen"}}</h2><p>{{if $s.Modded}}{{t "Der Arbeitsspeicher ist das Limit des Containers. Java bekommt davon etwas weniger, der Rest bleibt für Mods, Threads und System."}}{{else}}{{t "Der Arbeitsspeicher ist das Limit des Containers. Java bekommt davon etwas weniger, der Rest bleibt für Threads und System."}}{{end}}</p></div>
     <div class="body">
-      <label class="field"><span>{{t "Arbeitsspeicher (Container-Limit)"}}</span><div class="range-row"><input type="range" name="memory" min="1" max="{{.MaxRAM}}" value="{{$s.MemoryGB}}" data-out="p-ram-out" data-heap="{{if $s.Modded}}1{{else}}0{{end}}"><output id="p-ram-out" style="min-width:150px">{{$s.MemoryGB}} GB · Heap {{heapGB $s.MemoryGB $s.Modded}} GB</output></div>
+      <label class="field"><span>{{t "Arbeitsspeicher (Container-Limit)"}}</span><div class="range-row"><input type="range" name="memory" {{if not $c.Resources}}disabled{{end}} min="1" max="{{.MaxRAM}}" value="{{$s.MemoryGB}}" data-out="p-ram-out" data-heap="{{if $s.Modded}}1{{else}}0{{end}}"><output id="p-ram-out" style="min-width:150px">{{$s.MemoryGB}} GB · Heap {{heapGB $s.MemoryGB $s.Modded}} GB</output></div>
         <small>{{t "Docker stellt insgesamt %s GB bereit." .HostRAM}}</small></label>
       <div class="grid-3">
-        <label class="field"><span>{{t "CPU-Limit"}}</span><select class="input" name="cpus">{{range .CPUOptions}}<option value="{{.Value}}" {{if eq .Value $.CPUValue}}selected{{end}}>{{.Label}}</option>{{end}}</select><small>{{t "Harte Grenze auf Docker-Ebene. Schützt die anderen Server vor einem, der alles beansprucht."}}</small></label>
-        <label class="field"><span>{{t "Bei Leerlauf"}}</span><select class="input" name="idle">{{range list "pause" "stop" "none"}}<option value="{{.}}" {{if eq . $s.IdleMode}}selected{{end}}>{{idleName .}}</option>{{end}}</select><small>{{t "Pausieren wacht beim Verbinden von selbst auf; Stoppen gibt auch den Arbeitsspeicher frei, danach startest du von Hand."}}</small></label>
-        <label class="field"><span>{{t "Stoppen nach (Minuten)"}}</span><input class="input num" name="idleMinutes" type="number" min="5" max="1440" value="{{$s.IdleMinutes}}"><small>{{t "Gilt nur für „Stoppen“."}}</small></label>
+        <label class="field"><span>{{t "CPU-Limit"}}</span><select class="input" name="cpus" {{if not $c.Resources}}disabled{{end}}>{{range .CPUOptions}}<option value="{{.Value}}" {{if eq .Value $.CPUValue}}selected{{end}}>{{.Label}}</option>{{end}}</select><small>{{t "Harte Grenze auf Docker-Ebene. Schützt die anderen Server vor einem, der alles beansprucht."}}</small></label>
+        <label class="field"><span>{{t "Bei Leerlauf"}}</span><select class="input" name="idle" {{if not $c.Rules}}disabled{{end}}>{{range list "pause" "stop" "none"}}<option value="{{.}}" {{if eq . $s.IdleMode}}selected{{end}}>{{idleName .}}</option>{{end}}</select><small>{{t "Pausieren wacht beim Verbinden von selbst auf; Stoppen gibt auch den Arbeitsspeicher frei, danach startest du von Hand."}}</small></label>
+        <label class="field"><span>{{t "Stoppen nach (Minuten)"}}</span><input class="input num" name="idleMinutes" {{if not $c.Rules}}disabled{{end}} type="number" min="5" max="1440" value="{{$s.IdleMinutes}}"><small>{{t "Gilt nur für „Stoppen“."}}</small></label>
       </div>
       <div class="grid-2">
-        <label class="switch"><input type="checkbox" name="aikar" {{if $s.Aikar}}checked{{end}}><span class="txt">{{t "Aikar-Flags"}}<small>{{t "Bewährte GC-Einstellungen für Minecraft."}}</small></span></label>
-        <label class="switch"><input type="checkbox" name="autostart" {{if $s.Autostart}}checked{{end}}><span class="txt">{{t "Mit dem Host starten"}}<small>{{t "Restart-Policy „unless-stopped“. Bei „Stoppen bei Leerlauf“ automatisch aus, sonst würde Docker den Server sofort wieder starten."}}</small></span></label>
+        <label class="switch"><input type="checkbox" name="aikar" {{if not $c.Advanced}}disabled{{end}} {{if $s.Aikar}}checked{{end}}><span class="txt">{{t "Aikar-Flags"}}<small>{{t "Bewährte GC-Einstellungen für Minecraft."}}</small></span></label>
+        <label class="switch"><input type="checkbox" name="autostart" {{if not $c.Rules}}disabled{{end}} {{if $s.Autostart}}checked{{end}}><span class="txt">{{t "Mit dem Host starten"}}<small>{{t "Restart-Policy „unless-stopped“. Bei „Stoppen bei Leerlauf“ automatisch aus, sonst würde Docker den Server sofort wieder starten."}}</small></span></label>
       </div>
     </div></div>
   <div class="form-sec"><div class="intro"><h2>{{t "Netzwerk"}}</h2></div>
-    <div class="body"><div class="grid-2">
+    <fieldset class="body" style="border:0;padding:0;margin:0;min-width:0" {{if not $c.Network}}disabled{{end}}><div class="grid-2">
       <label class="field"><span>{{t "IP-Adresse"}}</span><select class="input mono" name="bindIp"><option value="">{{t "Alle (*)"}}</option>{{range .BindIPs}}<option value="{{.}}" {{if eq . $s.BindIP}}selected{{end}}>{{.}}</option>{{end}}</select></label>
       <label class="field"><span>Port</span><input class="input mono" name="port" value="{{$s.Port}}" inputmode="numeric"></label>
       <label class="switch"><input type="checkbox" name="onlineMode" {{if $p.OnlineMode}}checked{{end}}><span class="txt">{{t "Online-Modus"}}<small>{{t "Accounts bei Mojang prüfen."}}</small></span></label>
-    </div></div></div>
+    </div></fieldset></div>
   <div class="form-sec"><div class="intro"><h2>{{t "Zusätzliche Variablen"}}</h2><p>{{t "Alles, was das itzg-Image versteht, eine Variable pro Zeile. Gleichnamige Werte überschreiben die Felder oben."}}</p></div>
-    <div class="body">
+    <fieldset class="body" style="border:0;padding:0;margin:0;min-width:0" {{if not $c.Advanced}}disabled{{end}}>
       <textarea class="input" name="extraEnv" rows="5" spellcheck="false" placeholder="{{t "z. B. SPAWN_PROTECTION=0"}}">{{.ExtraEnv}}</textarea>
       <details><summary class="muted" style="cursor:pointer;font-size:13px">{{t "Erzeugte Umgebung ansehen"}}</summary><pre class="code" style="margin-top:10px">{{.FullEnv}}</pre></details>
-    </div></div>
+    </fieldset></div>
 </div>
 <div class="savebar"><span class="muted">{{t "Änderungen greifen nach einem Neustart des Containers."}}</span><div class="actions"><button class="btn" name="apply" value="0">{{t "Speichern"}}</button><button class="btn primary" name="apply" value="1">{{t "Speichern & neu starten"}}</button></div></div>
 </form>

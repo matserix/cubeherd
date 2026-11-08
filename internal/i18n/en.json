@@ -952,7 +952,6 @@
   "Die Welt durch ein hochgeladenes ZIP ersetzen.": "Replace the world with an uploaded ZIP.",
   "Eigene Rollen anlegen und ändern. Gilt nur für das ganze Dashboard.": "Create and change custom roles. Only applies to the whole dashboard.",
   "Einmalanmeldung (OpenID Connect) einrichten. Gilt nur für das ganze Dashboard.": "Set up single sign-on (OpenID Connect). Only applies to the whole dashboard.",
-  "Einstellungen ändern": "Change settings",
   "Einträge des zugewiesenen Bereichs als CSV oder JSON exportieren.": "Export entries of the assigned scope as CSV or JSON.",
   "Einträge des zugewiesenen Bereichs lesen.": "Read entries of the assigned scope.",
   "Alles, auch Konten, Rollen, Anmeldeanbieter und Audit-Log.": "Everything, including accounts, roles, sign-in providers and the audit log.",
@@ -977,7 +976,6 @@
   "Server starten, stoppen, neu starten, pausieren und fortsetzen.": "Start, stop, restart, pause and resume servers.",
   "Server": "Server",
   "Spieler verwalten": "Manage players",
-  "Spielregeln, Speicher, Ports und Umgebungsvariablen.": "Game rules, memory, ports and environment variables.",
   "Starten und stoppen": "Start and stop",
   "Status, Spieler, Logs und Metriken sehen.": "See status, players, logs and metrics.",
   "Version aktualisieren": "Update version",
@@ -1251,5 +1249,13 @@
   "Zwei-Faktor-Anmeldung": "Two-factor sign-in",
   "Zwei-Faktor-Anmeldung ausschalten?": "Turn off two-factor sign-in?",
   "Zwei-Faktor-Anmeldung dieses Benutzers zurücksetzen?": "Reset this user's two-factor sign-in?",
-  "aus": "off"
+  "aus": "off",
+  "Spielregeln ändern": "Change game rules",
+  "MOTD, Spielmodus, Schwierigkeit, Spielerzahl, Whitelist, Leerlauf und Autostart.": "MOTD, game mode, difficulty, player count, whitelist, idle behaviour and autostart.",
+  "Ressourcen ändern": "Change resources",
+  "Arbeitsspeicher und CPU-Limit des Servers.": "Memory and CPU limit of the server.",
+  "Netzwerk ändern": "Change network",
+  "Port, IP-Adresse und Online-Modus.": "Port, IP address and online mode.",
+  "Erweiterte Einstellungen": "Advanced settings",
+  "Zusätzliche Umgebungsvariablen und Aikar-Flags: damit lässt sich der Container beliebig umbauen.": "Extra environment variables and Aikar flags: they can reshape the container however the user likes."
 }
