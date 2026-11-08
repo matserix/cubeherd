@@ -28,19 +28,22 @@ type User struct {
 	ID            int64
 	Name          string
 	Email         string
-	EmailVerified bool // the address was confirmed (admin-created accounts and accounts from before the column count as confirmed)
+	TOTP          bool   // two-factor sign-in is set up
+	Status        string // StatusActive or StatusPending (registered, not yet approved)
+	ForceReset    bool   // the password must be reset before the next sign-in
+	EmailVerified bool   // the address was confirmed (admin-created accounts and accounts from before the column count as confirmed)
 	HasPassword   bool
 	Disabled      bool
 	Created       time.Time
 	LastLogin     time.Time
 }
 
-const userCols = "id, name, email, email_verified, password_hash != '', disabled, created_at, last_login_at"
+const userCols = "id, name, email, email_verified, totp_enabled, status, force_reset, password_hash != '', disabled, created_at, last_login_at"
 
 func scanUser(sc interface{ Scan(...any) error }) (User, error) {
 	var u User
 	var created, last int64
-	err := sc.Scan(&u.ID, &u.Name, &u.Email, &u.EmailVerified, &u.HasPassword, &u.Disabled, &created, &last)
+	err := sc.Scan(&u.ID, &u.Name, &u.Email, &u.EmailVerified, &u.TOTP, &u.Status, &u.ForceReset, &u.HasPassword, &u.Disabled, &created, &last)
 	u.Created = time.Unix(created, 0)
 	if last > 0 {
 		u.LastLogin = time.Unix(last, 0)
@@ -49,6 +52,69 @@ func scanUser(sc interface{ Scan(...any) error }) (User, error) {
 		err = ErrNotFound
 	}
 	return u, err
+}
+
+// Account states.
+const (
+	StatusActive  = "active"
+	StatusPending = "pending" // registered itself and waits for approval
+)
+
+// NewUser describes an account to create. Zero values give an active account with a confirmed address.
+type NewUser struct {
+	Name, Email, PasswordHash string
+	Unverified                bool // the e-mail address still has to be confirmed
+	Status                    string
+}
+
+// CreateUserWith adds an account with the given state.
+func (s *Store) CreateUserWith(n NewUser) (int64, error) {
+	name := strings.TrimSpace(n.Name)
+	if name == "" {
+		return 0, errors.New("a user name is required")
+	}
+	if n.Status == "" {
+		n.Status = StatusActive
+	}
+	r, err := s.db.Exec("INSERT INTO users(name, email, password_hash, created_at, email_verified, status) VALUES(?,?,?,?,?,?)",
+		name, strings.TrimSpace(n.Email), n.PasswordHash, now(), !n.Unverified, n.Status)
+	if isUnique(err) {
+		return 0, ErrExists
+	}
+	if err != nil {
+		return 0, err
+	}
+	return r.LastInsertId()
+}
+
+// SetStatus approves (StatusActive) a pending account.
+func (s *Store) SetStatus(id int64, status string) error {
+	_, err := s.db.Exec("UPDATE users SET status=? WHERE id=?", status, id)
+	return err
+}
+
+// PendingUsers lists the accounts that wait for approval, oldest first.
+func (s *Store) PendingUsers() ([]User, error) {
+	rows, err := s.db.Query("SELECT "+userCols+" FROM users WHERE status=? ORDER BY created_at", StatusPending)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []User
+	for rows.Next() {
+		u, err := scanUser(rows)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, u)
+	}
+	return out, rows.Err()
+}
+
+// SetForceReset requires (or stops requiring) a password reset before the next sign-in.
+func (s *Store) SetForceReset(id int64, on bool) error {
+	_, err := s.db.Exec("UPDATE users SET force_reset=? WHERE id=?", on, id)
+	return err
 }
 
 // CreateUser adds an account; hash may be empty for accounts that only sign in through SSO.
@@ -141,7 +207,7 @@ func (s *Store) SetPassword(id int64, hash, keep string) error {
 		return err
 	}
 	defer tx.Rollback()
-	if _, err := tx.Exec("UPDATE users SET password_hash=? WHERE id=?", hash, id); err != nil {
+	if _, err := tx.Exec("UPDATE users SET password_hash=?, force_reset=0 WHERE id=?", hash, id); err != nil {
 		return err
 	}
 	if _, err := tx.Exec("DELETE FROM sessions WHERE user_id=? AND id_hash != ?", id, hashToken(keep)); err != nil {

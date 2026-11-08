@@ -18,7 +18,7 @@
     <a class="brand" href="/" style="text-decoration:none;color:inherit">{{template "logo"}}<b>Cubeherd</b></a>
     <nav class="nav" aria-label="{{t "Hauptnavigation"}}">
       <a href="/" class="navlink" aria-current="{{eq .Nav "overview"}}" title="{{t "Übersicht"}}"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1.5" y="1.5" width="5.5" height="5.5" rx="1"/><rect x="9" y="1.5" width="5.5" height="5.5" rx="1"/><rect x="1.5" y="9" width="5.5" height="5.5" rx="1"/><rect x="9" y="9" width="5.5" height="5.5" rx="1"/></svg><span class="nav-txt">{{t "Übersicht"}}</span></a>
-      {{if or (canG $ "users.manage") (canG $ "roles.manage") (canG $ "sso.manage") (canAny $ "audit.view")}}<a href="{{accessHome $}}" class="navlink" aria-current="{{eq .Nav "access"}}" title="{{t "Zugriff"}}"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 1.5 13.5 3.5v4c0 3.2-2.3 5.6-5.5 7-3.2-1.4-5.5-3.8-5.5-7v-4Z"/><path d="M5.8 8l1.6 1.6L10.4 6.4"/></svg><span class="nav-txt">{{t "Zugriff"}}</span></a>{{end}}
+      {{if and .Accounts (or (canG $ "users.manage") (canG $ "roles.manage") (canG $ "sso.manage") (canG $ "settings.manage") (canAny $ "audit.view"))}}<a href="{{accessHome $}}" class="navlink" aria-current="{{eq .Nav "access"}}" title="{{t "Zugriff"}}"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 1.5 13.5 3.5v4c0 3.2-2.3 5.6-5.5 7-3.2-1.4-5.5-3.8-5.5-7v-4Z"/><path d="M5.8 8l1.6 1.6L10.4 6.4"/></svg><span class="nav-txt">{{t "Zugriff"}}</span></a>{{end}}
       {{if or (canAny $ "nodes.view") (canAny $ "stats.node")}}<a href="/nodes" class="navlink" aria-current="{{eq .Nav "nodes"}}" title="{{t "Nodes"}}"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="5.5" y="1.5" width="5" height="4" rx="1"/><rect x="1.5" y="10.5" width="5" height="4" rx="1"/><rect x="9.5" y="10.5" width="5" height="4" rx="1"/><path d="M8 5.5v2.5M4 10.5V8h8v2.5"/></svg><span class="nav-txt">{{t "Nodes"}}</span></a>{{end}}
       {{if canAny $ "server.create"}}<a href="/servers/new" class="navlink" aria-current="{{eq .Nav "wizard"}}" title="{{t "Neuer Server"}}"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 3v10M3 8h10"/></svg><span class="nav-txt">{{t "Neuer Server"}}</span></a>{{end}}
     </nav>
@@ -39,6 +39,7 @@
     </div>
   </aside>
   <main class="main" id="main">
+    {{with .TwoFABy}}<div class="callout accent app-update"><div><b>{{t "Richte die Zwei-Faktor-Anmeldung ein"}}</b><span class="muted">{{t "Sie ist für dein Konto bis zum %s Pflicht." .}} <a href="/account/2fa/setup">{{t "Jetzt einrichten"}}</a></span></div></div>{{end}}
     {{with .Update}}<div class="callout accent app-update"><div><b>{{t "Cubeherd %s ist verfügbar" .Tag}}</b><span class="muted">{{t "Du nutzt Version %s." $.Version}} <a href="{{.URL}}" target="_blank" rel="noopener noreferrer">{{t "Auf GitHub ansehen"}}</a></span>
       {{if .Notes}}<details><summary>{{t "Neuerungen anzeigen"}}</summary><pre class="release-notes">{{.Notes}}</pre></details>{{end}}</div>
       <div class="actions" style="flex:none"><button class="btn sm ghost" hx-post="/update/dismiss" hx-target="closest .app-update" hx-swap="outerHTML">{{t "Ausblenden"}}</button></div></div>{{end}}

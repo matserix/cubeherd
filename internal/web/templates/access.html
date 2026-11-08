@@ -14,6 +14,8 @@
   {{else if eq .Data.Tab "roles"}}{{template "accRoles" .}}
   {{else if eq .Data.Tab "grants"}}{{template "accGrants" .}}
   {{else if eq .Data.Tab "sso"}}{{template "accSSO" .}}
+  {{else if eq .Data.Tab "security"}}{{template "accSecurity" .}}
+  {{else if eq .Data.Tab "pending"}}{{template "accPending" .}}
   {{else if eq .Data.Tab "mail"}}{{template "accMail" .}}
   {{else if eq .Data.Tab "audit"}}{{template "accAudit" .}}{{end}}
 </section>
@@ -82,6 +84,14 @@
     <div class="actions"><button class="btn primary">{{t "Speichern"}} <span class="spin-on-req"></span></button></div>
   </div>
 </form>
+
+<div class="panel">
+  <div class="panel-head"><h2>{{t "Zwei-Faktor-Anmeldung"}}</h2>{{if $u.TOTP}}<span class="pill s-running">{{t "aktiv"}}</span>{{else}}<span class="pill s-stopped">{{t "aus"}}</span>{{end}}</div>
+  <div class="panel-pad"><div class="actions">
+    <span class="muted">{{if $u.TOTP}}{{t "Hat der Benutzer Gerät und Codes verloren, kannst du die Zwei-Faktor-Anmeldung zurücksetzen. Alle Sitzungen werden beendet."}}{{else}}{{t "Der Benutzer hat keine Zwei-Faktor-Anmeldung eingerichtet."}}{{end}}</span>
+    {{if $u.TOTP}}<button class="btn" hx-post="/access/users/{{$u.ID}}/2fa/reset" hx-confirm="{{t "Zwei-Faktor-Anmeldung dieses Benutzers zurücksetzen?"}}">{{t "Zurücksetzen"}}</button>{{end}}
+  </div></div>
+</div>
 
 <div class="panel">
   <div class="panel-head"><h2>{{t "Zuweisungen"}}</h2><button class="btn sm" hx-get="/access/grants/new?user={{$u.ID}}" hx-target="#modal-card">{{template "plus"}}{{t "Zuweisung hinzufügen"}}</button></div>
@@ -419,4 +429,45 @@
 </form>
 {{end}}
 </div>
+{{end}}
+
+{{define "accSecurity"}}{{$s := .Data.Sec.S}}
+<form class="panel" hx-post="/access/security">
+  <div class="panel-head"><h2>{{t "Konto-Sicherheit"}}</h2><button class="btn sm primary">{{t "Speichern"}}</button></div>
+  <div class="panel-pad stack">
+    {{if not .Data.Sec.MailReady}}<p class="muted">{{t "Ohne E-Mail-Einstellungen sind Bestätigung, Passwort-Zurücksetzen und Anmelde-Hinweise nicht verfügbar."}}</p>{{end}}
+    {{if not .Data.Sec.PublicURL}}<p class="muted">{{t "Tipp: Trage in den Einstellungen die öffentliche Adresse ein, damit Links in E-Mails nicht aus der Anfrage abgeleitet werden."}}</p>{{end}}
+    <div class="grid-2">
+      <label class="field"><span>{{t "Selbstregistrierung"}}</span><select class="input" name="registration">
+        <option value="closed" {{if eq $s.Registration "closed"}}selected{{end}}>{{t "Aus"}}</option>
+        <option value="open" {{if eq $s.Registration "open"}}selected{{end}}>{{t "Offen"}}</option>
+        <option value="approval" {{if eq $s.Registration "approval"}}selected{{end}}>{{t "Mit Freigabe durch einen Admin"}}</option></select></label>
+      <label class="field"><span>{{t "Erlaubte E-Mail-Domains"}}</span><input class="input" name="domains" value="{{$s.Domains}}" placeholder="example.com, example.org" autocomplete="off"><small>{{t "Leer erlaubt jede Domain."}}</small></label>
+    </div>
+    <label class="check"><input type="checkbox" name="requireVerified" {{if $s.RequireVerified}}checked{{end}}> {{t "E-Mail-Adresse bestätigen lassen, bevor das Konto genutzt wird"}}</label>
+    <div class="grid-2">
+      <label class="field"><span>{{t "E-Mail bei Anmeldung"}}</span><select class="input" name="notice">
+        <option value="off" {{if eq $s.Notice "off"}}selected{{end}}>{{t "Aus"}}</option>
+        <option value="new" {{if eq $s.Notice "new"}}selected{{end}}>{{t "Bei neuem Gerät"}}</option>
+        <option value="every" {{if eq $s.Notice "every"}}selected{{end}}>{{t "Bei jeder Anmeldung"}}</option></select></label>
+      <label class="field"><span>{{t "Zwei-Faktor-Anmeldung"}}</span><select class="input" name="twofa">
+        <option value="off" {{if eq $s.TwoFA "off"}}selected{{end}}>{{t "Freiwillig"}}</option>
+        <option value="privileged" {{if eq $s.TwoFA "privileged"}}selected{{end}}>{{t "Pflicht für Konten mit Verwaltungsrechten"}}</option>
+        <option value="all" {{if eq $s.TwoFA "all"}}selected{{end}}>{{t "Pflicht für alle"}}</option></select></label>
+    </div>
+    <div class="grid-2">
+      <label class="field"><span>{{t "Frist zum Einrichten (Tage)"}}</span><input class="input num" name="graceDays" type="number" min="0" max="90" value="{{$s.GraceDays}}"><small>{{t "0 verlangt die Einrichtung sofort bei der nächsten Anmeldung."}}</small></label>
+      <label class="check" style="align-self:end"><input type="checkbox" name="trustSso" {{if $s.TrustSSO}}checked{{end}}> {{t "Anmeldung über SSO gilt als zweiter Faktor"}}</label>
+    </div>
+  </div>
+</form>
+{{end}}
+
+{{define "accPending"}}
+<div class="panel"><div class="tbl-wrap"><table class="tbl">
+  <thead><tr><th>{{t "Benutzer"}}</th><th>{{t "E-Mail"}}</th><th class="hide-sm">{{t "Registriert"}}</th><th class="right"></th></tr></thead><tbody>
+  {{range .Data.Pending.Users}}<tr><td><b>{{.Name}}</b></td><td>{{.Email}}{{if not .EmailVerified}} <span class="chip">{{t "nicht bestätigt"}}</span>{{end}}</td><td class="hide-sm num">{{dt .Created}}</td>
+    <td class="right"><button class="btn sm primary" hx-post="/access/pending/{{.ID}}/approve">{{t "Freigeben"}}</button> <button class="btn sm ghost" hx-post="/access/pending/{{.ID}}/reject" hx-confirm="{{t "Registrierung ablehnen und Konto löschen?"}}">{{t "Ablehnen"}}</button></td></tr>
+  {{else}}<tr><td colspan="4" class="muted">{{t "Keine Registrierungen warten auf Freigabe."}}</td></tr>{{end}}
+  </tbody></table></div></div>
 {{end}}

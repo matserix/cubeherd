@@ -197,12 +197,13 @@ func (a *App) ssoCallback(w http.ResponseWriter, r *http.Request) {
 	if p.GroupClaim != "" {
 		_ = st.SetMappedGroups(u.ID, claims.Groups)
 	}
-	if err := a.startSession(w, r, u); err != nil {
-		a.ssoFail(w, r, p, err, false)
+	if u.Status == access.StatusPending {
+		a.ssoFail(w, r, p, errors.New(a.t("Dein Konto wartet auf die Freigabe durch einen Admin.")), false)
 		return
 	}
-	a.recordAs(r, u, "", "login.ok", u.Name, access.OK, "method", "sso", "provider", p.Label)
-	http.Redirect(w, r, "/", http.StatusSeeOther)
+	if err := a.completeLogin(w, r, u, "sso", "provider", p.Label); err != nil {
+		a.ssoFail(w, r, p, err, false)
+	}
 }
 
 // ssoUser maps an identity onto an account: a linked identity, an existing account with the same verified

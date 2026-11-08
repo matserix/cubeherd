@@ -17,6 +17,24 @@
   </form>
 
   <div class="panel">
+    <div class="panel-head"><h2>{{t "Zwei-Faktor-Anmeldung"}}</h2>{{if $d.User.TOTP}}<span class="pill s-running">{{t "aktiv"}}</span>{{else}}<span class="pill s-stopped">{{t "aus"}}</span>{{end}}</div>
+    <div class="panel-pad stack">
+    {{if $d.User.TOTP}}
+      <p class="muted">{{t "Beim Anmelden fragt Cubeherd zusätzlich nach einem Code aus deiner Authenticator-App. Übrige Wiederherstellungscodes: %d." $d.CodesLeft}}</p>
+      <form class="stack" hx-post="/account/2fa/codes" style="max-width:420px">
+        {{if $d.HasPW}}<label class="field"><span>{{t "Passwort"}}</span><input class="input" type="password" name="password" autocomplete="current-password" required></label>{{end}}
+        <label class="field"><span>{{t "Code"}}</span><input class="input mono" name="code" inputmode="numeric" autocomplete="one-time-code" required></label>
+        <div class="actions"><button class="btn">{{t "Neue Wiederherstellungscodes erzeugen"}}</button>
+        {{if not $d.Required}}<button class="btn ghost" hx-post="/account/2fa/disable" hx-confirm="{{t "Zwei-Faktor-Anmeldung ausschalten?"}}">{{t "Ausschalten"}}</button>{{end}}</div>
+      </form>
+    {{else}}
+      <p class="muted">{{t "Schütze dein Konto zusätzlich mit einem Code aus einer Authenticator-App."}}</p>
+      <div class="actions"><a class="btn primary" href="/account/2fa/setup">{{t "Einrichten"}}</a></div>
+    {{end}}
+    </div>
+  </div>
+
+  <div class="panel">
     <div class="panel-head"><h2>{{t "Meine Rechte"}}</h2><span class="muted" style="font-size:12px">{{if $d.Groups}}{{t "Gruppen: %s" (join $d.Groups ", ")}}{{end}}</span></div>
     <div class="panel-pad stack">
       {{range $d.Effective}}<div><b>{{.Label}}</b><div class="permchips">{{range .Perms}}<span class="chip">{{t (permName .)}}</span>{{end}}</div></div>

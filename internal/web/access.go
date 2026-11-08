@@ -90,8 +90,13 @@ func (a *App) migrateOwner() (access.User, error) {
 
 func isPublic(path string) bool {
 	switch path {
-	case "/login", "/setup", "/login/sso", "/login/sso/callback", "/metrics":
+	case "/login", "/setup", "/login/sso", "/login/sso/callback", "/metrics", "/login/2fa", "/forgot", "/register", "/resend":
 		return true
+	}
+	for _, p := range []string{"/reset/", "/verify/", "/notme/"} {
+		if strings.HasPrefix(path, p) {
+			return true
+		}
 	}
 	return false
 }
@@ -204,8 +209,29 @@ type router struct {
 	table []route
 }
 
+// accountsOnly lists the paths that exist only in the multi-user mode; without it they answer 404.
+func accountsOnly(pattern string) bool {
+	_, path, _ := strings.Cut(pattern, " ")
+	for _, p := range []string{"/access/", "/account/", "/forgot", "/reset/", "/register", "/resend", "/verify/", "/notme/", "/login/2fa"} {
+		if strings.HasPrefix(path, p) {
+			return true
+		}
+	}
+	return false
+}
+
 func (rt *router) handle(pattern string, rl rule, h http.HandlerFunc) {
 	rt.table = append(rt.table, route{pattern, rl})
+	if accountsOnly(pattern) {
+		inner := h
+		h = func(w http.ResponseWriter, r *http.Request) {
+			if rt.a.store() == nil {
+				http.NotFound(w, r)
+				return
+			}
+			inner(w, r)
+		}
+	}
 	rt.mux.HandleFunc(pattern, rt.a.guard(rl, h))
 }
 
@@ -409,12 +435,11 @@ func (a *App) loginAccounts(w http.ResponseWriter, r *http.Request) {
 	}
 	a.lim.Reset(r)
 	a.lim.ResetKey("user:" + strings.ToLower(name))
-	if err := a.startSession(w, r, u); err != nil {
-		show(err.Error())
-		return
-	}
-	a.recordAs(r, u, "", "login.ok", u.Name, access.OK, "method", "password")
-	http.Redirect(w, r, "/", http.StatusSeeOther)
+	a.afterFirstFactor(w, r, u, func(msg, hint string) {
+		d := a.loginData("/login")
+		d.Error, d.Name, d.Hint = msg, name, hint
+		a.render(w, r, "login", Page{Nav: "login", Data: d})
+	})
 }
 
 // dummyHash is compared against when a name is unknown, so timing does not reveal which names exist.

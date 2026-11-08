@@ -34,6 +34,7 @@ const (
 	UsersManage    Perm = "users.manage"
 	RolesManage    Perm = "roles.manage"
 	SSOManage      Perm = "sso.manage"
+	UsersApprove   Perm = "users.approve"
 	AuditView      Perm = "audit.view"
 	AuditExport    Perm = "audit.export"
 )
@@ -83,6 +84,7 @@ var Catalog = []Info{
 	{UsersManage, "access", LevelGlobal, true},
 	{RolesManage, "access", LevelGlobal, true},
 	{SSOManage, "access", LevelGlobal, true},
+	{UsersApprove, "access", LevelGlobal, false},
 	{AuditView, "access", LevelServer, false},
 	{AuditExport, "access", LevelServer, false},
 }

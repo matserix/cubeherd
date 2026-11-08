@@ -18,6 +18,7 @@
     {{end}}
     {{with .Data.Error}}<p class="err">{{.}}</p>{{end}}
     {{if not .Data.NoLocal}}<button class="btn primary" type="submit">{{t "Anmelden"}}</button>{{end}}
+    {{if and .Data.Accounts (not .Data.NoLocal)}}<p class="muted" style="font-size:13px;display:flex;gap:14px;flex-wrap:wrap">{{if .Data.Forgot}}<a href="/forgot">{{t "Passwort vergessen?"}}</a>{{end}}{{if .Data.Register}}<a href="/register">{{t "Registrieren"}}</a>{{end}}{{with .Data.Hint}}<a href="/resend">{{t "Bestätigungs-Mail erneut senden"}}</a>{{end}}</p>{{end}}
     {{range .Data.SSO}}<a class="btn sso-btn" href="/login/sso?p={{.ID}}">{{t "Anmelden mit %s" .Label}}</a>{{end}}
     {{end}}
   </form>

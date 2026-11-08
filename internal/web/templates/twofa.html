@@ -1,0 +1,23 @@
+{{define "content"}}{{$d := .Data}}
+<section class="view">
+  <div class="view-head"><div><h1>{{if eq $d.Mode "codes"}}{{t "Wiederherstellungscodes"}}{{else}}{{t "Zwei-Faktor-Anmeldung"}}{{end}}</h1></div></div>
+  {{if eq $d.Mode "codes"}}
+  <div class="panel panel-pad stack" style="max-width:520px">
+    <p>{{t "Bewahre diese Codes sicher auf, zum Beispiel in einem Passwortmanager. Jeder Code funktioniert einmal und ersetzt die Authenticator-App, wenn du dein Gerät verlierst. Sie werden nur jetzt angezeigt."}}</p>
+    <div class="mono" style="columns:2;font-size:15px;line-height:2">{{range $d.Codes}}<div>{{.}}</div>{{end}}</div>
+    <div class="actions"><a class="btn primary" href="/account">{{t "Fertig"}}</a></div>
+  </div>
+  {{else}}
+  <form class="panel panel-pad stack" style="max-width:520px" method="post" action="/account/2fa/setup">
+    {{if $d.Required}}<p class="muted">{{t "Die Richtlinie dieses Dashboards verlangt die Zwei-Faktor-Anmeldung für dein Konto."}}</p>{{end}}
+    <p>{{t "Scanne den Code mit einer Authenticator-App und gib danach den angezeigten 6-stelligen Code ein."}}</p>
+    <div style="background:#fff;display:inline-block;padding:8px;border-radius:8px;width:max-content">{{$d.QR}}</div>
+    <p class="muted">{{t "Oder gib den Schlüssel von Hand ein:"}} <span class="mono">{{$d.Secret}}</span></p>
+    <input type="hidden" name="token" value="{{$d.Token}}">
+    <label class="field"><span>{{t "Code"}}</span><input class="input mono" name="code" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9 ]*" required autofocus></label>
+    {{with $d.Error}}<p class="err">{{.}}</p>{{end}}
+    <div class="actions"><button class="btn primary" type="submit">{{t "Aktivieren"}}</button><a class="btn ghost" href="/account">{{t "Abbrechen"}}</a></div>
+  </form>
+  {{end}}
+</section>
+{{end}}

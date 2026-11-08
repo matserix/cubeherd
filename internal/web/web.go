@@ -57,6 +57,7 @@ type App struct {
 	lim  *auth.Limiter
 	accs *accHolder
 	sso  *ssoRuntime
+	rw   *rateWindow
 	// auditStdout, when set, also receives every audit entry as a JSON line.
 	auditStdout func([]byte)
 	routes      []route
@@ -65,7 +66,7 @@ type App struct {
 }
 
 func New(reg *nodes.Registry, src *sources.Client, cfg *config.Store, dataDir, listen string) (*App, error) {
-	a := &App{Reg: reg, Sources: src, Cfg: cfg, DataDir: dataDir, Listen: listen, lim: auth.NewLimiter(), accs: &accHolder{}, sso: newSSO(), start: time.Now(), Updates: update.New()}
+	a := &App{Reg: reg, Sources: src, Cfg: cfg, DataDir: dataDir, Listen: listen, lim: auth.NewLimiter(), accs: &accHolder{}, sso: newSSO(), rw: newRateWindow(), start: time.Now(), Updates: update.New()}
 	a.sess = auth.Sessions{
 		Secret: func() (string, string) {
 			s := cfg.Get()
@@ -108,7 +109,7 @@ func (a *App) loadTemplates() error {
 			return err
 		}
 		a.pages[l.Code] = map[string]*template.Template{}
-		for _, p := range []string{"login", "forbidden", "access", "account", "nodestats", "overview", "wizard", "server", "settings", "nodes", "nodepick", "nodedown"} {
+		for _, p := range []string{"login", "authpage", "twofa", "forbidden", "access", "account", "nodestats", "overview", "wizard", "server", "settings", "nodes", "nodepick", "nodedown"} {
 			t, err := base.Clone()
 			if err != nil {
 				return err
@@ -409,6 +410,11 @@ func (a *App) security(next http.Handler) http.Handler {
 		case !setup && !isPublic(r.URL.Path) && !authed:
 			redirect(w, r, "/login")
 			return
+		case authed && a.store() != nil:
+			if to := a.twoFAGate(r); to != "" {
+				redirect(w, r, to)
+				return
+			}
 		}
 		next.ServeHTTP(w, r)
 	})
@@ -448,6 +454,8 @@ type Page struct {
 	Version     string
 	Update      *update.Release // newer Cubeherd release, nil if none or dismissed
 	Data        any
+	Accounts    bool              // the multi-user mode is on
+	TwoFABy     string            // set while the grace period for the second factor runs: the date it ends
 	P           *access.Principal // the signed-in user's rights; nil in single-user mode (everything allowed)
 	Account     string            // name of the signed-in user, "" in single-user mode
 }
@@ -455,10 +463,14 @@ type Page struct {
 func (a *App) render(w http.ResponseWriter, r *http.Request, page string, p Page) {
 	p.Version = Version
 	p.P = principalOf(r)
+	p.Accounts = a.store() != nil
 	if p.P != nil {
 		p.Account = p.P.User.Name
+		if dl := a.twoFADeadline(p.P, a.store().SessionMethod(tokenOf(r))); !dl.IsZero() && time.Now().Before(dl) {
+			p.TwoFABy = dl.Format("2006-01-02")
+		}
 	}
-	if page != "login" {
+	if page != "login" && page != "authpage" {
 		p.Nodes = a.refresh(r.Context(), false, rackMaxAge)
 		for _, n := range p.Nodes {
 			p.RackCount += len(n.Views)

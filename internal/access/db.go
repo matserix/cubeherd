@@ -162,6 +162,37 @@ CREATE TABLE kv (
 );
 `, `
 ALTER TABLE users ADD COLUMN email_verified INTEGER NOT NULL DEFAULT 1;
+`, `
+ALTER TABLE users ADD COLUMN totp_secret TEXT NOT NULL DEFAULT '';
+ALTER TABLE users ADD COLUMN totp_enabled INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE users ADD COLUMN totp_step INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE users ADD COLUMN status TEXT NOT NULL DEFAULT 'active';
+ALTER TABLE users ADD COLUMN force_reset INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE sessions ADD COLUMN method TEXT NOT NULL DEFAULT 'password';
+CREATE TABLE recovery_codes (
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  hash TEXT NOT NULL,
+  PRIMARY KEY (user_id, hash)
+);
+CREATE TABLE tokens (
+  id_hash TEXT PRIMARY KEY,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  kind TEXT NOT NULL,
+  created_at INTEGER NOT NULL,
+  expires_at INTEGER NOT NULL,
+  used INTEGER NOT NULL DEFAULT 0,
+  data TEXT NOT NULL DEFAULT ''
+);
+CREATE INDEX tokens_user ON tokens(user_id, kind);
+CREATE TABLE devices (
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  hash TEXT NOT NULL,
+  first_seen INTEGER NOT NULL,
+  last_seen INTEGER NOT NULL,
+  ip TEXT NOT NULL DEFAULT '',
+  ua TEXT NOT NULL DEFAULT '',
+  PRIMARY KEY (user_id, hash)
+);
 `}
 
 func (s *Store) migrate() error {

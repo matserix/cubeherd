@@ -483,3 +483,20 @@ func TestNodeLoadIsASeparateRight(t *testing.T) {
 		t.Errorf("nodes page with nodes.view: %d", got)
 	}
 }
+
+func TestAccessAreaExistsOnlyInMultiUserMode(t *testing.T) {
+	single := newDashboard(t, false)
+	home := single.do("GET", "/", nil, false).Body.String()
+	if strings.Contains(home, `href="/access/`) {
+		t.Fatal("the Access entry must not show while multi-user mode is off")
+	}
+	for _, p := range []string{"/access/users", "/access/audit", "/access/mail", "/access/roles"} {
+		if got := single.do("GET", p, nil, false).Code; got != 404 {
+			t.Errorf("%s without accounts: %d, want 404", p, got)
+		}
+	}
+	d, st := newAccounts(t)
+	if body := d.as(d.cookieFor(t, st, "admin"), "GET", "/", nil, false).Body.String(); !strings.Contains(body, `href="/access/users"`) {
+		t.Fatal("the Access entry should show for an owner in multi-user mode")
+	}
+}

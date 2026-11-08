@@ -44,13 +44,18 @@ type loginData struct {
 	Accounts bool   // multi-user mode: ask for a user name
 	Name     string // the name typed before a failed attempt
 	SSO      []ssoButton
-	NoLocal  bool // password sign-in is off; only the SSO buttons are shown
+	NoLocal  bool   // password sign-in is off; only the SSO buttons are shown
+	Hint     string // "resend" or "forgot": a link that helps with the error shown
+	Forgot   bool   // password reset by e-mail is available
+	Register bool   // self-registration is open
 }
 
 func (a *App) loginData(action string) loginData {
 	d := loginData{Action: action, Accounts: a.store() != nil}
 	if d.Accounts {
 		d.SSO, d.NoLocal = a.ssoButtons()
+		d.Forgot = a.mailReady()
+		d.Register = a.registrationOpen()
 	}
 	return d
 }

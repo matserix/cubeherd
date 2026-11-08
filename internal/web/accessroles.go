@@ -36,6 +36,7 @@ var permText = map[access.Perm][2]string{
 	access.SettingsManage: {"Globale Einstellungen", "S3, CurseForge-Key, Zeitzone, Sprache. Gilt nur für das ganze Dashboard."},
 	access.UsersManage:    {"Benutzer verwalten", "Konten, Gruppen und Zuweisungen. Gilt nur für das ganze Dashboard."},
 	access.RolesManage:    {"Rollen verwalten", "Eigene Rollen anlegen und ändern. Gilt nur für das ganze Dashboard."},
+	access.UsersApprove:   {"Registrierungen freigeben", "Neue Registrierungen annehmen oder ablehnen. Gilt nur für das ganze Dashboard."},
 	access.SSOManage:      {"Anmeldeanbieter", "Einmalanmeldung (OpenID Connect) einrichten. Gilt nur für das ganze Dashboard."},
 	access.AuditView:      {"Audit-Log ansehen", "Einträge des zugewiesenen Bereichs lesen."},
 	access.AuditExport:    {"Audit-Log exportieren", "Einträge des zugewiesenen Bereichs als CSV oder JSON exportieren."},

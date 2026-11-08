@@ -1,0 +1,121 @@
+{{define "content"}}{{$d := .Data}}
+<div class="login">
+  {{if eq $d.Kind "twofa"}}
+  <form class="panel" method="post" action="/login/2fa">
+    <div class="brand">{{template "logo"}}<b>Cubeherd</b></div>
+    <div><h1>{{t "Zwei-Faktor-Anmeldung"}}</h1><p class="muted" style="margin-top:4px">{{t "Gib den 6-stelligen Code aus deiner Authenticator-App ein, oder einen Wiederherstellungscode."}}</p></div>
+    <label class="field"><span>{{t "Code"}}</span><input class="input mono" name="code" inputmode="text" autocomplete="one-time-code" autocapitalize="off" spellcheck="false" required autofocus></label>
+    {{with $d.Error}}<p class="err">{{.}}</p>{{end}}
+    <button class="btn primary" type="submit">{{t "Anmelden"}}</button>
+    <a class="btn ghost" href="/login">{{t "Abbrechen"}}</a>
+  </form>
+
+  {{else if eq $d.Kind "noreset"}}
+  <div class="panel">
+    <div class="brand">{{template "logo"}}<b>Cubeherd</b></div>
+    <div><h1>{{t "Passwort zurücksetzen"}}</h1><p class="muted" style="margin-top:4px">{{t "Dieses Dashboard kann keine E-Mails senden. Bitte einen Admin, dein Passwort zu ändern."}}</p></div>
+    <a class="btn" href="/login">{{t "Zur Anmeldung"}}</a>
+  </div>
+
+  {{else if eq $d.Kind "forgot"}}
+  <form class="panel" method="post" action="/forgot">
+    <div class="brand">{{template "logo"}}<b>Cubeherd</b></div>
+    <div><h1>{{t "Passwort zurücksetzen"}}</h1><p class="muted" style="margin-top:4px">{{t "Gib die E-Mail-Adresse deines Kontos ein. Wir schicken dir einen Link zum Festlegen eines neuen Passworts."}}</p></div>
+    <label class="field"><span>{{t "E-Mail-Adresse"}}</span><input class="input" name="email" type="email" autocomplete="email" required autofocus></label>
+    <button class="btn primary" type="submit">{{t "Link senden"}}</button>
+    <a class="btn ghost" href="/login">{{t "Abbrechen"}}</a>
+  </form>
+
+  {{else if eq $d.Kind "forgotsent"}}
+  <div class="panel">
+    <div class="brand">{{template "logo"}}<b>Cubeherd</b></div>
+    <div><h1>{{t "Prüfe dein Postfach"}}</h1><p class="muted" style="margin-top:4px">{{t "Gehört die Adresse zu einem Konto, ist dort jetzt ein Link zum Zurücksetzen unterwegs. Er gilt eine Stunde."}}</p></div>
+    <a class="btn" href="/login">{{t "Zur Anmeldung"}}</a>
+  </div>
+
+  {{else if eq $d.Kind "reset"}}
+  <form class="panel" method="post" action="/reset/{{$d.Token}}">
+    <div class="brand">{{template "logo"}}<b>Cubeherd</b></div>
+    <div><h1>{{t "Neues Passwort"}}</h1></div>
+    <label class="field"><span>{{t "Neues Passwort"}}</span><input class="input" name="password" type="password" autocomplete="new-password" minlength="10" required autofocus><small>{{t "Mindestens 10 Zeichen."}}</small></label>
+    <label class="field"><span>{{t "Passwort wiederholen"}}</span><input class="input" name="password2" type="password" autocomplete="new-password" minlength="10" required></label>
+    {{with $d.Error}}<p class="err">{{.}}</p>{{end}}
+    <button class="btn primary" type="submit">{{t "Passwort speichern"}}</button>
+  </form>
+
+  {{else if eq $d.Kind "linkbad"}}
+  <div class="panel">
+    <div class="brand">{{template "logo"}}<b>Cubeherd</b></div>
+    <div><h1>{{t "Link ungültig"}}</h1><p class="muted" style="margin-top:4px">{{t "Der Link ist abgelaufen oder wurde schon benutzt."}}</p></div>
+    {{if eq $d.Hint "resend"}}<a class="btn" href="/resend">{{t "Bestätigungs-Mail erneut senden"}}</a>{{end}}
+    <a class="btn ghost" href="/login">{{t "Zur Anmeldung"}}</a>
+  </div>
+
+  {{else if eq $d.Kind "notme"}}
+  <form class="panel" method="post" action="/notme/{{$d.Token}}">
+    <div class="brand">{{template "logo"}}<b>Cubeherd</b></div>
+    <div><h1>{{t "Das war ich nicht"}}</h1><p class="muted" style="margin-top:4px">{{t "Wir melden alle Sitzungen deines Kontos ab und sperren die Anmeldung mit dem bisherigen Passwort. Danach legst du über „Passwort vergessen“ ein neues fest."}}</p></div>
+    <button class="btn primary" type="submit">{{t "Konto sichern"}}</button>
+  </form>
+
+  {{else if eq $d.Kind "notmedone"}}
+  <div class="panel">
+    <div class="brand">{{template "logo"}}<b>Cubeherd</b></div>
+    <div><h1>{{t "Das Konto ist gesichert"}}</h1><p class="muted" style="margin-top:4px">{{if $d.Mail}}{{t "Alle Sitzungen sind beendet. Lege jetzt über „Passwort vergessen“ ein neues Passwort fest."}}{{else}}{{t "Alle Sitzungen sind beendet. Bitte einen Admin, dein Passwort neu zu setzen."}}{{end}}</p></div>
+    <a class="btn" href="/login">{{t "Zur Anmeldung"}}</a>
+  </div>
+
+  {{else if eq $d.Kind "register"}}
+  <form class="panel" method="post" action="/register">
+    <div class="brand">{{template "logo"}}<b>Cubeherd</b></div>
+    <div><h1>{{t "Registrieren"}}</h1>{{if $d.Domains}}<p class="muted" style="margin-top:4px">{{t "Erlaubte E-Mail-Domains: %s" $d.Domains}}</p>{{end}}</div>
+    <label class="field"><span>{{t "Benutzername"}}</span><input class="input" name="name" value="{{$d.Name}}" autocomplete="username" required autofocus></label>
+    <label class="field"><span>{{t "E-Mail-Adresse"}}</span><input class="input" name="email" type="email" value="{{$d.Email}}" autocomplete="email" required></label>
+    <label class="field"><span>{{t "Passwort"}}</span><input class="input" name="password" type="password" autocomplete="new-password" minlength="10" required><small>{{t "Mindestens 10 Zeichen."}}</small></label>
+    <label class="field"><span>{{t "Passwort wiederholen"}}</span><input class="input" name="password2" type="password" autocomplete="new-password" minlength="10" required></label>
+    <div style="position:absolute;left:-5000px" aria-hidden="true"><input name="website" tabindex="-1" autocomplete="off"></div>
+    {{with $d.Error}}<p class="err">{{.}}</p>{{end}}
+    <button class="btn primary" type="submit">{{t "Registrieren"}}</button>
+    <a class="btn ghost" href="/login">{{t "Abbrechen"}}</a>
+  </form>
+
+  {{else if eq $d.Kind "registered"}}
+  <div class="panel">
+    <div class="brand">{{template "logo"}}<b>Cubeherd</b></div>
+    <div><h1>{{t "Fast geschafft"}}</h1>
+    <p class="muted" style="margin-top:4px">{{if eq $d.Info "verify"}}{{t "Wir haben dir einen Bestätigungslink geschickt. Öffne ihn, um dein Konto zu aktivieren."}}{{else if eq $d.Info "approval"}}{{t "Dein Konto wartet auf die Freigabe durch einen Admin. Du bekommst eine E-Mail, sobald es soweit ist."}}{{else if eq $d.Info "verify-approval"}}{{t "Bestätige zuerst deine E-Mail-Adresse über den Link, den wir dir geschickt haben. Danach prüft ein Admin dein Konto."}}{{else}}{{t "Deine Registrierung ist eingegangen. Gehört die Adresse noch nicht zu einem Konto, bekommst du eine E-Mail mit den nächsten Schritten."}}{{end}}</p></div>
+    <a class="btn" href="/login">{{t "Zur Anmeldung"}}</a>
+  </div>
+
+  {{else if eq $d.Kind "verify"}}
+  <form class="panel" method="post" action="/verify/{{$d.Token}}">
+    <div class="brand">{{template "logo"}}<b>Cubeherd</b></div>
+    <div><h1>{{t "E-Mail bestätigen"}}</h1><p class="muted" style="margin-top:4px">{{t "Bestätige, dass diese Adresse zu dir gehört."}}</p></div>
+    <button class="btn primary" type="submit">{{t "Bestätigen"}}</button>
+  </form>
+
+  {{else if eq $d.Kind "verified"}}
+  <div class="panel">
+    <div class="brand">{{template "logo"}}<b>Cubeherd</b></div>
+    <div><h1>{{t "E-Mail bestätigt"}}</h1><p class="muted" style="margin-top:4px">{{if eq $d.Info "approval"}}{{t "Danke. Dein Konto wartet jetzt auf die Freigabe durch einen Admin."}}{{else}}{{t "Danke. Du kannst dich jetzt anmelden."}}{{end}}</p></div>
+    <a class="btn" href="/login">{{t "Zur Anmeldung"}}</a>
+  </div>
+
+  {{else if eq $d.Kind "resend"}}
+  <form class="panel" method="post" action="/resend">
+    <div class="brand">{{template "logo"}}<b>Cubeherd</b></div>
+    <div><h1>{{t "Bestätigungs-Mail erneut senden"}}</h1></div>
+    <label class="field"><span>{{t "E-Mail-Adresse"}}</span><input class="input" name="email" type="email" autocomplete="email" required autofocus></label>
+    <button class="btn primary" type="submit">{{t "Senden"}}</button>
+    <a class="btn ghost" href="/login">{{t "Abbrechen"}}</a>
+  </form>
+
+  {{else if eq $d.Kind "resent"}}
+  <div class="panel">
+    <div class="brand">{{template "logo"}}<b>Cubeherd</b></div>
+    <div><h1>{{t "Prüfe dein Postfach"}}</h1><p class="muted" style="margin-top:4px">{{t "Wartet ein Konto mit dieser Adresse auf die Bestätigung, ist ein neuer Link unterwegs."}}</p></div>
+    <a class="btn" href="/login">{{t "Zur Anmeldung"}}</a>
+  </div>
+  {{end}}
+</div>
+{{end}}

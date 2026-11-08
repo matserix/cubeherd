@@ -55,6 +55,7 @@ func (a *App) accessRoutes(rt *router) {
 	rt.handle("POST /access/audit/verify", global(access.AuditView), a.p((*App).auditVerify))
 	rt.handle("POST /access/audit/retention", users.log("audit.retention", form("days")), a.p((*App).auditRetention))
 
+	a.securityRoutes(rt)
 	rt.handle("GET /access/sso", sso, a.p((*App).ssoPage))
 	rt.handle("POST /access/sso", sso.log("sso.change"), a.p((*App).ssoSave))
 	rt.handle("GET /access/mail", global(access.SettingsManage), a.p((*App).mailPage))
@@ -82,6 +83,12 @@ func (a *App) accTabs(p *access.Principal) []accTab {
 	if p.Global(access.SSOManage) {
 		out = append(out, accTab{"sso", "Anmeldung", "/access/sso"})
 	}
+	if p.Global(access.UsersManage) {
+		out = append(out, accTab{"security", "Konto-Sicherheit", "/access/security"})
+	}
+	if p.Global(access.UsersApprove) {
+		out = append(out, accTab{"pending", "Freigaben", "/access/pending"})
+	}
 	if p.Global(access.SettingsManage) {
 		out = append(out, accTab{"mail", "E-Mail", "/access/mail"})
 	}
@@ -96,17 +103,19 @@ type accessData struct {
 	Tabs []accTab
 	Err  string
 
-	Users  []userRow
-	User   *userDetail
-	Groups []groupRow
-	Roles  []roleRow
-	Role   *roleEdit
-	Grants []grantRow
-	Opts   *grantOpts
-	Audit  *auditView
-	SSO    *ssoData
-	Mail   *mailData
-	DBSize int64
+	Users   []userRow
+	User    *userDetail
+	Groups  []groupRow
+	Roles   []roleRow
+	Role    *roleEdit
+	Grants  []grantRow
+	Opts    *grantOpts
+	Audit   *auditView
+	SSO     *ssoData
+	Mail    *mailData
+	Sec     *securityData
+	Pending *pendingData
+	DBSize  int64
 }
 
 func (a *App) accessPage(w http.ResponseWriter, r *http.Request, tab string, d accessData) {
@@ -804,6 +813,8 @@ type accountData struct {
 	Effective  []effectiveRow
 	Groups     []string
 	HasPW      bool
+	CodesLeft  int
+	Required   bool // the policy asks for a second factor, so it cannot be switched off
 }
 
 func (a *App) accountPage(w http.ResponseWriter, r *http.Request) {
@@ -813,6 +824,8 @@ func (a *App) accountPage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	d := accountData{User: p.User, HasPW: p.User.HasPassword}
+	d.CodesLeft = st.RecoveryCodesLeft(p.User.ID)
+	d.Required = !a.twoFADeadlineIgnoringSetup(p, st.SessionMethod(tokenOf(r))).IsZero()
 	d.Sessions, _ = st.Sessions(p.User.ID, tokenOf(r))
 	d.Identities, _ = st.Identities(p.User.ID)
 	grps, _ := st.UserGroups(p.User.ID)
