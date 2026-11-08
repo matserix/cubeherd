@@ -1,0 +1,69 @@
+{{define "content"}}{{$d := .Data}}
+<section class="view">
+  <div class="view-head">
+    <div><h1>{{t "Erscheinungsbild"}}</h1><p class="sub">{{t "Name, Logo und Farben der Oberfläche, zum Beispiel für ein eigenes Hosting-Angebot. Ohne Änderungen bleibt alles wie eingebaut."}}</p></div>
+    <div class="actions"><a class="btn" href="/settings">{{t "Zu den Einstellungen"}}</a></div>
+  </div>
+  <form class="stack" id="brand-form" hx-post="/settings/branding" hx-encoding="multipart/form-data">
+    <div class="panel">
+      <div class="panel-head"><h2>{{t "Name und Logo"}}</h2></div>
+      <div class="panel-pad stack">
+        <div class="grid-2">
+          <label class="field"><span>{{t "Produktname"}}</span><input class="input" name="name" value="{{$d.Name}}" placeholder="Cubeherd" maxlength="40" autocomplete="off" data-brand-name><small>{{t "Erscheint in der Seitenleiste, auf der Anmeldeseite, im Seitentitel und in E-Mails. Auf Seiten für Kunden ersetzt er das Wort Cubeherd in den Texten; die Verwaltungsseiten behalten es."}}</small></label>
+          <label class="switch" style="align-self:end"><input type="checkbox" name="hideVersion" {{if $d.HideVersion}}checked{{end}}><span class="txt">{{t "Versionsnummer ausblenden"}}</span></label>
+        </div>
+        <div class="grid-2">
+          <div class="field"><span>{{t "Logo"}}</span>
+            <div class="brand-up">{{if $d.Logo}}<img src="{{$d.Logo}}" alt="" class="brand-thumb" data-brand-logo-cur>{{end}}<input class="input" type="file" name="logo" accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml" data-brand-logo></div>
+            <small>{{t "PNG, JPEG, WebP, GIF oder SVG bis 512 KB. Wird bis 30 Pixel hoch angezeigt."}}</small>
+            {{if $d.Logo}}<label class="check"><input type="checkbox" name="logoRemove"> {{t "Logo entfernen"}}</label>{{end}}</div>
+          <div class="field"><span>{{t "Favicon"}}</span>
+            <div class="brand-up">{{if $d.Favicon}}<img src="{{$d.Favicon}}" alt="" class="brand-thumb">{{end}}<input class="input" type="file" name="favicon" accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml,image/x-icon"></div>
+            <small>{{t "Ohne Favicon nimmt der Browser das Logo, sonst das eingebaute Symbol."}}</small>
+            {{if $d.Favicon}}<label class="check"><input type="checkbox" name="faviconRemove"> {{t "Favicon entfernen"}}</label>{{end}}</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head"><h2>{{t "Farben"}}</h2><span class="muted" style="font-size:12px">{{t "Der Browser wählt hell oder dunkel nach der Einstellung des Benutzers; beide Paletten sind einstellbar."}}</span></div>
+      <div class="panel-pad">
+        <div class="brand-cols">
+          <div>
+            <table class="tbl brand-tbl"><thead><tr><th>{{t "Farbe"}}</th><th>{{t "Dunkel"}}</th><th>{{t "Hell"}}</th></tr></thead><tbody>
+            {{range $g := $d.Groups}}<tr class="brand-group"><td colspan="3">{{t $g}}</td></tr>
+              {{range $d.Rows}}{{if eq .Group $g}}<tr>
+                <td>{{t .Label}} <span class="muted mono" style="font-size:11px">--{{.Key}}</span></td>
+                <td><span class="brand-pick"><input type="color" name="dark-{{.Key}}" value="{{.DarkVal}}" data-side="dark" data-var="{{.Key}}" data-def="{{.Dark}}" aria-label="{{t .Label}} ({{t "Dunkel"}})"><button type="button" class="btn sm ghost" data-reset title="{{t "Zurücksetzen"}}">↺</button></span></td>
+                <td><span class="brand-pick"><input type="color" name="light-{{.Key}}" value="{{.LightVal}}" data-side="light" data-var="{{.Key}}" data-def="{{.Light}}" aria-label="{{t .Label}} ({{t "Hell"}})"><button type="button" class="btn sm ghost" data-reset title="{{t "Zurücksetzen"}}">↺</button></span></td>
+              </tr>{{end}}{{end}}
+            {{end}}
+            </tbody></table>
+          </div>
+          <div class="brand-previews">
+            {{template "brandPreview" dict "Side" "dark" "Style" $d.PreviewDark "Logo" $d.Logo "Name" $d.Name}}
+            {{template "brandPreview" dict "Side" "light" "Style" $d.PreviewLight "Logo" $d.Logo "Name" $d.Name}}
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="savebar"><span class="muted">{{t "Gilt sofort für alle Benutzer."}}</span><div class="actions"><button class="btn" type="button" hx-post="/settings/branding/reset" hx-confirm="{{t "Alles auf den eingebauten Stand zurücksetzen?"}}">{{t "Auf Standard zurücksetzen"}}</button><button class="btn primary">{{t "Speichern"}} <span class="spin-on-req"></span></button></div></div>
+  </form>
+</section>
+{{end}}
+
+{{define "brandPreview"}}
+<div class="bpv" data-side="{{.Side}}" style="{{.Style}}">
+  <div class="bpv-head"><span class="bpv-label">{{if eq .Side "dark"}}{{t "Vorschau dunkel"}}{{else}}{{t "Vorschau hell"}}{{end}}</span></div>
+  <div class="bpv-body">
+    <div class="brand">{{if .Logo}}<img class="brand-logo" src="{{.Logo}}" alt="" data-brand-logo-pv>{{else}}<span data-brand-logo-pv-svg>{{template "logo"}}</span><img class="brand-logo" alt="" data-brand-logo-pv hidden>{{end}}<b data-brand-name-pv>{{or .Name "Cubeherd"}}</b></div>
+    <div class="panel"><div class="panel-head"><h2>{{t "Beispiel"}}</h2><span class="pill s-running">{{t "läuft"}}</span></div>
+      <div class="panel-pad stack"><span>{{t "Normaler Text"}}</span><span class="muted">{{t "Gedämpfter Text"}}</span>
+        <div class="actions"><button type="button" class="btn primary">{{t "Primär"}}</button><button type="button" class="btn">{{t "Normal"}}</button><span class="pill s-stopped">{{t "gestoppt"}}</span></div>
+        <div class="callout warn"><div><b>{{t "Warnung"}}</b></div></div>
+        <div class="callout crit"><div><b>{{t "Fehler"}}</b></div></div>
+        <div class="callout info"><div><b>{{t "Information"}}</b></div></div>
+        <pre class="code">{{t "Konsole: Server gestartet"}}</pre></div></div>
+  </div>
+</div>
+{{end}}

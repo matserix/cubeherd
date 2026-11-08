@@ -101,6 +101,10 @@ func usedKeys(t *testing.T) map[string]bool {
 	for _, v := range groupText {
 		add(v)
 	}
+	for _, bt := range brandTokens {
+		add(bt.Label)
+		add(bt.Group)
+	}
 	for _, c := range auditCategories {
 		add(c.Label)
 	}

@@ -109,7 +109,7 @@ func (a *App) loadTemplates() error {
 			return err
 		}
 		a.pages[l.Code] = map[string]*template.Template{}
-		for _, p := range []string{"login", "authpage", "twofa", "forbidden", "access", "account", "nodestats", "overview", "wizard", "server", "settings", "nodes", "nodepick", "nodedown"} {
+		for _, p := range []string{"login", "authpage", "twofa", "branding", "forbidden", "access", "account", "nodestats", "overview", "wizard", "server", "settings", "nodes", "nodepick", "nodedown"} {
 			t, err := base.Clone()
 			if err != nil {
 				return err
@@ -203,6 +203,10 @@ func (a *App) Handler() http.Handler {
 	rt.handle("GET /servers/{id}/uninstall", onServer(access.ServerDelete), a.h((*App).uninstallModal))
 	rt.handle("POST /servers/{id}/uninstall", onServer(access.ServerDelete).log("server.delete"), a.h((*App).uninstallPost))
 
+	rt.handle("GET /branding/{kind}", public(), a.p((*App).brandAsset))
+	rt.handle("GET /settings/branding", global(access.SettingsManage), a.p((*App).brandingPage))
+	rt.handle("POST /settings/branding", global(access.SettingsManage).log("branding.change"), a.p((*App).brandingSave))
+	rt.handle("POST /settings/branding/reset", global(access.SettingsManage).log("branding.reset"), a.p((*App).brandingReset))
 	rt.handle("GET /settings", global(access.SettingsManage), a.p((*App).settingsPage))
 	rt.handle("POST /settings", global(access.SettingsManage).log("settings.change"), a.p((*App).settingsPost))
 	rt.handle("POST /settings/password", open(), a.p((*App).passwordPost))
@@ -457,6 +461,7 @@ type Page struct {
 	Update      *update.Release // newer Cubeherd release, nil if none or dismissed
 	Data        any
 	Accounts    bool              // the multi-user mode is on
+	Brand       Brand             // name, logo and colors (white label)
 	TwoFABy     string            // set while the grace period for the second factor runs: the date it ends
 	P           *access.Principal // the signed-in user's rights; nil in single-user mode (everything allowed)
 	Account     string            // name of the signed-in user, "" in single-user mode
@@ -464,6 +469,7 @@ type Page struct {
 
 func (a *App) render(w http.ResponseWriter, r *http.Request, page string, p Page) {
 	p.Version = Version
+	p.Brand = a.brand()
 	p.P = principalOf(r)
 	p.Accounts = a.store() != nil
 	if p.P != nil {
@@ -491,7 +497,7 @@ func (a *App) render(w http.ResponseWriter, r *http.Request, page string, p Page
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Header().Set("Cache-Control", "no-store")
-	w.Write([]byte(a.scopeLinks(buf.String())))
+	w.Write([]byte(a.scopeLinks(rebrand(page, buf.String(), p.Brand))))
 }
 
 // partial renders a named template (from any page set; partials are shared).

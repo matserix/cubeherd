@@ -3,19 +3,20 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>{{if .Title}}{{.Title}} · {{end}}Cubeherd</title>
-<link rel="icon" href="{{static "favicon.svg"}}" type="image/svg+xml">
+<title>{{if .Title}}{{.Title}} · {{end}}{{.Brand.Name}}</title>
+<link rel="icon" href="{{if .Brand.Favicon}}{{.Brand.Favicon}}{{else if .Brand.Logo}}{{.Brand.Logo}}{{else}}{{static "favicon.svg"}}{{end}}"{{if not (or .Brand.Favicon .Brand.Logo)}} type="image/svg+xml"{{end}}>
 <link rel="stylesheet" href="{{static "app.css"}}">
+{{with .Brand.CSS}}<style>{{.}}</style>{{end}}
 <script src="{{static "htmx.min.js"}}" defer></script>
 <script src="{{static "sse.js"}}" defer></script>
 <script src="{{static "app.js"}}" defer></script>
 <meta name="htmx-config" content='{"includeIndicatorStyles":false,"defaultSwapStyle":"innerHTML"}'>
 </head>
-<body data-decimal="{{decimal}}" data-t-reqfail="{{t "Anfrage fehlgeschlagen. Ist Cubeherd erreichbar?"}}" data-t-noconn="{{t "Keine Verbindung zu Cubeherd."}}" data-t-cancel="{{t "Abbrechen"}}" data-t-ok="{{t "Bestätigen"}}" data-t-uprest="{{t "noch %s"}}" data-t-upleave="{{t "Der Upload läuft noch. Seite wirklich verlassen?"}}">
+<body data-decimal="{{decimal}}" data-t-reqfail="{{t "Anfrage fehlgeschlagen. Ist Cubeherd erreichbar?"}}" data-t-noconn="{{t "Keine Verbindung zu Cubeherd."}}" data-t-cancel="{{t "Abbrechen"}}" data-t-fpchoose="{{t "Datei auswählen"}}" data-t-fpchoosemany="{{t "Dateien auswählen"}}" data-t-fpdrop="{{t "oder hierher ziehen"}}" data-t-fpfiles="{{t "Dateien"}}" data-t-fpclear="{{t "Auswahl entfernen"}}" data-t-ok="{{t "Bestätigen"}}" data-t-uprest="{{t "noch %s"}}" data-t-upleave="{{t "Der Upload läuft noch. Seite wirklich verlassen?"}}">
 {{if eq .Nav "login"}}{{template "content" .}}{{else}}
 <div class="app" id="app">
   <aside class="side">
-    <a class="brand" href="/" style="text-decoration:none;color:inherit">{{template "logo"}}<b>Cubeherd</b></a>
+    <a class="brand" href="/" style="text-decoration:none;color:inherit">{{template "brand" .}}</a>
     <nav class="nav" aria-label="{{t "Hauptnavigation"}}">
       <a href="/" class="navlink" aria-current="{{eq .Nav "overview"}}" title="{{t "Übersicht"}}"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1.5" y="1.5" width="5.5" height="5.5" rx="1"/><rect x="9" y="1.5" width="5.5" height="5.5" rx="1"/><rect x="1.5" y="9" width="5.5" height="5.5" rx="1"/><rect x="9" y="9" width="5.5" height="5.5" rx="1"/></svg><span class="nav-txt">{{t "Übersicht"}}</span></a>
       {{if and .Accounts (or (canG $ "users.manage") (canG $ "roles.manage") (canG $ "sso.manage") (canG $ "settings.manage") (canAny $ "audit.view"))}}<a href="{{accessHome $}}" class="navlink" aria-current="{{eq .Nav "access"}}" title="{{t "Zugriff"}}"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 1.5 13.5 3.5v4c0 3.2-2.3 5.6-5.5 7-3.2-1.4-5.5-3.8-5.5-7v-4Z"/><path d="M5.8 8l1.6 1.6L10.4 6.4"/></svg><span class="nav-txt">{{t "Zugriff"}}</span></a>{{end}}
@@ -27,7 +28,7 @@
       <div class="rack" hx-get="/partials/rack?current={{.Current}}&node={{.CurrentNode}}" hx-trigger="rack-refresh from:body" hx-swap="innerHTML">{{template "rackList" .}}</div>
     </div>
     <div class="side-foot">
-      <div class="row"><span>Cubeherd</span><span class="num">{{.Version}}</span></div>
+      <div class="row"><span>{{.Brand.Name}}</span>{{if not .Brand.HideVersion}}<span class="num">{{.Version}}</span>{{end}}</div>
       <details class="usermenu" {{if or (eq .Nav "settings") (eq .Nav "account")}}data-current{{end}}>
         <summary class="side-user" title="{{t "Konto"}}"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><circle cx="8" cy="5.5" r="2.6"/><path d="M2.8 14c.6-2.6 2.7-4 5.2-4s4.6 1.4 5.2 4"/></svg><span>{{if .Account}}{{.Account}}{{else}}{{t "Admin"}}{{end}}</span><svg class="chev" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M4 10l4-4 4 4"/></svg></summary>
         <div class="menu" role="menu">
@@ -61,4 +62,5 @@
 {{if $multi}}</div>{{end}}{{end}}
 {{if and (not .RackCount) (not $multi)}}<p class="muted" style="padding:0 10px;font-size:13px">{{t "Noch keine Server."}}</p>{{end}}{{end}}
 
+{{define "brand"}}{{if .Brand.Logo}}<img class="brand-logo" src="{{.Brand.Logo}}" alt="">{{else}}{{template "logo"}}{{end}}<b>{{.Brand.Name}}</b>{{end}}
 {{define "logo"}}<svg viewBox="0 0 24 24" aria-hidden="true" width="26" height="26"><path d="M12 2 21 7 12 12 3 7Z" fill="var(--accent-2)"/><path d="M3 7 12 12V22L3 17Z" fill="var(--accent)"/><path d="M21 7 12 12V22L21 17Z" fill="var(--accent-3)"/></svg>{{end}}

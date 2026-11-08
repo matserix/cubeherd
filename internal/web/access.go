@@ -93,7 +93,7 @@ func isPublic(path string) bool {
 	case "/login", "/setup", "/login/sso", "/login/sso/callback", "/metrics", "/login/2fa", "/forgot", "/register", "/resend":
 		return true
 	}
-	for _, p := range []string{"/reset/", "/verify/", "/notme/"} {
+	for _, p := range []string{"/reset/", "/verify/", "/notme/", "/branding/"} {
 		if strings.HasPrefix(path, p) {
 			return true
 		}

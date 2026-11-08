@@ -2,6 +2,7 @@
 {{$d := .Data}}{{$c := $d.Cfg}}
 <section class="view">
   <div class="view-head"><div><h1>{{t "Einstellungen"}}</h1><p class="sub">{{if $d.Multi}}{{t "Die Markierung zeigt, für welche Nodes eine Einstellung gilt."}}{{else}}{{t "Gilt für alle Server und das Dashboard selbst."}}{{end}}</p></div></div>
+  <div class="panel panel-pad" style="display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap"><div><b>{{t "Erscheinungsbild"}}</b><div class="muted" style="font-size:13px">{{t "Name, Logo und alle Farben ändern, zum Beispiel für ein eigenes Hosting-Angebot."}}</div></div><a class="btn" href="/settings/branding">{{t "Anpassen"}}</a></div>
   <form class="stack" hx-post="/settings">
   <div class="panel form-sections">
     <div class="form-sec">

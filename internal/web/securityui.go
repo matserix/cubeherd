@@ -157,7 +157,7 @@ func (a *App) twoFASetupView(w http.ResponseWriter, r *http.Request, tok, secret
 	if acct == "" {
 		acct = p.User.Name
 	}
-	svg, _ := qr.SVG(access.TOTPURI("Cubeherd", acct, secret), 220)
+	svg, _ := qr.SVG(access.TOTPURI(a.brand().Name, acct, secret), 220)
 	a.render(w, r, "twofa", Page{Title: a.t("Zwei-Faktor-Anmeldung"), Nav: "account", Data: twoFAData{Mode: "setup", Token: tok, Secret: groupSecret(secret), QR: htmlSafe(svg), Error: errMsg,
 		Required: !a.twoFADeadlineIgnoringSetup(p, a.store().SessionMethod(tokenOf(r))).IsZero()}})
 }

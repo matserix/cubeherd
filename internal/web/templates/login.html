@@ -1,7 +1,7 @@
 {{define "content"}}
 <div class="login">
   <form class="panel" method="post" action="{{.Data.Action}}">
-    <div class="brand">{{template "logo"}}<b>Cubeherd</b></div>
+    <div class="brand">{{template "brand" .}}</div>
     {{if .Data.Setup}}
     <div><h1>{{t "Einrichten"}}</h1><p class="muted" style="margin-top:4px">{{if .Data.Accounts}}{{t "Lege den ersten Benutzer fest. Er bekommt die Rolle Owner. Cubeherd nur im LAN oder per VPN erreichbar machen."}}{{else}}{{t "Lege das Passwort für das Admin-Konto fest. Cubeherd nur im LAN oder per VPN erreichbar machen."}}{{end}}</p></div>
     <label class="field"><span>{{t "Sprache"}}</span><select class="input" name="language">{{range languages}}<option value="{{.Code}}" {{if eq .Code lang}}selected{{end}}>{{.Name}}</option>{{end}}</select></label>

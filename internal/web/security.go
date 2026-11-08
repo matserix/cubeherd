@@ -78,6 +78,7 @@ func (a *App) mailBase(r *http.Request) string { return a.publicBase(r) }
 // mailAsync sends a mail without making the request wait, and logs a failure. Callers that must not reveal whether
 // an address is known use it so the response time does not depend on the outcome.
 func (a *App) mailAsync(to, subject, body string) {
+	subject, body = a.brandText(subject), a.brandText(body)
 	cfg, ok := a.mailConfig()
 	if !ok {
 		return
@@ -397,6 +398,7 @@ func (a *App) sendReset(base, email, ip string) {
 
 // mailAsyncSync sends from the current goroutine (callers already run in the background).
 func (a *App) mailAsyncSync(to, subject, body string) {
+	subject, body = a.brandText(subject), a.brandText(body)
 	cfg, ok := a.mailConfig()
 	if !ok {
 		return

@@ -380,3 +380,95 @@
   }).observe(document.body, { childList: true, subtree: true });
   $$('select.input').forEach(enhanceSelect);
 })();
+
+// White-label editor: the color pickers and the name restyle the two preview boxes while you type.
+(function () {
+  const soft = { accent: 1, ok: 1, warn: 1, crit: 1, info: 1 };
+  const box = side => document.querySelector('.bpv[data-side="' + side + '"]');
+  function paint(inp) {
+    const b = box(inp.dataset.side), k = inp.dataset.var; if (!b) return;
+    b.style.setProperty('--' + k, inp.value);
+    if (soft[k]) b.style.setProperty('--' + k + '-soft', 'color-mix(in srgb,' + inp.value + ' ' + (inp.dataset.side === 'light' ? 10 : 14) + '%,transparent)');
+  }
+  document.addEventListener('input', e => {
+    const t = e.target;
+    if (t.matches && t.matches('input[type=color][data-var]')) paint(t);
+    else if (t.matches && t.matches('[data-brand-name]')) document.querySelectorAll('[data-brand-name-pv]').forEach(n => { n.textContent = t.value.trim() || 'Cubeherd'; });
+  });
+  document.addEventListener('change', e => {
+    const t = e.target;
+    if (!(t.matches && t.matches('[data-brand-logo]')) || !t.files[0]) return;
+    const rd = new FileReader();
+    rd.onload = () => document.querySelectorAll('[data-brand-logo-pv]').forEach(i => { i.src = rd.result; i.hidden = false; const s = i.parentNode.querySelector('[data-brand-logo-pv-svg]'); if (s) s.hidden = true; });
+    rd.readAsDataURL(t.files[0]);
+  });
+  document.addEventListener('click', e => {
+    const b = e.target.closest && e.target.closest('[data-reset]'); if (!b) return;
+    const inp = b.parentNode.querySelector('input[type=color]');
+    inp.value = inp.dataset.def; paint(inp);
+  });
+})();
+
+// Custom file picker: the native <input type=file class=input> stays in the form as the value holder (submit, htmx,
+// validation), what people see is a drop zone with the chosen file. Dropping a file sets it on the input.
+(function () {
+  const T = k => document.body.dataset['t' + k[0].toUpperCase() + k.slice(1)] || '';
+  const size = n => n < 1024 ? n + ' B' : n < 1048576 ? (n / 1024).toFixed(0) + ' KB' : (n / 1048576).toFixed(1) + ' MB';
+  const ICON = '<svg viewBox="0 0 20 20" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M10 13V4m0 0L6.5 7.5M10 4l3.5 3.5M4 13v2.5A1.5 1.5 0 0 0 5.5 17h9a1.5 1.5 0 0 0 1.5-1.5V13"/></svg>';
+  const accepts = (inp, f) => {
+    const a = (inp.accept || '').split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
+    if (!a.length) return true;
+    const n = f.name.toLowerCase(), t = (f.type || '').toLowerCase();
+    return a.some(p => p.startsWith('.') ? n.endsWith(p) : p.endsWith('/*') ? t.startsWith(p.slice(0, -1)) : t === p);
+  };
+  function enhance(inp) {
+    if (inp.dataset.fp) return;
+    inp.dataset.fp = '1';
+    const wrap = document.createElement('label');
+    wrap.className = 'filepick';
+    inp.parentNode.insertBefore(wrap, inp);
+    wrap.appendChild(inp);
+    inp.classList.add('fp-native');
+    inp.classList.remove('input');
+    const zone = document.createElement('span');
+    zone.className = 'fp-zone';
+    zone.innerHTML = '<span class="fp-ico">' + ICON + '</span><span class="fp-text"><b class="fp-main"></b><span class="fp-sub"></span></span>';
+    const clear = document.createElement('button');
+    clear.type = 'button'; clear.className = 'fp-clear'; clear.hidden = true; clear.textContent = '×';
+    clear.title = clear.ariaLabel = T('fpclear');
+    zone.appendChild(clear);
+    wrap.appendChild(zone);
+    const main = zone.querySelector('.fp-main'), sub = zone.querySelector('.fp-sub');
+    const show = () => {
+      const fs = [...inp.files];
+      wrap.classList.toggle('has-file', fs.length > 0);
+      clear.hidden = !fs.length;
+      if (!fs.length) { main.textContent = T(inp.multiple ? 'fpchoosemany' : 'fpchoose'); sub.textContent = T('fpdrop'); return; }
+      main.textContent = fs.length === 1 ? fs[0].name : fs.length + ' ' + T('fpfiles');
+      sub.textContent = size(fs.reduce((s, f) => s + f.size, 0));
+    };
+    inp.addEventListener('change', show);
+    inp.addEventListener('focus', () => wrap.classList.add('focus'));
+    inp.addEventListener('blur', () => wrap.classList.remove('focus'));
+    clear.addEventListener('click', e => { e.preventDefault(); e.stopPropagation(); inp.value = ''; inp.dispatchEvent(new Event('change', { bubbles: true })); });
+    let depth = 0;
+    wrap.addEventListener('dragenter', e => { e.preventDefault(); depth++; wrap.classList.add('drag'); });
+    wrap.addEventListener('dragleave', () => { if (--depth <= 0) { depth = 0; wrap.classList.remove('drag'); } });
+    wrap.addEventListener('dragover', e => { e.preventDefault(); });
+    wrap.addEventListener('drop', e => {
+      e.preventDefault(); depth = 0; wrap.classList.remove('drag');
+      if (inp.disabled) return;
+      let fs = [...e.dataTransfer.files].filter(f => accepts(inp, f));
+      if (!inp.multiple) fs = fs.slice(0, 1);
+      if (!fs.length) return;
+      const dt = new DataTransfer(); fs.forEach(f => dt.items.add(f));
+      inp.files = dt.files;
+      inp.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+    if (inp.form) inp.form.addEventListener('reset', () => setTimeout(show));
+    show();
+  }
+  const run = () => document.querySelectorAll('input[type=file].input:not([data-fp])').forEach(enhance);
+  new MutationObserver(run).observe(document.body, { childList: true, subtree: true });
+  run();
+})();

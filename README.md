@@ -174,6 +174,10 @@ By default Cubeherd has one shared password. For teams and communities there is 
 - **Agents are not part of this.** An agent token still gives full control of its host. The rights protect the dashboard; do not give people access to a host or an agent token that they should not have.
 - **Going back:** *Access → Users → End multi-user mode* returns to one shared password. Accounts stay in the database and are ignored. An older Cubeherd release without accounts support uses the single password again.
 
+## White label
+
+*Settings → Appearance* re-skins the dashboard for your own offer: the **product name**, a **logo** and a **favicon** (PNG, JPEG, WebP, GIF, ICO or SVG up to 512 KB), and **every color**, separately for the dark and the light theme, with a live preview. The built-in look stays the default; only colors that differ from it are stored, and *Reset to default* removes everything including the uploaded files. The name appears in the sidebar, on the sign-in and account pages, in the page title, in authenticator apps and in e-mails; on pages for customers it replaces the word "Cubeherd" in the texts, while the administration pages keep it. Branding needs the right *Manage global settings*, applies to the dashboard only (not to agents) and does not change the licence terms: keep the notices in the source and in `LICENSE`.
+
 ## Statistics
 
 Optional history of load, players and TPS, off by default. Switch it on per node under *Nodes → Edit* (the embedded node in the same dialog), or with `CUBEHERD_METRICS=true` on an agent. Nothing runs and no file exists while it is off.

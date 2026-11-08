@@ -55,6 +55,20 @@ type Settings struct {
 	HSTS bool `json:"hsts,omitempty"`
 	// PublicURL is the address users reach the dashboard at; single sign-on needs it for its callback.
 	PublicURL string `json:"publicUrl,omitempty"`
+	// Branding re-skins the dashboard (name, logo, colors). nil = the built-in look.
+	Branding *Branding `json:"branding,omitempty"`
+}
+
+// Branding is the white-label setting. Only values that differ from the built-in ones are stored, so a later
+// change of the defaults reaches installs that did not override them.
+type Branding struct {
+	Name        string            `json:"name,omitempty"`
+	Logo        string            `json:"logo,omitempty"`    // file name inside <data>/branding
+	Favicon     string            `json:"favicon,omitempty"` // same
+	HideVersion bool              `json:"hideVersion,omitempty"`
+	Dark        map[string]string `json:"dark,omitempty"` // CSS variable (without --) → #rrggbb
+	Light       map[string]string `json:"light,omitempty"`
+	Rev         int               `json:"rev,omitempty"` // bumped on every change, for cache busting
 }
 
 // Node is one remote agent. The token is stored like the CurseForge key (file mode 0600).
