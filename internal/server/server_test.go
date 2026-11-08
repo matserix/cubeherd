@@ -248,3 +248,41 @@ func TestBindIPAndFlight(t *testing.T) {
 		t.Errorf("ALLOW_FLIGHT=%q, want TRUE", v)
 	}
 }
+
+func TestComposeHardening(t *testing.T) {
+	s := &Server{ID: "x", Name: "x", Kind: "software", Type: "PAPER", Version: "1.21", Port: 25565, MemoryGB: 2}
+	if c := Compose(s, Globals{}); strings.Contains(c, "cap_drop") || strings.Contains(c, "no-new-privileges") {
+		t.Fatal("the profile is off by default")
+	}
+	c := Compose(s, Globals{Hardening: &Hardening{}})
+	for _, want := range []string{"cap_drop:\n      - ALL", "no-new-privileges:true", "pids_limit: 1024", "init: true", "max-size: \"10m\"", "/tmp:size=256m", "nofile:"} {
+		if !strings.Contains(c, want) {
+			t.Errorf("missing %q in\n%s", want, c)
+		}
+	}
+	if strings.Contains(c, "NET_RAW") || strings.Contains(c, "runtime:") {
+		t.Error("NET_RAW or a runtime without being asked for")
+	}
+	s.Autopause = true
+	c = Compose(s, Globals{Hardening: &Hardening{Runtime: "runsc", PidsLimit: 200, LogMaxMB: 5}})
+	if strings.Contains(c, "no-new-privileges") {
+		t.Error("no-new-privileges breaks autopause and must not be set with it")
+	}
+	for _, want := range []string{"NET_RAW", `runtime: "runsc"`, "pids_limit: 200", `"5m"`} {
+		if !strings.Contains(c, want) {
+			t.Errorf("missing %q", want)
+		}
+	}
+}
+
+// TestWriteLabCompose writes a hardened compose file for the manual lab check (LAB_COMPOSE=<path>).
+func TestWriteLabCompose(t *testing.T) {
+	out := os.Getenv("LAB_COMPOSE")
+	if out == "" {
+		t.Skip("lab only")
+	}
+	s := &Server{ID: "lab", Name: "lab", Kind: "software", Type: "VANILLA", Version: "LATEST", JavaTag: "java21", Port: 25599, MemoryGB: 2, Props: Props{OnlineMode: true}}
+	if err := os.WriteFile(out, []byte(Compose(s, Globals{Hardening: &Hardening{}})), 0o600); err != nil {
+		t.Fatal(err)
+	}
+}

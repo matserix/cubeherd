@@ -42,8 +42,47 @@ func Compose(s *Server, g Globals) string {
 	fmt.Fprintf(&b, "    mem_limit: %s\n    memswap_limit: %s\n", q(fmt.Sprintf("%dg", s.MemoryGB)), q(fmt.Sprintf("%dg", s.MemoryGB)))
 	b.WriteString("    stop_grace_period: 1m\n")
 	b.WriteString("    tty: true\n    stdin_open: true\n")
+	if h := g.Hardening; h != nil {
+		writeHardening(&b, s, h, q)
+	}
 	if s.DataVol != "" {
 		fmt.Fprintf(&b, "volumes:\n  %s:\n    external: true\n", q(s.DataVol))
 	}
 	return b.String()
+}
+
+// writeHardening adds the settings that shrink what a container can do to the host and to its neighbours: no
+// capabilities beyond what the image needs to drop to its own user, no privilege gain, bounded processes, files and
+// log size, a small private /tmp and a proper init. The image's entrypoint starts as root to fix ownership of /data
+// and then runs the server as an unprivileged user, which is why a few capabilities remain.
+func writeHardening(b *strings.Builder, s *Server, h *Hardening, q func(string) string) {
+	pids, logMB, nofile := h.PidsLimit, h.LogMaxMB, h.NoFile
+	if pids <= 0 {
+		pids = 1024
+	}
+	if logMB <= 0 {
+		logMB = 10
+	}
+	if nofile <= 0 {
+		nofile = 65536
+	}
+	if h.Runtime != "" {
+		fmt.Fprintf(b, "    runtime: %s\n", q(h.Runtime))
+	}
+	b.WriteString("    init: true\n")
+	b.WriteString("    cap_drop:\n      - ALL\n    cap_add:\n")
+	for _, c := range []string{"CHOWN", "DAC_OVERRIDE", "FOWNER", "SETGID", "SETUID"} {
+		fmt.Fprintf(b, "      - %s\n", c)
+	}
+	if s.Autopause {
+		b.WriteString("      - NET_RAW\n") // the image's autopause watches connection attempts with a raw socket
+	}
+	if !s.Autopause {
+		// no-new-privileges also switches off the file capability that the image's autopause (knockd) relies on
+		b.WriteString("    security_opt:\n      - no-new-privileges:true\n")
+	}
+	fmt.Fprintf(b, "    pids_limit: %d\n", pids)
+	fmt.Fprintf(b, "    ulimits:\n      nofile:\n        soft: %d\n        hard: %d\n      core: 0\n", nofile, nofile)
+	fmt.Fprintf(b, "    logging:\n      driver: json-file\n      options:\n        max-size: %s\n        max-file: \"3\"\n", q(fmt.Sprintf("%dm", logMB)))
+	b.WriteString("    tmpfs:\n      - /tmp:size=256m,nosuid,nodev\n")
 }

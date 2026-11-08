@@ -307,9 +307,19 @@ func (s *Server) ImageRef() string {
 }
 
 // Globals are dashboard-wide settings that end up in every server's environment.
+// Hardening is the container profile of a host that runs other people's servers. It is set per host (environment
+// of the process that manages Docker), not per server, so a tenant cannot change it.
+type Hardening struct {
+	Runtime   string // OCI runtime such as runsc or kata-runtime; "" = Docker's default
+	PidsLimit int    // processes per container; 0 = 1024
+	LogMaxMB  int    // size of one log file; 0 = 10
+	NoFile    int    // open files per process; 0 = 65536
+}
+
 type Globals struct {
-	CFKey string // CurseForge API key
-	TZ    string // IANA time zone for log timestamps; "" keeps the image default
+	Hardening *Hardening // nil = Docker's defaults
+	CFKey     string     // CurseForge API key
+	TZ        string     // IANA time zone for log timestamps; "" keeps the image default
 }
 
 // Env builds the container environment in a stable order.

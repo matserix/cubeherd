@@ -39,6 +39,8 @@ type Manager struct {
 	Hoster  *host.Reader // host CPU, memory and disk (set by main)
 	// MetricsDir is where metrics.db lives; "" = this node cannot record statistics (set by main).
 	MetricsDir string
+	// Hardening, when set, is the container profile for every server on this host (set by main).
+	Hardening *server.Hardening
 
 	mu    sync.Mutex
 	ops   map[string]*Op
@@ -469,7 +471,7 @@ func (m *Manager) RCON(ctx context.Context, s *server.Server, cmd string) (strin
 
 func (m *Manager) globals() server.Globals {
 	c := m.Config.Get()
-	return server.Globals{CFKey: c.CFAPIKey, TZ: c.Timezone}
+	return server.Globals{CFKey: c.CFAPIKey, TZ: c.Timezone, Hardening: m.Hardening}
 }
 
 // Loc is the dashboard's time zone (setting, else TZ/system).

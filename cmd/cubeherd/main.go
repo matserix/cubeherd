@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -37,6 +38,20 @@ func envBool(key string, def bool) bool {
 		return false
 	}
 	return def
+}
+
+// hardeningFromEnv reads the container profile for hosts that run other people's servers:
+// CUBEHERD_HARDENED=true switches it on; CUBEHERD_RUNTIME, CUBEHERD_PIDS_LIMIT, CUBEHERD_LOG_MAX_MB and
+// CUBEHERD_NOFILE tune it. It is the host's decision, so it is not part of the dashboard's settings.
+func hardeningFromEnv() *server.Hardening {
+	if !envBool("CUBEHERD_HARDENED", false) {
+		return nil
+	}
+	n := func(key string) int {
+		v, _ := strconv.Atoi(os.Getenv(key))
+		return v
+	}
+	return &server.Hardening{Runtime: os.Getenv("CUBEHERD_RUNTIME"), PidsLimit: n("CUBEHERD_PIDS_LIMIT"), LogMaxMB: n("CUBEHERD_LOG_MAX_MB"), NoFile: n("CUBEHERD_NOFILE")}
 }
 
 func env(key, def string) string {
@@ -103,6 +118,7 @@ func main() {
 		cancel()
 		m := manager.New(dc, store, cfg, src)
 		m.Hoster = &host.Reader{Docker: dc, DataDir: dataDir}
+		m.Hardening = hardeningFromEnv()
 		m.Lang = func() string {
 			if l := cfg.Get().Language; i18n.Valid(l) {
 				return l
@@ -180,6 +196,7 @@ func runAgent(dataDir string) {
 
 	m := manager.New(dc, store, cfg, sources.New(func() string { return cfg.Get().CFAPIKey }))
 	m.Hoster = &host.Reader{Docker: dc, DataDir: dataDir}
+	m.Hardening = hardeningFromEnv()
 	m.Lang = func() string {
 		if l := cfg.Get().Language; i18n.Valid(l) {
 			return l
