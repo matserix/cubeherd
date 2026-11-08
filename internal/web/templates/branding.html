@@ -16,11 +16,11 @@
           <div class="field"><span>{{t "Logo"}}</span>
             <div class="brand-up">{{if $d.Logo}}<img src="{{$d.Logo}}" alt="" class="brand-thumb" data-brand-logo-cur>{{end}}<input class="input" type="file" name="logo" accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml" data-brand-logo></div>
             <small>{{t "PNG, JPEG, WebP, GIF oder SVG bis 512 KB. Wird bis 30 Pixel hoch angezeigt."}}</small>
-            {{if $d.Logo}}<label class="check"><input type="checkbox" name="logoRemove"> {{t "Logo entfernen"}}</label>{{end}}</div>
+            {{if $d.Logo}}<label class="switch"><input type="checkbox" name="logoRemove"><span class="txt">{{t "Logo entfernen"}}</span></label>{{end}}</div>
           <div class="field"><span>{{t "Favicon"}}</span>
             <div class="brand-up">{{if $d.Favicon}}<img src="{{$d.Favicon}}" alt="" class="brand-thumb">{{end}}<input class="input" type="file" name="favicon" accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml,image/x-icon"></div>
             <small>{{t "Ohne Favicon nimmt der Browser das Logo, sonst das eingebaute Symbol."}}</small>
-            {{if $d.Favicon}}<label class="check"><input type="checkbox" name="faviconRemove"> {{t "Favicon entfernen"}}</label>{{end}}</div>
+            {{if $d.Favicon}}<label class="switch"><input type="checkbox" name="faviconRemove"><span class="txt">{{t "Favicon entfernen"}}</span></label>{{end}}</div>
         </div>
       </div>
     </div>

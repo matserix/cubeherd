@@ -452,7 +452,7 @@
         <option value="approval" {{if eq $s.Registration "approval"}}selected{{end}}>{{t "Mit Freigabe durch einen Admin"}}</option></select></label>
       <label class="field"><span>{{t "Erlaubte E-Mail-Domains"}}</span><input class="input" name="domains" value="{{$s.Domains}}" placeholder="example.com, example.org" autocomplete="off"><small>{{t "Leer erlaubt jede Domain."}}</small></label>
     </div>
-    <label class="check"><input type="checkbox" name="requireVerified" {{if $s.RequireVerified}}checked{{end}}> {{t "E-Mail-Adresse bestätigen lassen, bevor das Konto genutzt wird"}}</label>
+    <label class="switch"><input type="checkbox" name="requireVerified" {{if $s.RequireVerified}}checked{{end}}><span class="txt">{{t "E-Mail-Adresse bestätigen lassen, bevor das Konto genutzt wird"}}</span></label>
     <div class="grid-2">
       <label class="field"><span>{{t "E-Mail bei Anmeldung"}}</span><select class="input" name="notice">
         <option value="off" {{if eq $s.Notice "off"}}selected{{end}}>{{t "Aus"}}</option>
@@ -465,7 +465,7 @@
     </div>
     <div class="grid-2">
       <label class="field"><span>{{t "Frist zum Einrichten (Tage)"}}</span><input class="input num" name="graceDays" type="number" min="0" max="90" value="{{$s.GraceDays}}"><small>{{t "0 verlangt die Einrichtung sofort bei der nächsten Anmeldung."}}</small></label>
-      <label class="check" style="align-self:end"><input type="checkbox" name="trustSso" {{if $s.TrustSSO}}checked{{end}}> {{t "Anmeldung über SSO gilt als zweiter Faktor"}}</label>
+      <label class="switch" style="align-self:end"><input type="checkbox" name="trustSso" {{if $s.TrustSSO}}checked{{end}}><span class="txt">{{t "Anmeldung über SSO gilt als zweiter Faktor"}}</span></label>
     </div>
   </div>
 </form>
