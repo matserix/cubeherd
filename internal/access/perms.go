@@ -17,6 +17,7 @@ const (
 	ServerResources Perm = "server.resources"
 	ServerNetwork   Perm = "server.network"
 	ServerAdvanced  Perm = "server.advanced"
+	ServerSuspend   Perm = "server.suspend"
 	ServerUpdate    Perm = "server.update"
 	ServerCreate    Perm = "server.create"
 	ServerDelete    Perm = "server.delete"
@@ -70,6 +71,7 @@ var Catalog = []Info{
 	{ServerResources, "server", LevelServer, false},
 	{ServerNetwork, "server", LevelServer, false},
 	{ServerAdvanced, "server", LevelServer, true},
+	{ServerSuspend, "server", LevelServer, true},
 	{ServerUpdate, "server", LevelServer, false},
 	{ServerCreate, "server", LevelNode, false},
 	{ServerDelete, "server", LevelServer, false},

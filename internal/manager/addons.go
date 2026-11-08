@@ -86,6 +86,10 @@ func (m *Manager) AddonFiles(ctx context.Context, s *server.Server) ([]AddonFile
 
 // writeDataFile writes into /data/<rel> on the host folder or, for volumes, through a throwaway container.
 func (m *Manager) writeDataFile(ctx context.Context, s *server.Server, rel string, r io.Reader) error {
+	r, err := m.limitedBy(s, r)
+	if err != nil {
+		return err
+	}
 	if dir := m.Store.DataDir(s); dir != "" {
 		// Every host-folder write goes through hostPath: the container can plant symlinks anywhere in /data
 		// (also a mods or plugins folder), and this process may be root.

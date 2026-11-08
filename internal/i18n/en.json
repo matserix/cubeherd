@@ -1257,5 +1257,19 @@
   "Netzwerk ändern": "Change network",
   "Port, IP-Adresse und Online-Modus.": "Port, IP address and online mode.",
   "Erweiterte Einstellungen": "Advanced settings",
-  "Zusätzliche Umgebungsvariablen und Aikar-Flags: damit lässt sich der Container beliebig umbauen.": "Extra environment variables and Aikar flags: they can reshape the container however the user likes."
+  "Zusätzliche Umgebungsvariablen und Aikar-Flags: damit lässt sich der Container beliebig umbauen.": "Extra environment variables and Aikar flags: they can reshape the container however the user likes.",
+  "Belegt: %s von %s.": "Used: %s of %s.",
+  "Der Betreiber hat ihn angehalten. Er lässt sich nicht starten, bis er wieder freigegeben wird.": "The operator has stopped it. It cannot be started until it is released again.",
+  "Der Speicherplatz dieses Servers ist belegt (%s von %s). Lösche Dateien, um wieder schreiben oder starten zu können.": "This server's disk space is used up (%s of %s). Delete files to be able to write or start again.",
+  "Dieser Server ist gesperrt": "This server is suspended",
+  "Dieser Server wurde vom Betreiber gesperrt.": "This server was suspended by the operator.",
+  "Entsperren": "Unsuspend",
+  "Hält den Server an und verhindert den Start, bis er wieder freigegeben wird.": "Stops the server and prevents it from starting until it is released again.",
+  "Server anhalten und sperren? Er lässt sich erst nach dem Entsperren wieder starten.": "Stop and suspend the server? It can only be started again after it is unsuspended.",
+  "Server sperren": "Suspend servers",
+  "Speicherplatz (GB)": "Disk space (GB)",
+  "Speicherplatz fast voll": "Disk almost full",
+  "Speicherplatz voll": "Disk full",
+  "Sperren": "Suspend",
+  "0 = unbegrenzt. Ab 90 Prozent Warnung, ab 100 Prozent kein Schreiben und kein Start, ab 120 Prozent wird ein laufender Server gestoppt. Daten werden nie gelöscht.": "0 = unlimited. From 90 percent a warning, from 100 percent no writing and no start, from 120 percent a running server is stopped. Data is never deleted."
 }

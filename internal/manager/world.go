@@ -179,6 +179,10 @@ func zipToTar(zr *zip.Reader, root, target string, w io.Writer) error {
 
 // ImportWorld replaces the world with the ZIP at zipPath (removed afterwards). The current state is backed up first.
 func (m *Manager) ImportWorld(s *server.Server, zipPath string) error {
+	if err := m.checkWritable(s); err != nil {
+		os.Remove(zipPath)
+		return err
+	}
 	zr, err := zip.OpenReader(zipPath)
 	if err != nil {
 		os.Remove(zipPath)

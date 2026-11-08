@@ -53,6 +53,7 @@ type Manager struct {
 	ms   atomic.Pointer[metrics.Store] // the statistics store, once opened
 	msMu sync.Mutex
 	rec  recorderState
+	qs   quotaState
 
 	started  time.Time            // scheduler: anchor for catching up missed runs
 	wake     chan struct{}        // scheduler: recompute next backup
@@ -325,6 +326,7 @@ func (m *Manager) inspect(ctx context.Context, s *server.Server) *docker.Contain
 func (m *Manager) View(ctx context.Context, s *server.Server, withStats bool) View {
 	v := View{S: s, MaxPlayers: s.Props.MaxPlayers}
 	v.C = m.inspect(ctx, s)
+	v.Quota = m.QuotaOf(s)
 	v.Status = server.Derive(v.C, m.opStatus(s.ID), m.Store.DataDir(s))
 	if v.Status == server.StatusRunning && m.Store.DataDir(s) == "" {
 		// Data in a Docker volume: check the autopause marker from inside the container.
@@ -504,6 +506,9 @@ func (m *Manager) Start(id string) error {
 	if err != nil {
 		return err
 	}
+	if err := m.mayStart(s); err != nil {
+		return err
+	}
 	m.event(id, "start", "")
 	// Regenerate compose.yml so saved settings (and Cubeherd updates) apply on every start.
 	if err := m.Store.Save(s, m.globals()); err != nil {
@@ -534,6 +539,9 @@ func (m *Manager) Restart(id string) error {
 	if err != nil {
 		return err
 	}
+	if err := m.mayStart(s); err != nil {
+		return err
+	}
 	m.event(id, "restart", "")
 	if err := m.Store.Save(s, m.globals()); err != nil {
 		return err
@@ -561,6 +569,11 @@ func (m *Manager) Apply(s *server.Server, pull, restart bool) error {
 func (m *Manager) ApplyUpdate(s *server.Server, pull, restart, backupFirst bool) error {
 	if !restart && !pull {
 		return m.Store.Save(s, m.globals())
+	}
+	if restart || pull {
+		if err := m.mayStart(s); err != nil {
+			return err
+		}
 	}
 	m.event(s.ID, "update", "")
 	return m.run(s.ID, server.StatusUpdating, func(o *Op) error {

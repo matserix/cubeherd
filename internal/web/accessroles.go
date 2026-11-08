@@ -19,6 +19,7 @@ var permText = map[access.Perm][2]string{
 	access.ServerSettings:  {"Spielregeln ändern", "MOTD, Spielmodus, Schwierigkeit, Spielerzahl, Whitelist, Leerlauf und Autostart."},
 	access.ServerResources: {"Ressourcen ändern", "Arbeitsspeicher und CPU-Limit des Servers."},
 	access.ServerNetwork:   {"Netzwerk ändern", "Port, IP-Adresse und Online-Modus."},
+	access.ServerSuspend:   {"Server sperren", "Hält den Server an und verhindert den Start, bis er wieder freigegeben wird."},
 	access.ServerAdvanced:  {"Erweiterte Einstellungen", "Zusätzliche Umgebungsvariablen und Aikar-Flags: damit lässt sich der Container beliebig umbauen."},
 	access.ServerUpdate:    {"Version aktualisieren", "Minecraft-Version oder Modpack aktualisieren oder wechseln."},
 	access.ServerCreate:    {"Server anlegen", "Neue Server anlegen oder bestehende Container übernehmen."},

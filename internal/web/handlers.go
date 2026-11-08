@@ -688,6 +688,31 @@ func (a *App) serverPage(w http.ResponseWriter, r *http.Request) {
 	a.render(w, r, "server", Page{Title: s.Name, Nav: "server", Current: s.ID, CurrentNode: a.NodeID, Data: d})
 }
 
+// serverSuspend stops a server and keeps it from starting (or lifts that again). It is the host's tool: the
+// definition carries the flag, so it holds on every node and survives restarts of Cubeherd.
+func (a *App) serverSuspend(w http.ResponseWriter, r *http.Request) {
+	s, ok := a.loadServer(w, r)
+	if !ok {
+		return
+	}
+	on := strings.HasSuffix(r.URL.Path, "/suspend")
+	s.Suspended = on
+	if err := a.M.Apply(s, false, false); err != nil {
+		fail(w, a.t(err.Error()))
+		return
+	}
+	if on {
+		if v := a.view(r.Context(), s, false); v.Status.Live() || v.Status == server.StatusPaused {
+			if err := a.M.Stop(s.ID); err != nil {
+				fail(w, a.t(err.Error()))
+				return
+			}
+		}
+	}
+	time.Sleep(150 * time.Millisecond)
+	a.partial(w, "server", "srvHead", serverPage{V: a.view(r.Context(), s, false), Disk: a.M.DiskUsage(s)})
+}
+
 func (a *App) serverAction(w http.ResponseWriter, r *http.Request) {
 	s, ok := a.loadServer(w, r)
 	if !ok {
@@ -806,6 +831,7 @@ func (a *App) serverSettings(w http.ResponseWriter, r *http.Request) {
 	}
 	if cp.Resources {
 		s.MemoryGB = formInt(r, "memory", s.MemoryGB, 1, 64)
+		s.DiskGB = formInt(r, "disk", s.DiskGB, 0, 100000)
 		if cpus, err := strconv.ParseFloat(r.FormValue("cpus"), 64); err == nil && cpus >= 0 && cpus <= 256 {
 			s.CPUs = cpus
 		}

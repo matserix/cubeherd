@@ -75,19 +75,23 @@
       <span class="mono">:{{$s.Port}}</span>
       <span class="mono">{{$s.JavaTag}}</span>
       {{if .Disk}}<span>{{t "%s GB belegt" (gb .Disk)}}</span>{{end}}
+      {{with .V.Quota}}{{if ne .Level "ok"}}<span class="pill s-{{if eq .Level "warn"}}starting{{else}}stopped{{end}}">{{if eq .Level "warn"}}{{t "Speicherplatz fast voll"}}{{else}}{{t "Speicherplatz voll"}}{{end}}</span>{{end}}{{end}}
       {{with since .V.Since}}<span>{{t "läuft seit %s" .}}</span>{{end}}
     </div>
   </div>
   <div class="actions">
-    {{if not .V.Can.Power}}{{if $st.Busy}}<button class="btn" disabled><span class="spin-on-req" style="display:inline-block"></span>{{t $st.Label}} …</button>{{end}}
+    {{if $s.Suspended}}{{else if not .V.Can.Power}}{{if $st.Busy}}<button class="btn" disabled><span class="spin-on-req" style="display:inline-block"></span>{{t $st.Label}} …</button>{{end}}
     {{else if $st.Busy}}<button class="btn" disabled><span class="spin-on-req" style="display:inline-block"></span>{{t $st.Label}} …</button>
     {{else if $st.Up}}<button class="btn" hx-post="/servers/{{$s.ID}}/action/restart" hx-target="#srv-head">{{t "Neu starten"}}</button><button class="btn" hx-post="/servers/{{$s.ID}}/action/stop" hx-target="#srv-head">{{t "Stoppen"}}</button>
     {{else}}<button class="btn primary" hx-post="/servers/{{$s.ID}}/action/start" hx-target="#srv-head">{{t "Starten"}}</button>{{end}}
     {{if .V.Can.Update}}<button class="btn" hx-get="/servers/{{$s.ID}}/update" hx-target="#modal-card" {{if $st.Busy}}disabled{{end}}>{{t "Update"}}{{if .Update}} <span class="badge">1</span>{{end}}</button>{{end}}
+    {{if .V.Can.Suspend}}{{if $s.Suspended}}<button class="btn" hx-post="/servers/{{$s.ID}}/unsuspend" hx-target="#srv-head">{{t "Entsperren"}}</button>{{else}}<button class="btn" hx-post="/servers/{{$s.ID}}/suspend" hx-target="#srv-head" hx-confirm="{{t "Server anhalten und sperren? Er lässt sich erst nach dem Entsperren wieder starten."}}">{{t "Sperren"}}</button>{{end}}{{end}}
     {{if .V.Can.Delete}}<button class="btn danger" hx-get="/servers/{{$s.ID}}/uninstall" hx-target="#modal-card" {{if $st.Busy}}disabled{{end}}>{{t "Deinstallieren"}}</button>{{end}}
   </div>
 </div>
-{{if eq (print $st) "crashed"}}
+{{if $s.Suspended}}
+<div class="callout crit"><div><b>{{t "Dieser Server ist gesperrt"}}</b><span class="muted">{{t "Der Betreiber hat ihn angehalten. Er lässt sich nicht starten, bis er wieder freigegeben wird."}}</span></div></div>
+{{else if eq (print $st) "crashed"}}
 <div class="callout crit"><div><b>{{t "Server ist abgestürzt"}}</b><span class="mono" style="white-space:pre-wrap;font-size:12.5px">{{.V.CrashReason}}</span></div>
   <div class="actions" style="flex:none">{{if .V.Can.Update}}<button class="btn sm" hx-get="/servers/{{$s.ID}}/update" hx-target="#modal-card">{{t "Version ändern"}}</button>{{end}}{{if .V.Can.Power}}<button class="btn sm" hx-post="/servers/{{$s.ID}}/action/start" hx-target="#srv-head">{{t "Erneut starten"}}</button>{{end}}</div></div>
 {{else if .V.AutoStopped}}

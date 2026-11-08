@@ -315,3 +315,18 @@ func TestMigrationGivesCustomRolesTheSplitSettingsRights(t *testing.T) {
 		}
 	}
 }
+
+func TestSuspendIsForOwnersAndAdminsOnly(t *testing.T) {
+	s := open(t)
+	rs, _ := s.ListRoles()
+	for _, r := range rs {
+		has := false
+		for _, p := range r.Perms {
+			has = has || p == ServerSuspend
+		}
+		want := r.Name == RoleOwner || r.Name == RoleAdmin
+		if has != want {
+			t.Errorf("%s: server.suspend = %v, want %v", r.Name, has, want)
+		}
+	}
+}

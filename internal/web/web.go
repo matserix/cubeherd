@@ -169,6 +169,8 @@ func (a *App) Handler() http.Handler {
 
 	rt.handle("GET /servers/{id}", onServer(access.ServerView), a.h((*App).serverPage))
 	rt.handle("GET /servers/{id}/events", onServer(access.ServerView), a.h((*App).serverEvents))
+	rt.handle("POST /servers/{id}/suspend", onServer(access.ServerSuspend).log("server.suspend"), a.h((*App).serverSuspend))
+	rt.handle("POST /servers/{id}/unsuspend", onServer(access.ServerSuspend).log("server.unsuspend"), a.h((*App).serverSuspend))
 	rt.handle("POST /servers/{id}/action/{action}", onServer(access.ServerPower).log("server.power", pathValue("action")), a.h((*App).serverAction))
 	rt.handle("POST /servers/{id}/command", onServer(access.ServerCommand).log("server.command", form("cmd")), a.h((*App).serverCommand))
 	rt.handle("POST /servers/{id}/settings", onServerAny(access.ServerSettings, access.ServerResources, access.ServerNetwork, access.ServerAdvanced).log("server.settings"), a.h((*App).serverSettings))

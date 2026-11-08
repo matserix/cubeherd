@@ -194,6 +194,8 @@ type Server struct {
 	Port      int    `json:"port"`
 	BindIP    string `json:"bindIp,omitempty"` // host address the port is published on; "" = all interfaces
 	MemoryGB  int    `json:"memoryGb"`
+	Suspended bool   `json:"suspended,omitempty"` // set by the host: the server stays stopped and cannot be started
+	DiskGB    int    `json:"diskGb,omitempty"`    // limit for the data folder; 0 = none (see manager/quota.go)
 	Autopause bool   `json:"autopause"`
 	Aikar     bool   `json:"aikar"`
 	Autostart bool   `json:"autostart"`

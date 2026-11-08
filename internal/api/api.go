@@ -35,6 +35,20 @@ type Info struct {
 }
 
 // View is everything the UI shows for one server.
+// Quota levels of a server's disk limit.
+const (
+	QuotaOK   = "ok"
+	QuotaWarn = "warn" // from 90 %
+	QuotaFull = "full" // from 100 %: no more writes, no start
+	QuotaOver = "over" // from 120 %: a running server is stopped
+)
+
+// Quota is the data folder's size against its limit.
+type Quota struct {
+	Used, Limit int64
+	Level       string
+}
+
 type View struct {
 	S           *server.Server
 	Status      server.Status
@@ -45,8 +59,9 @@ type View struct {
 	CrashReason string
 	Since       time.Time
 	OpError     string
-	Restarts    int  // unexpected restarts of the current container (restart policy)
-	AutoStopped bool // stopped by itzg autostop after idling
+	Restarts    int    // unexpected restarts of the current container (restart policy)
+	AutoStopped bool   // stopped by itzg autostop after idling
+	Quota       *Quota `json:",omitempty"` // set when the server has a disk limit
 	// Can is what the signed-in user may do with this server. The dashboard sets it per request; it never travels.
 	Can Caps `json:"-"`
 }
@@ -57,7 +72,7 @@ type Caps struct {
 	FilesRead, FilesWrite, WorldExport, WorldImport, Addons    bool
 	BackupsView, BackupsCreate, BackupsRestore, BackupsDelete  bool
 	Stats                                                      bool
-	Rules, Resources, Network, Advanced                        bool // parts of the settings; Settings is true when any of them is
+	Rules, Resources, Network, Advanced, Suspend               bool // parts of the settings; Settings is true when any of them is
 }
 
 // Unmanaged is an itzg container that Cubeherd does not manage yet.

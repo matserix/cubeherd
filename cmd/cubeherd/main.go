@@ -112,6 +112,7 @@ func main() {
 		schedCtx, stopSched := context.WithCancel(context.Background())
 		defer stopSched()
 		go m.RunScheduler(schedCtx)
+		go m.RunQuota(schedCtx)
 		startMetrics(m, cfg, dataDir)
 		local, dockerHost = m, dc.Host
 	}
@@ -188,6 +189,7 @@ func runAgent(dataDir string) {
 	schedCtx, stopSched := context.WithCancel(context.Background())
 	defer stopSched()
 	go m.RunScheduler(schedCtx)
+	go m.RunQuota(schedCtx)
 	startMetrics(m, cfg, dataDir)
 	defer m.CloseMetrics()
 
