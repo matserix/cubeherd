@@ -14,6 +14,8 @@ create, start, update, manage and uninstall Minecraft servers (including modpack
 Cubeherd runs on the same host as the Minecraft servers and takes next to nothing from them:
 a single Go binary, around 10 MB of RAM and 0 % CPU when idle. By default there is no database and live data only flows while a page is open; user accounts and statistics are optional and bring their own SQLite files.
 
+Website: **[cubeherd.app](https://cubeherd.app)** (the static source is in [`site/`](site/), published with GitHub Pages).
+
 ## Screenshots
 
 <p align="center">

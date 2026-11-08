@@ -1,0 +1,187 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Install Cubeherd with Docker or as a binary · Cubeherd</title>
+<meta name="description" content="Install Cubeherd, the self-hosted Minecraft server dashboard, with Docker, Docker Compose or as a single Go binary. Configuration, multiple hosts, reverse proxy, users and roles, statistics and hosting for others.">
+<meta name="theme-color" content="#13161b">
+<link rel="canonical" href="https://cubeherd.app/install/">
+<link rel="icon" href="../favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="../apple-touch-icon.png" sizes="180x180">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Cubeherd">
+<meta property="og:title" content="Install Cubeherd">
+<meta property="og:description" content="Install Cubeherd with Docker, Docker Compose or as a single Go binary.">
+<meta property="og:url" content="https://cubeherd.app/install/">
+<meta property="og:image" content="https://cubeherd.app/og.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="stylesheet" href="../styles.css">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"HowTo","name":"Install Cubeherd","description":"Install Cubeherd with Docker, Docker Compose or as a single Go binary.","tool":[{"@type":"HowToTool","name":"Docker with the Compose plugin"}],"step":[{"@type":"HowToStep","name":"Create the data directory","text":"Run sudo mkdir -p /srv/cubeherd."},{"@type":"HowToStep","name":"Start the container","text":"Start ghcr.io/matserix/cubeherd:latest with Docker Compose, mounting the Docker socket and the data directory at the same path."},{"@type":"HowToStep","name":"Open the dashboard","text":"Open http://<host>:8420 and set the admin password on first visit."}]}</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Cubeherd","item":"https://cubeherd.app/"},{"@type":"ListItem","position":2,"name":"Install","item":"https://cubeherd.app/install/"}]}</script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="top">
+  <div class="wrap bar">
+    <a href="../" class="brand">
+      <svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2 21 7 12 12 3 7Z" fill="#a9643a"/><path d="M3 7 12 12V22L3 17Z" fill="#d98a4e"/><path d="M21 7 12 12V22L21 17Z" fill="#7a4429"/></svg>
+      <span>Cubeherd</span>
+    </a>
+    <nav aria-label="Main">
+      <a href="../#features">Features</a>
+      <a href="./">Install</a>
+      <a href="../#faq">FAQ</a>
+      <a href="https://github.com/matserix/cubeherd" class="btn small" rel="noopener">GitHub</a>
+    </nav>
+  </div>
+</header>
+<main id="main">
+<section class="block doc">
+  <div class="wrap narrow">
+    <h1>Install Cubeherd</h1>
+    <p class="lead">Cubeherd runs on the same host as your Minecraft servers. You need Docker with the Compose plugin.</p>
+
+    <h2>With Docker Compose (recommended)</h2>
+<pre><code>sudo mkdir -p /srv/cubeherd</code></pre>
+    <p>Save this as <code>compose.yml</code> and start it with <code>docker compose up -d</code>:</p>
+<pre><code>services:
+  cubeherd:
+    image: ghcr.io/matserix/cubeherd:latest
+    container_name: cubeherd
+    restart: unless-stopped
+    ports:
+      - "8420:8420"          # only expose on the LAN/VPN
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /srv/cubeherd:/srv/cubeherd
+    environment:
+      CUBEHERD_DATA: /srv/cubeherd
+      TZ: Europe/Berlin       # for backup schedules</code></pre>
+    <p>Then open <code>http://&lt;host&gt;:8420</code> and set the admin password on first visit.</p>
+    <p class="note">The data directory must have <strong>the same path</strong> inside the container as on the host (<code>/srv/cubeherd:/srv/cubeherd</code>), because Docker resolves the Minecraft servers' bind mounts on the host.</p>
+
+    <h2>As a binary</h2>
+    <p>Build it with Go, or grab a build from the <a href="https://github.com/matserix/cubeherd/releases">releases page</a>:</p>
+<pre><code>CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o cubeherd ./cmd/cubeherd
+sudo CUBEHERD_DATA=/srv/cubeherd ./cubeherd</code></pre>
+
+    <h2>Configuration</h2>
+    <div class="table">
+      <table>
+        <thead><tr><th>Variable</th><th>Default</th><th>Meaning</th></tr></thead>
+        <tbody>
+          <tr><td><code>CUBEHERD_DATA</code></td><td><code>/srv/cubeherd</code> as root, otherwise <code>./cubeherd-data</code></td><td>Data directory</td></tr>
+          <tr><td><code>CUBEHERD_LISTEN</code></td><td><code>:8420</code></td><td>Web server address</td></tr>
+          <tr><td><code>DOCKER_HOST</code></td><td><code>/var/run/docker.sock</code>, falling back to <code>~/.docker/run/docker.sock</code></td><td>Docker socket</td></tr>
+          <tr><td><code>CUBEHERD_LOCAL</code></td><td><code>true</code></td><td>Set to <code>false</code> for a dashboard that only manages remote agents (needs no Docker socket)</td></tr>
+          <tr><td><code>CUBEHERD_ACCOUNTS</code></td><td><code>false</code></td><td><code>true</code> starts in multi-user mode, see below. It can also be switched on in the settings</td></tr>
+          <tr><td><code>CUBEHERD_METRICS</code></td><td><code>false</code></td><td>Record statistics on this node, see below</td></tr>
+          <tr><td><code>CUBEHERD_AUDIT_STDOUT</code></td><td><code>false</code></td><td>Also print every audit entry as one JSON line to stdout, for Docker log drivers</td></tr>
+          <tr><td><code>CUBEHERD_HARDENED</code></td><td><code>false</code></td><td>Container profile for hosting servers for other people, see <a href="#hosting">Hosting for other people</a></td></tr>
+          <tr><td><code>CUBEHERD_AGENT_TOKEN</code>, <code>CUBEHERD_AGENT_LISTEN</code></td><td>– / <code>:8421</code></td><td>Agent mode only, see below</td></tr>
+          <tr><td><code>TZ</code></td><td><code>UTC</code></td><td>Default time zone, unless one is chosen in the settings</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h2 id="hosts">Several hosts</h2>
+    <p>One dashboard can manage Minecraft servers on any number of hosts. The same image runs in two roles: the <strong>dashboard</strong> (web UI, login, settings) and one <strong>agent</strong> per host (<code>cubeherd agent</code>: Docker access, server folders, backups and the scheduler). A dashboard that also has the Docker socket keeps managing its own host as the embedded local node, so a single-host setup works as before.</p>
+    <div class="table">
+      <table>
+        <thead><tr><th>Setup</th><th>Compose file</th></tr></thead>
+        <tbody>
+          <tr><td>One host (dashboard and servers together)</td><td><code>deploy/compose.yml</code></td></tr>
+          <tr><td>Dashboard that only manages agents (<code>CUBEHERD_LOCAL=false</code>)</td><td><code>deploy/compose.dashboard.yml</code></td></tr>
+          <tr><td>Agent on a host that runs servers</td><td><code>deploy/compose.agent.yml</code></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <ol>
+      <li>On each host that runs servers, start an agent with a long random token: <code>CUBEHERD_AGENT_TOKEN=$(openssl rand -base64 32 | tr -d '/+=') docker compose -f deploy/compose.agent.yml up -d</code>. The data directory needs the same path inside the container as on that host.</li>
+      <li>In the dashboard open <strong>Nodes → Add node</strong>. The dialog can generate a token and shows the compose snippet for the other host.</li>
+      <li>Enter the agent's address (<code>host:8421</code>) and confirm the certificate fingerprint the agent printed at startup (<code>docker logs</code>).</li>
+    </ol>
+    <p>The dashboard always opens the connection. It is HTTPS (TLS 1.3) with a certificate the agent makes up for itself, pinned by its SHA-256 fingerprint, and every request carries the bearer token. Whoever holds an agent's token controls Docker on that host, so keep port 8421 on a LAN or VPN.</p>
+    <p><strong>Upgrading:</strong> existing single-host installs need nothing. Update the dashboard and its agents together; an agent with a different version is flagged "agent outdated". Going back to an older release loses the node list, so keep a copy of <code>cubeherd.json</code> if you may roll back.</p>
+
+    <h2 id="proxy">Behind a reverse proxy</h2>
+    <p>Terminate HTTPS in a reverse proxy and let it forward to port 8420. Cubeherd is meant for a LAN or a VPN; if people reach it from the internet, put an access layer in front as well (a VPN, Authelia, Cloudflare Access) and read the security notes below.</p>
+    <ol>
+      <li>The proxy must pass the original <code>Host</code> header (the CSRF check compares it with the browser's <code>Origin</code>), set <code>X-Forwarded-For</code> and <code>X-Forwarded-Proto</code>, switch off response buffering (the live console and charts stream), and allow large uploads (worlds, mods).</li>
+      <li>In <strong>Settings → Reverse proxy</strong> list the address of the proxy under <strong>Trusted proxies</strong>. Only from those addresses are the forwarded headers believed, so a client cannot fake its address. Then sign-in limits and the audit log see real client addresses, and the session cookie gets the <code>Secure</code> flag over HTTPS.</li>
+      <li>Optionally switch on <strong>HSTS</strong> once HTTPS is permanent, and set the public address under <strong>Access → Sign-in</strong> if you use single sign-on or e-mail links.</li>
+      <li>Never put an agent (port 8421) behind the proxy or on the internet.</li>
+    </ol>
+<pre><code># nginx
+location / {
+    proxy_pass http://127.0.0.1:8420;
+    proxy_set_header Host $host;
+    proxy_set_header X-Forwarded-For $remote_addr;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_http_version 1.1;
+    proxy_buffering off;
+    proxy_read_timeout 1h;
+    client_max_body_size 4g;
+}</code></pre>
+<pre><code># Caddy
+cubeherd.example.com {
+    reverse_proxy 127.0.0.1:8420 {
+        flush_interval -1
+    }
+}</code></pre>
+
+    <h2 id="users">Users and roles</h2>
+    <p>By default Cubeherd has one shared password. For teams and communities there is an optional <strong>multi-user mode</strong> with personal accounts, roles, an audit log and single sign-on. Switch it on under <strong>Settings → User accounts</strong> or start with <code>CUBEHERD_ACCOUNTS=true</code>. Your current password becomes the account <code>admin</code> with the Owner role, and nothing else changes until you add people. Accounts, roles, sessions and the audit log live in one SQLite file, <code>cubeherd.db</code>, in the data directory.</p>
+    <ul>
+      <li><strong>Rights and roles:</strong> fine-grained rights for servers, console, files, backups, settings, resources, network and more, grouped into roles. Owner, Admin, Operator, Moderator, Customer and Viewer are built in; you can create your own.</li>
+      <li><strong>Scopes:</strong> a user or group gets a role on everything, on one node or on one server. Rights add up and there is no deny. Assignments can expire.</li>
+      <li><strong>Audit log:</strong> sign-ins, changes to accounts and roles, and every action on servers, with who, when, from where and the outcome. File contents and secrets are never recorded. Entries are hash-chained, kept 365 days by default, and can be exported as CSV or JSON.</li>
+      <li><strong>Single sign-on:</strong> Google or any OpenID Connect provider such as Keycloak, Authentik, Authelia, Zitadel, Entra ID or Okta, with PKCE, optional e-mail domain restriction and groups that follow a claim.</li>
+      <li><strong>Account security</strong> (<strong>Access → Account security</strong>): two-factor sign-in with any authenticator app and recovery codes, optionally required for everyone or for accounts with administrative rights; password reset by e-mail with single-use links; sign-in notices with a "This wasn't me" link; and self-registration that is off, open, or open with approval by an admin. E-mail features need the SMTP settings under <strong>Access → E-Mail</strong> and stay off until they are configured.</li>
+      <li><strong>Back up</strong> <code>cubeherd.db</code>, <code>cubeherd.json</code> and <code>access.key</code>. <code>cubeherd db backup &lt;file&gt;</code> writes a consistent copy. <code>cubeherd user reset-owner</code> repairs an owner and sets a new password.</li>
+    </ul>
+    <p class="note">Agents are not covered by user rights. An agent token still gives full control of its host, so do not hand it to people who should not have it. <strong>Access → Users → End multi-user mode</strong> returns to one shared password.</p>
+
+    <h2 id="hosting">Hosting for other people</h2>
+    <p>Cubeherd can run servers for customers, with limits that keep the risks small:</p>
+    <ul>
+      <li>The <strong>Customer</strong> role runs and configures the game, files, add-ons and backups, but not memory, CPU, ports or raw environment.</li>
+      <li>A <strong>disk quota</strong> per server warns from 90 percent, blocks writes and starts at 100 percent and stops a running server at 120 percent. Data is never deleted.</li>
+      <li>A host can <strong>suspend</strong> a server: it is stopped and cannot be started until it is released.</li>
+      <li><code>CUBEHERD_HARDENED=true</code> switches on the <strong>container profile</strong>: dropped capabilities, <code>no-new-privileges</code>, process, file and log limits, and an optional gVisor or Kata runtime.</li>
+      <li><strong>White label:</strong> under <strong>Settings → Appearance</strong> set your own product name, logo, favicon and every color for the dark and the light theme. The licence notices stay in place.</li>
+    </ul>
+    <p>The <a href="https://github.com/matserix/cubeherd/blob/main/docs/hosting.md">hosting guide</a> covers the recommended layout (dashboard on its own VM without the Docker socket, one agent per Docker host), the profile settings and a checklist. It also says what remains: containers share the host's kernel, so for customers you do not know, use a sandboxed runtime or give each customer a virtual machine.</p>
+
+    <h2 id="statistics">Statistics</h2>
+    <p>An optional history of load, players and TPS, off by default. Switch it on per node under <strong>Nodes → Edit</strong>, or with <code>CUBEHERD_METRICS=true</code> on an agent. Nothing runs and no file exists while it is off.</p>
+    <ul>
+      <li><strong>Recorded on the node:</strong> each node samples once a minute into <code>metrics/metrics.db</code> in its data directory, so there are no holes when the dashboard is down. Charts are fetched only when you open them.</li>
+      <li><strong>What:</strong> per node CPU, memory, disk, running servers and players; per server CPU, memory, players, TPS and MSPT, plus start, stop, restart, update and crash events and availability. Player names are not stored. Paused, stopped and starting servers are never queried.</li>
+      <li><strong>How long:</strong> one-minute values for 48 hours, five-minute values for 30 days and hourly values for a year, capped at 256 MB by default. A full year is roughly 1.6 MB per server.</li>
+      <li><strong>Prometheus:</strong> <strong>Settings → Prometheus</strong> creates a scrape token for <code>GET /metrics</code> with live values of all nodes and servers. It reads everything regardless of user rights, so treat it like a password.</li>
+    </ul>
+
+    <h2>Where your data lives</h2>
+    <p>By default there is no database. Each server gets a folder in the data directory with a <code>cubeherd.json</code> definition, a generated <code>compose.yml</code> and its <code>data/</code> directory with world, configs and mods. Servers keep working with <code>docker compose</code> without Cubeherd. Existing itzg containers can be adopted.</p>
+
+    <h2 id="security">Security</h2>
+    <p>Cubeherd has access to the Docker socket, so an administrator can in practice reach the entire host: treat that account like root. Only expose it on your LAN or via VPN, never directly to the internet. By default there is a single admin account (bcrypt), with signed session cookies (<code>SameSite=Strict</code>), login throttling and CSRF protection; in multi-user mode there are personal accounts with roles and an audit log.</p>
+    <p>Roles limit what a user may do per node and per server, so a viewer or moderator cannot reach the host, but anyone who may upload mods, edit files or send console commands can run code inside that server's container, so grant those rights with care. Agents add a second entry point with the same reach as an administrator, so protect their token like the admin password.</p>
+
+    <div class="cta">
+      <a class="btn" href="https://github.com/matserix/cubeherd" rel="noopener">View on GitHub</a>
+      <a class="btn ghost" href="https://github.com/matserix/cubeherd/blob/main/ARCHITECTURE.md" rel="noopener">Read the architecture</a>
+    </div>
+  </div>
+</section>
+</main>
+<footer class="foot">
+  <div class="wrap">
+    <p><strong>Cubeherd</strong> is open source under the <a href="https://github.com/matserix/cubeherd/blob/main/LICENSE">MIT License</a>. It is not an official Minecraft product and is not affiliated with Mojang Studios or Microsoft.</p>
+    <p><a href="https://github.com/matserix/cubeherd">Source</a> · <a href="https://github.com/matserix/cubeherd/releases">Releases</a> · <a href="https://github.com/matserix/cubeherd/issues">Issues</a> · <a href="https://github.com/matserix/cubeherd/blob/main/ARCHITECTURE.md">Architecture</a> · <a href="./">Install</a> · <a href="../legal-notice/">Legal notice (Impressum)</a> · <a href="../privacy/">Privacy</a></p>
+  </div>
+</footer>
+</body>
+</html>

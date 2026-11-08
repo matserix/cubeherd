@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cubeherd · Minecraft server dashboard for Docker</title>
+<meta name="description" content="Cubeherd is a lean, self-hosted web dashboard to create, run, update and back up Minecraft servers on Docker (itzg/docker-minecraft-server), on one host or many, with optional multi-user access, statistics and white-label branding. One Go binary, about 10 MB of RAM, no database.">
+<meta name="application-name" content="Cubeherd">
+<meta name="keywords" content="minecraft server dashboard, minecraft docker, itzg docker-minecraft-server, minecraft server manager, self-hosted minecraft, modrinth, curseforge, homelab">
+<meta name="theme-color" content="#13161b">
+<link rel="canonical" href="https://cubeherd.app/">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="apple-touch-icon.png" sizes="180x180">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Cubeherd">
+<meta property="og:title" content="Cubeherd · Minecraft server dashboard for Docker">
+<meta property="og:description" content="A lean, self-hosted web dashboard to create, run, update and back up Minecraft servers on Docker, on one host or many.">
+<meta property="og:url" content="https://cubeherd.app/">
+<meta property="og:image" content="https://cubeherd.app/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="stylesheet" href="styles.css">
+<link rel="preload" href="images/overview.webp" as="image" fetchpriority="high">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"Cubeherd","url":"https://cubeherd.app","description":"A lean, self-hosted web dashboard to create, run, update and back up Minecraft servers on Docker.","applicationCategory":"DeveloperApplication","operatingSystem":"Linux, macOS, Docker","softwareVersion":"0.10.0","license":"https://opensource.org/licenses/MIT","isAccessibleForFree":true,"offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"codeRepository":"https://github.com/matserix/cubeherd","downloadUrl":"https://github.com/matserix/cubeherd/releases","image":"https://cubeherd.app/og.png","author":{"@type":"Person","name":"matserix","url":"https://github.com/matserix"}}</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[
+{"@type":"Question","name":"What is Cubeherd?","acceptedAnswer":{"@type":"Answer","text":"Cubeherd is a self-hosted web dashboard for itzg/docker-minecraft-server. It creates, starts, updates, backs up and uninstalls Minecraft servers, including modpacks from Modrinth and CurseForge, from one browser tab, on one host or across several."}},
+{"@type":"Question","name":"How much memory and CPU does Cubeherd use?","acceptedAnswer":{"@type":"Answer","text":"Cubeherd is a single Go binary that needs around 10 MB of RAM and 0 % CPU when idle. It has no database by default and does no background polling: live data such as the console, CPU and RAM only flows while a page is open."}},
+{"@type":"Question","name":"Which server types and modpacks are supported?","acceptedAnswer":{"@type":"Answer","text":"Vanilla, Paper, Purpur, Folia, Fabric, Quilt, Forge and NeoForge, plus modpacks from Modrinth and CurseForge. The matching Java image is derived from Mojang's version data."}},
+{"@type":"Question","name":"Can I use my existing itzg containers?","acceptedAnswer":{"@type":"Answer","text":"Yes. Cubeherd can adopt existing itzg/docker-minecraft-server containers. Every server it manages lives in its own folder as a plain compose.yml, so it keeps working with docker compose even without Cubeherd."}},
+{"@type":"Question","name":"Can one Cubeherd manage servers on several hosts?","acceptedAnswer":{"@type":"Answer","text":"Yes. Run the same image as a small agent on each host and add it under Nodes in the dashboard. Servers are grouped by node, and the connection is HTTPS with a pinned certificate fingerprint plus a bearer token. A node that goes offline is shown as unreachable while its servers keep running."}},
+{"@type":"Question","name":"Can several people use Cubeherd with their own accounts?","acceptedAnswer":{"@type":"Answer","text":"Yes, there is an optional multi-user mode with personal accounts, roles with fine-grained rights, assignments scoped to everything, one node or one server, an audit log with hash-chained entries, single sign-on with Google or any OpenID Connect provider, and account security with two-factor sign-in, password reset by e-mail and self-registration with approval. By default Cubeherd still uses one shared admin password."}},
+{"@type":"Question","name":"Can I rent out servers to other people?","acceptedAnswer":{"@type":"Answer","text":"Yes, with care. A Customer role runs and configures the game, files, add-ons and backups but not memory, CPU, ports or raw environment. Servers can have a disk quota and can be suspended, a hardened container profile limits what a customer's container may do, and the dashboard can be re-skinned with your own name, logo and colors. The hosting guide describes the recommended layout and what risk remains."}},
+{"@type":"Question","name":"Does Cubeherd keep statistics and support Prometheus?","acceptedAnswer":{"@type":"Answer","text":"Yes, optionally. When switched on per node, each node records CPU, memory, disk, players and TPS once a minute and keeps up to a year of history, with start, stop and crash events and availability. Charts are fetched only when opened. A Prometheus endpoint with a scrape token reports live values of all nodes and servers. It is off by default and nothing runs while it is off."}},
+{"@type":"Question","name":"Does Cubeherd back up my worlds?","acceptedAnswer":{"@type":"Answer","text":"Yes. Backups can be manual or scheduled, run automatically before updates, and can be restored or downloaded. Every archive is read back to verify it, and a banner warns when backups fail or are overdue. They can optionally be uploaded to S3-compatible storage such as AWS S3, Backblaze B2, Hetzner, Wasabi, Cloudflare R2 or MinIO, or kept only there."}},
+{"@type":"Question","name":"Is it safe to expose Cubeherd to the internet?","acceptedAnswer":{"@type":"Answer","text":"Not directly. Cubeherd has access to the Docker socket, so an administrator can in practice reach the whole host. Keep it on your LAN or behind a VPN. If people outside your team must reach it, put it behind a reverse proxy with HTTPS and an access layer, set the trusted proxies and public address, and turn on two-factor sign-in. Never expose an agent."}},
+{"@type":"Question","name":"Is Cubeherd free?","acceptedAnswer":{"@type":"Answer","text":"Yes. Cubeherd is open source under the MIT license. It is not an official Minecraft product and is not affiliated with Mojang Studios or Microsoft."}}
+]}</script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="top">
+  <div class="wrap bar">
+    <a href="./" class="brand">
+      <svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2 21 7 12 12 3 7Z" fill="#a9643a"/><path d="M3 7 12 12V22L3 17Z" fill="#d98a4e"/><path d="M21 7 12 12V22L21 17Z" fill="#7a4429"/></svg>
+      <span>Cubeherd</span>
+    </a>
+    <nav aria-label="Main">
+      <a href="#features">Features</a>
+      <a href="install/">Install</a>
+      <a href="#faq">FAQ</a>
+      <a href="https://github.com/matserix/cubeherd" class="btn small" rel="noopener">GitHub</a>
+    </nav>
+  </div>
+</header>
+<main id="main">
+
+<section class="hero">
+  <div class="wrap">
+    <p class="eyebrow">Open source · MIT · self-hosted</p>
+    <h1>A lean dashboard for your <span>Minecraft servers on Docker</span></h1>
+    <p class="lead">Create, start, update, back up and uninstall servers built on <a href="https://github.com/itzg/docker-minecraft-server">itzg/docker-minecraft-server</a>, including Modrinth and CurseForge modpacks, on one host or many. One Go binary, around 10 MB of RAM, no database.</p>
+    <div class="cta">
+      <a class="btn" href="install/">Get started</a>
+      <a class="btn ghost" href="https://github.com/matserix/cubeherd" rel="noopener">View on GitHub</a>
+    </div>
+    <div class="frame hero-shot" style="aspect-ratio:2.25"><img src="images/overview.webp" width="1600" height="711" alt="Cubeherd overview with three nodes and their running Minecraft servers" fetchpriority="high"></div>
+  </div>
+</section>
+
+<section class="stats">
+  <div class="wrap grid4">
+    <div><b>~10 MB</b><span>RAM</span></div>
+    <div><b>0 %</b><span>CPU when idle</span></div>
+    <div><b>1</b><span>Go binary, no database</span></div>
+    <div><b>MIT</b><span>License</span></div>
+  </div>
+</section>
+
+<section id="features" class="block">
+  <div class="wrap">
+    <h2>Everything you need to run Minecraft servers</h2>
+    <p class="sub">Cubeherd runs next to your servers and takes next to nothing from them.</p>
+    <div class="cards">
+      <article class="card"><h3>Several hosts</h3><p>Manage servers on any number of machines from one dashboard. A small agent runs on each host, and servers are grouped by node.</p></article>
+      <article class="card"><h3>Create in minutes</h3><p>Vanilla, Paper, Purpur, Folia, Fabric, Quilt, Forge, NeoForge or a modpack from Modrinth or CurseForge. The right Java image is picked for you.</p></article>
+      <article class="card"><h3>Live console</h3><p>Run commands over RCON, watch logs stream in, and see CPU, RAM and online players while a page is open.</p></article>
+      <article class="card"><h3>Backups that restore</h3><p>Manual, scheduled and automatic before every update. Archives are verified after creation. Restore or download them, or ship them to S3-compatible storage.</p></article>
+      <article class="card"><h3>Mods and plugins</h3><p>Search Modrinth, CurseForge and Spigot, add and remove entries, or upload your own JARs. Works on top of modpacks too.</p></article>
+      <article class="card"><h3>Files and worlds</h3><p>Browse, edit, upload and download server files. Export a world as a ZIP or import one.</p></article>
+      <article class="card"><h3>Updates</h3><p>Move to a new Minecraft version, modpack version or itzg image without touching a terminal.</p></article>
+      <article class="card"><h3>Performance</h3><p>Live TPS, tick time (MSPT), CPU and memory with a short history, queried only while the tab is open.</p></article>
+      <article class="card"><h3>Idle and limits</h3><p>Pause or fully stop servers when nobody is playing, and cap CPU, memory and disk space per server.</p></article>
+      <article class="card"><h3>Players</h3><p>Manage the whitelist, operators and bans from the browser.</p></article>
+      <article class="card"><h3>Users and roles</h3><p>Optional multi-user mode with personal accounts, roles, scoped rights, single sign-on (Google, OpenID Connect) and a tamper-evident audit log.</p></article>
+      <article class="card"><h3>Account security</h3><p>Two-factor sign-in with any authenticator app, password reset and sign-in notices by e-mail, and self-registration with approval by an admin.</p></article>
+      <article class="card"><h3>Hosting for others</h3><p>A Customer role, disk quotas, suspending servers and a hardened container profile for renting out servers, with a guide to the recommended layout.</p></article>
+      <article class="card"><h3>White label</h3><p>Re-skin the dashboard with your own product name, logo, favicon and every color, separately for the dark and the light theme.</p></article>
+      <article class="card"><h3>Statistics</h3><p>Optional history of load, players and TPS per node and server, up to a year, with events, availability and a Prometheus endpoint.</p></article>
+      <article class="card"><h3>Behind a proxy</h3><p>Trusted proxies, a Secure session cookie, HSTS and a public address for single sign-on, with ready-made nginx, Caddy and Traefik examples.</p></article>
+      <article class="card"><h3>No lock-in</h3><p>Each server is a plain compose.yml in its own folder. Uninstall Cubeherd and your servers keep running.</p></article>
+    </div>
+  </div>
+</section>
+
+<section class="block alt">
+  <div class="wrap">
+    <h2>See it in action</h2>
+    <div class="shots">
+      <figure><div class="frame" style="aspect-ratio:1.6"><img src="images/console.webp" width="1600" height="1000" loading="lazy" alt="Live console with RCON, CPU, RAM and online players"></div><figcaption>Live console with RCON, CPU, RAM and online players</figcaption></figure>
+      <figure><div class="frame" style="aspect-ratio:1.6"><img src="images/mods.webp" width="1600" height="1000" loading="lazy" alt="Search Modrinth, CurseForge and Spigot for mods and plugins"></div><figcaption>Search Modrinth, CurseForge and Spigot for mods and plugins</figcaption></figure>
+      <figure><div class="frame" style="aspect-ratio:1.6"><img src="images/backups.webp" width="1600" height="1000" loading="lazy" alt="Scheduled and verified backups with restore"></div><figcaption>Scheduled and verified backups with restore</figcaption></figure>
+      <figure><div class="frame" style="aspect-ratio:1.6"><img src="images/files.webp" width="1600" height="1000" loading="lazy" alt="File browser, editor and world import and export"></div><figcaption>File browser, editor and world import and export</figcaption></figure>
+      <figure><div class="frame" style="aspect-ratio:1.6"><img src="images/statistics.webp" width="1600" height="1000" loading="lazy" alt="Recorded history of CPU, memory, players, TPS and MSPT with events"></div><figcaption>Recorded history of CPU, memory, players, TPS and MSPT with events</figcaption></figure>
+      <figure><div class="frame" style="aspect-ratio:2.06"><img src="images/access.webp" width="1600" height="777" loading="lazy" alt="Users, groups, roles and scoped assignments in multi-user mode"></div><figcaption>Users, groups, roles and scoped assignments in multi-user mode</figcaption></figure>
+      <figure><div class="frame" style="aspect-ratio:2.06"><img src="images/audit.webp" width="1600" height="777" loading="lazy" alt="Audit log of sign-ins and every action on your servers"></div><figcaption>Audit log of sign-ins and every action on your servers</figcaption></figure>
+    </div>
+  </div>
+</section>
+
+<section class="block">
+  <div class="wrap narrow">
+    <h2>Up and running in one command</h2>
+    <p class="sub">Requires Docker with the Compose plugin on the host.</p>
+<pre><code>docker run -d --name cubeherd --restart unless-stopped \
+  -p 8420:8420 \
+  -v /var/run/docker.sock:/var/run/docker.sock \
+  -v /srv/cubeherd:/srv/cubeherd \
+  -e CUBEHERD_DATA=/srv/cubeherd \
+  ghcr.io/matserix/cubeherd:latest</code></pre>
+    <p>Open <code>http://&lt;host&gt;:8420</code> and set the admin password on first visit. See the <a href="install/">full installation guide</a> for Compose and binary installs.</p>
+    <p class="note">Only expose Cubeherd on your LAN or via VPN. It has access to Docker, so treat its administrators like root on the host. In multi-user mode, roles limit what everyone else can do. If you must reach it from the internet, read the notes on reverse proxies and hosting in the <a href="install/">installation guide</a> first.</p>
+  </div>
+</section>
+
+<section id="faq" class="block alt">
+  <div class="wrap narrow">
+    <h2>Frequently asked questions</h2>
+    <details><summary>What is Cubeherd?</summary><p>Cubeherd is a self-hosted web dashboard for itzg/docker-minecraft-server. It creates, starts, updates, backs up and uninstalls Minecraft servers, including modpacks from Modrinth and CurseForge, from one browser tab, on one host or across several.</p></details>
+    <details><summary>How much memory and CPU does Cubeherd use?</summary><p>Cubeherd is a single Go binary that needs around 10 MB of RAM and 0 % CPU when idle. It has no database by default and does no background polling: live data such as the console, CPU and RAM only flows while a page is open. User accounts and statistics are optional and bring their own SQLite files.</p></details>
+    <details><summary>Which server types and modpacks are supported?</summary><p>Vanilla, Paper, Purpur, Folia, Fabric, Quilt, Forge and NeoForge, plus modpacks from Modrinth and CurseForge. The matching Java image is derived from Mojang's version data.</p></details>
+    <details><summary>Can I use my existing itzg containers?</summary><p>Yes. Cubeherd can adopt existing itzg/docker-minecraft-server containers. Every server it manages lives in its own folder as a plain compose.yml, so it keeps working with docker compose even without Cubeherd.</p></details>
+    <details><summary>Can one Cubeherd manage servers on several hosts?</summary><p>Yes. Run the same image as a small agent on each host and add it under Nodes in the dashboard. Servers are grouped by node, and the connection is HTTPS with a pinned certificate fingerprint plus a bearer token. A node that goes offline is shown as unreachable while its servers keep running.</p></details>
+    <details><summary>Can several people use Cubeherd with their own accounts?</summary><p>Yes, there is an optional multi-user mode. It adds personal accounts, roles with fine-grained rights, assignments scoped to everything, one node or one server, an audit log with hash-chained entries, and single sign-on with Google or any OpenID Connect provider. For dashboards that people outside your team reach there is account security: two-factor sign-in, password reset by e-mail, sign-in notices and self-registration with approval. By default Cubeherd still uses one shared admin password.</p></details>
+    <details><summary>Can I rent out servers to other people?</summary><p>Yes, with care. The Customer role runs and configures the game, files, add-ons and backups but not memory, CPU, ports or raw environment. Servers can have a disk quota and can be suspended, a hardened container profile limits what a customer's container may do, and white-label branding replaces the product name, logo and colors. The <a href="https://github.com/matserix/cubeherd/blob/main/docs/hosting.md">hosting guide</a> describes the recommended layout and says plainly what risk remains: containers share the host's kernel, so for customers you do not know, use a sandboxed runtime or separate virtual machines.</p></details>
+    <details><summary>Does Cubeherd keep statistics and support Prometheus?</summary><p>Yes, optionally. When switched on per node, each node records CPU, memory, disk, players and TPS once a minute and keeps up to a year of history, with start, stop and crash events and availability. Charts are fetched only when opened. A Prometheus endpoint with a scrape token reports live values of all nodes and servers. It is off by default and nothing runs while it is off.</p></details>
+    <details><summary>Does Cubeherd back up my worlds?</summary><p>Yes. Backups can be manual or scheduled, run automatically before updates, and can be restored or downloaded. Every archive is read back to verify it, and a banner warns when backups fail or are overdue. They can optionally be uploaded to S3-compatible storage such as AWS S3, Backblaze B2, Hetzner, Wasabi, Cloudflare R2 or MinIO, or kept only there.</p></details>
+    <details><summary>Is it safe to expose Cubeherd to the internet?</summary><p>Not directly. Cubeherd has access to the Docker socket, so an administrator can in practice reach the whole host. Keep it on your LAN or behind a VPN. If people outside your team must reach it, put it behind a reverse proxy with HTTPS and an access layer, set the trusted proxies and the public address, and turn on two-factor sign-in. In multi-user mode a viewer or moderator cannot reach the host, but anyone who may upload mods, edit files or send console commands can run code inside that server's container. Never put an agent on the internet: its token gives the same reach as an administrator.</p></details>
+    <details><summary>Is Cubeherd free?</summary><p>Yes. Cubeherd is open source under the MIT license. It is not an official Minecraft product and is not affiliated with Mojang Studios or Microsoft.</p></details>
+  </div>
+</section>
+
+<section class="block final">
+  <div class="wrap">
+    <h2>Herd your cubes</h2>
+    <p class="sub">Free, open source, and ready for your next world.</p>
+    <div class="cta center">
+      <a class="btn" href="install/">Install Cubeherd</a>
+      <a class="btn ghost" href="https://github.com/matserix/cubeherd/releases" rel="noopener">Latest release</a>
+    </div>
+  </div>
+</section>
+
+</main>
+<footer class="foot">
+  <div class="wrap">
+    <p><strong>Cubeherd</strong> is open source under the <a href="https://github.com/matserix/cubeherd/blob/main/LICENSE">MIT License</a>. It is not an official Minecraft product and is not affiliated with Mojang Studios or Microsoft.</p>
+    <p><a href="https://github.com/matserix/cubeherd">Source</a> · <a href="https://github.com/matserix/cubeherd/releases">Releases</a> · <a href="https://github.com/matserix/cubeherd/issues">Issues</a> · <a href="https://github.com/matserix/cubeherd/blob/main/ARCHITECTURE.md">Architecture</a> · <a href="install/">Install</a> · <a href="legal-notice/">Legal notice (Impressum)</a> · <a href="privacy/">Privacy</a></p>
+  </div>
+</footer>
+</body>
+</html>

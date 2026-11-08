@@ -1,0 +1,8 @@
+# Cubeherd
+
+> Cubeherd is a lean, self-hosted web dashboard to create, run, update and back up Minecraft servers on Docker (itzg/docker-minecraft-server), on one host or many, with optional multi-user access, statistics and white-label branding. One Go binary, about 10 MB of RAM, no database. MIT licensed.
+
+- [Home](https://cubeherd.app/): features, screenshots and FAQ
+- [Install](https://cubeherd.app/install/): Docker Compose and binary installation, multi-host agents, reverse proxy, users and roles, hosting for others, statistics, configuration
+- [Hosting guide](https://github.com/matserix/cubeherd/blob/main/docs/hosting.md): running servers for customers
+- [Source code](https://github.com/matserix/cubeherd): README, architecture and releases
