@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -82,5 +83,38 @@ func TestSuspendedServerCannotStart(t *testing.T) {
 	s.Suspended = false
 	if err := m.mayStart(s); err != nil {
 		t.Fatal(err)
+	}
+}
+
+// TestImportStreamIsCappedRegardlessOfDeclaredSize covers world import: zipSize's "total" is only the ZIP's
+// own, unverified claim about how large an entry will be once extracted, and a crafted entry can inflate to
+// far more. ImportWorld wraps the extracted tar stream with limitedBy before it reaches the container, the
+// same way a regular upload is capped, so the actual bytes are what gets counted, not a declared size.
+func TestImportStreamIsCappedRegardlessOfDeclaredSize(t *testing.T) {
+	old := quotaUnit
+	quotaUnit = 1000
+	t.Cleanup(func() { quotaUnit = old })
+	m, s, dir := hostServer(t)
+	s.DiskGB = 1 // 1000 bytes
+	if err := os.WriteFile(filepath.Join(dir, "existing.dat"), make([]byte, 0), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	m.measureQuota(s)
+
+	pr, pw := io.Pipe()
+	go func() {
+		_, _ = pw.Write(make([]byte, 5000)) // far more than the quota, whatever a "total" claimed beforehand
+		pw.Close()
+	}()
+	limited, err := m.limitedBy(s, pr)
+	if err != nil {
+		t.Fatal(err)
+	}
+	n, err := io.Copy(io.Discard, limited)
+	if !errors.Is(err, ErrQuota) {
+		t.Fatalf("expected ErrQuota once the stream passed the limit, got %v after %d bytes", err, n)
+	}
+	if n > 1000 {
+		t.Fatalf("%d bytes were let through past the quota", n)
 	}
 }

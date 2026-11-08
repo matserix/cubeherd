@@ -35,12 +35,16 @@ func (m *Manager) AddonFiles(ctx context.Context, s *server.Server) ([]AddonFile
 	var out []AddonFile
 	if dir := m.Store.DataDir(s); dir != "" {
 		var entries []os.DirEntry
-		if p, err := m.hostPath(s, s.AddonDir()); err != nil {
+		if d, err := m.openDataDir(s, s.AddonDir()); err != nil {
 			if !errors.Is(err, os.ErrNotExist) {
 				return nil, err
 			}
-		} else if entries, err = os.ReadDir(p); err != nil && !errors.Is(err, os.ErrNotExist) {
-			return nil, err
+		} else {
+			entries, err = d.ReadDir(-1)
+			d.Close()
+			if err != nil && !errors.Is(err, os.ErrNotExist) {
+				return nil, err
+			}
 		}
 		for _, e := range entries {
 			if e.IsDir() || !strings.HasSuffix(e.Name(), ".jar") {
@@ -91,56 +95,64 @@ func (m *Manager) writeDataFile(ctx context.Context, s *server.Server, rel strin
 		return err
 	}
 	if dir := m.Store.DataDir(s); dir != "" {
-		// Every host-folder write goes through hostPath: the container can plant symlinks anywhere in /data
-		// (also a mods or plugins folder), and this process may be root.
-		p, err := m.hostPath(s, rel)
+		rootReal, err := filepath.EvalSymlinks(dir)
 		if err != nil {
 			return err
 		}
-		if rootReal, err := filepath.EvalSymlinks(dir); err == nil {
-			dir = rootReal
-		}
-		if err := mkdirAllLike(filepath.Dir(p), dir); err != nil {
+		// mkdirAllLike creates any missing ancestor by path (not yet race-safe, but this only ever creates a
+		// new, empty directory, never reads or overwrites content); the write itself below is then resolved
+		// again, this time race-safely by file descriptor (see safefs_unix.go), so a symlink swapped in after
+		// mkdirAllLike ran makes the write fail rather than land outside /data.
+		dirRel, leaf := splitDirLeaf(rel)
+		p := filepath.Join(rootReal, filepath.FromSlash(rel))
+		if err := mkdirAllLike(filepath.Dir(p), rootReal); err != nil {
 			return err
 		}
 		// The server runs as another user (itzg: 1000) than Cubeherd, so the new file keeps the owner and mode
-		// of the one it replaces. Otherwise itzg can no longer rewrite files such as server.properties on start.
+		// of the one it replaces. Otherwise itzg can no longer rewrite files such as server.properties on
+		// start. This is only a hint for the new file's permissions, not a security boundary, so reading it by
+		// path (even if raced) can at worst pick the wrong mode/owner, never escape /data.
 		mode, uid, gid := os.FileMode(0o644), -1, -1
-		if fi, err := os.Stat(p); err == nil {
+		if fi, err := os.Lstat(p); err == nil {
 			mode = fi.Mode().Perm()
 			uid, gid = ownerOf(fi)
 		} else if fi, err := os.Stat(filepath.Dir(p)); err == nil {
 			uid, gid = ownerOf(fi)
 		}
+		fdir, err := openDirAt(rootReal, dirRel)
+		if err != nil {
+			return err
+		}
+		defer fdir.Close()
 		// The temp name sits in a folder the container can write. Remove whatever is there (a planted symlink is
 		// removed itself, not followed) and create the file exclusively, so the open can never follow a link.
 		// Mode and owner are set on the open handle, not by path.
-		tmp := p + ".part"
-		if err := os.Remove(tmp); err != nil && !errors.Is(err, os.ErrNotExist) {
+		tmp := leaf + ".part"
+		if err := removeAt(fdir, tmp); err != nil {
 			return err
 		}
-		f, err := os.OpenFile(tmp, os.O_WRONLY|os.O_CREATE|os.O_EXCL, mode)
+		f, err := openLeafAt(fdir, tmp, os.O_WRONLY|os.O_CREATE|os.O_EXCL, uint32(mode))
 		if err != nil {
 			return err
 		}
 		if _, err := io.Copy(f, r); err != nil {
 			f.Close()
-			os.Remove(tmp)
+			_ = removeAt(fdir, tmp)
 			return err
 		}
 		if err := f.Chmod(mode); err != nil {
 			f.Close()
-			os.Remove(tmp)
+			_ = removeAt(fdir, tmp)
 			return err
 		}
 		if uid >= 0 {
 			_ = f.Chown(uid, gid) // fails without privileges when the owner differs; the file is then still ours
 		}
 		if err := f.Close(); err != nil {
-			os.Remove(tmp)
+			_ = removeAt(fdir, tmp)
 			return err
 		}
-		return os.Rename(tmp, p)
+		return renameAt(fdir, tmp, leaf)
 	}
 	cmd := exec.CommandContext(ctx, "docker", "run", "--rm", "-i", "-e", "P=/data/"+rel, "-v", s.DataVol+":/data",
 		"--entrypoint", "sh", s.ImageRef(), "-c", `mkdir -p "$(dirname "$P")" && cat > "$P.part" && mv "$P.part" "$P" && chown 1000:1000 "$P"`)
@@ -175,14 +187,12 @@ func mkdirAllLike(dir, root string) error {
 
 func (m *Manager) removeDataFile(ctx context.Context, s *server.Server, rel string) error {
 	if dir := m.Store.DataDir(s); dir != "" {
-		p, err := m.hostPath(s, rel)
+		d, leaf, err := m.hostLeaf(s, rel)
 		if err != nil {
 			return err
 		}
-		if err := os.Remove(p); err != nil && !errors.Is(err, os.ErrNotExist) {
-			return err
-		}
-		return nil
+		defer d.Close()
+		return removeAt(d, leaf)
 	}
 	cmd := exec.CommandContext(ctx, "docker", "run", "--rm", "-e", "P=/data/"+rel, "-v", s.DataVol+":/data",
 		"--entrypoint", "sh", s.ImageRef(), "-c", `rm -f "$P"`)

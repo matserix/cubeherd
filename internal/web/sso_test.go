@@ -253,8 +253,8 @@ func TestSSODomainRules(t *testing.T) {
 
 func TestSSOMapsGroupsFromTheClaim(t *testing.T) {
 	d, st, p := setupSSO(t, func(p *access.Provider) { p.AutoProvision = true; p.GroupClaim = "groups" })
-	gid, _ := st.CreateGroup("Mods", "mc-mods")
-	_, _ = st.CreateGroup("Other", "other")
+	gid, _ := st.CreateGroup("Mods", "mc-mods", "")
+	_, _ = st.CreateGroup("Other", "other", "")
 	p.claims["groups"] = []string{"mc-mods", "unrelated"}
 	rec := signIn(t, d, p, "idp1")
 	u, _ := st.SessionUser(sessionOf(rec))
@@ -266,6 +266,38 @@ func TestSSOMapsGroupsFromTheClaim(t *testing.T) {
 	signIn(t, d, p, "idp1")
 	if gs, _ := st.UserGroups(u.ID); len(gs) != 0 {
 		t.Fatal("membership should follow the provider and be removed when the claim no longer has it")
+	}
+}
+
+// TestSSOGroupMappingIsScopedToItsProvider covers two providers that happen to send the same group claim
+// value: a group mapped from one of them must not pick up a sign-in through the other.
+func TestSSOGroupMappingIsScopedToItsProvider(t *testing.T) {
+	d, st, p1 := setupSSO(t, func(p *access.Provider) { p.AutoProvision = true; p.GroupClaim = "groups" })
+	p2 := newIdP(t)
+	pr2 := access.Provider{ID: "idp2", Kind: "oidc", Label: "Second", Issuer: p2.srv.URL, ClientID: "cubeherd-client", ClientSecret: "s3cret",
+		AutoProvision: true, GroupClaim: "groups"}
+	ps, _ := st.Providers()
+	if err := st.SaveProviders(append(ps, pr2)); err != nil {
+		t.Fatal(err)
+	}
+	scoped, _ := st.CreateGroup("Mods1", "mc-mods", "idp1")
+	p1.claims["groups"] = []string{"mc-mods"}
+	p2.claims["groups"] = []string{"mc-mods"}
+	p2.claims["email"], p2.claims["preferred_username"] = "other@example.com", "other"
+
+	u1 := signIn(t, d, p1, "idp1")
+	user1, _ := st.SessionUser(sessionOf(u1))
+	if gs, _ := st.UserGroups(user1.ID); len(gs) != 1 || gs[0].ID != scoped {
+		t.Fatalf("the matching provider should still map the group: %+v", gs)
+	}
+
+	u2 := signIn(t, d, p2, "idp2")
+	user2, _ := st.SessionUser(sessionOf(u2))
+	if user2.ID == user1.ID {
+		t.Fatal("the second sign-in should be a different account")
+	}
+	if gs, _ := st.UserGroups(user2.ID); len(gs) != 0 {
+		t.Fatalf("a group scoped to idp1 must not map a sign-in through idp2: %+v", gs)
 	}
 }
 

@@ -103,19 +103,20 @@ type accessData struct {
 	Tabs []accTab
 	Err  string
 
-	Users   []userRow
-	User    *userDetail
-	Groups  []groupRow
-	Roles   []roleRow
-	Role    *roleEdit
-	Grants  []grantRow
-	Opts    *grantOpts
-	Audit   *auditView
-	SSO     *ssoData
-	Mail    *mailData
-	Sec     *securityData
-	Pending *pendingData
-	DBSize  int64
+	Users     []userRow
+	User      *userDetail
+	Groups    []groupRow
+	Providers []access.Provider // configured SSO providers, for the group's "map from" select
+	Roles     []roleRow
+	Role      *roleEdit
+	Grants    []grantRow
+	Opts      *grantOpts
+	Audit     *auditView
+	SSO       *ssoData
+	Mail      *mailData
+	Sec       *securityData
+	Pending   *pendingData
+	DBSize    int64
 }
 
 func (a *App) accessPage(w http.ResponseWriter, r *http.Request, tab string, d accessData) {
@@ -567,11 +568,12 @@ func (a *App) groupsPage(w http.ResponseWriter, r *http.Request) {
 		row.Grants = a.grantRows(mine, roles)
 		rows = append(rows, row)
 	}
-	a.accessPage(w, r, "groups", accessData{Groups: rows})
+	ps, _ := st.Providers()
+	a.accessPage(w, r, "groups", accessData{Groups: rows, Providers: ps})
 }
 
 func (a *App) groupCreate(w http.ResponseWriter, r *http.Request) {
-	if _, err := a.store().CreateGroup(r.FormValue("name"), r.FormValue("oidc")); err != nil {
+	if _, err := a.store().CreateGroup(r.FormValue("name"), r.FormValue("oidc"), r.FormValue("oidcProvider")); err != nil {
 		a.storeErr(w, err)
 		return
 	}
@@ -601,7 +603,7 @@ func (a *App) groupSave(w http.ResponseWriter, r *http.Request) {
 		a.fail(w, "Bitte gib einen Namen an.")
 		return
 	}
-	if err := st.UpdateGroup(id, r.FormValue("name"), r.FormValue("oidc")); err != nil {
+	if err := st.UpdateGroup(id, r.FormValue("name"), r.FormValue("oidc"), r.FormValue("oidcProvider")); err != nil {
 		a.storeErr(w, err)
 		return
 	}

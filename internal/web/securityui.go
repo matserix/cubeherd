@@ -70,8 +70,8 @@ func (a *App) securitySave(w http.ResponseWriter, r *http.Request) {
 		a.fail(w, "Ungültige Auswahl.")
 		return
 	}
-	if (v.RequireVerified || v.Notice != "off") && !a.mailReady() {
-		a.fail(w, "Dafür sind zuerst die Mail-Einstellungen nötig.")
+	if (v.RequireVerified || v.Notice != "off") && !a.linksReady() {
+		a.fail(w, "Dafür sind zuerst die Mail-Einstellungen und die öffentliche Adresse nötig.")
 		return
 	}
 	if err := st.SaveSecurity(v); err != nil {
@@ -119,7 +119,7 @@ func (a *App) pendingApprove(w http.ResponseWriter, r *http.Request) {
 		a.storeErr(w, err)
 		return
 	}
-	if u.Email != "" && u.EmailVerified {
+	if u.Email != "" && u.EmailVerified && a.linksReady() {
 		a.mailAsync(u.Email, a.t("Dein Cubeherd-Konto ist freigegeben"), a.t("Hallo %s,\n\ndein Konto wurde freigegeben. Du kannst dich jetzt anmelden:\n%s/login\n\nServer und Rechte bekommst du von einem Admin zugewiesen.", u.Name, a.mailBase(r)))
 	}
 	redirect(w, r, "/access/pending")

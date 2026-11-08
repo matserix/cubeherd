@@ -126,7 +126,7 @@ func TestNoGrantNoAccess(t *testing.T) {
 func TestGroupGrantsAndExpiry(t *testing.T) {
 	s := open(t)
 	u := user(t, s, "carl")
-	gid, _ := s.CreateGroup("mods", "")
+	gid, _ := s.CreateGroup("mods", "", "")
 	_ = s.AddMember(gid, u.ID)
 	if _, err := s.AddGrant(Grant{Group: true, PrincipalID: gid, RoleID: roleID(t, s, RoleModerator), Scope: Scope{}}); err != nil {
 		t.Fatal(err)

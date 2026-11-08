@@ -160,6 +160,10 @@
   <div class="panel-pad"><div class="grid-2" style="align-items:start">
     <label class="field"><span>{{t "Name"}}</span><input class="input" name="name" placeholder="{{t "z. B. Moderatoren"}}" required autocomplete="off"></label>
     <label class="field"><span>{{t "Gruppe beim Anbieter (optional)"}}</span><input class="input mono" name="oidc" autocomplete="off" placeholder="mc-mods"><small>{{t "Wert des Gruppen-Claims, der beim Anmelden auf diese Gruppe abgebildet wird."}}</small></label>
+    {{if $.Data.Providers}}<label class="field"><span>{{t "… von diesem Anbieter"}}</span><select class="input" name="oidcProvider">
+      <option value="">{{t "Jedem Anbieter"}}</option>
+      {{range $.Data.Providers}}<option value="{{.ID}}">{{.Label}}</option>{{end}}
+    </select><small>{{t "Bei mehreren Anmeldeanbietern: schränkt den Claim-Wert oben auf einen davon ein."}}</small></label>{{end}}
   </div><div class="actions" style="margin-top:12px"><button class="btn primary">{{t "Gruppe anlegen"}}</button></div></div>
 </form>
 {{range .Data.Groups}}{{$g := .}}
@@ -171,6 +175,10 @@
     <div class="grid-2">
       <label class="field"><span>{{t "Name"}}</span><input class="input" name="name" value="{{.Name}}" required></label>
       <label class="field"><span>{{t "Gruppe beim Anbieter"}}</span><input class="input mono" name="oidc" value="{{.OIDC}}"></label>
+      {{if $.Data.Providers}}<label class="field"><span>{{t "… von diesem Anbieter"}}</span><select class="input" name="oidcProvider">
+        <option value="">{{t "Jedem Anbieter"}}</option>
+        {{range $.Data.Providers}}<option value="{{.ID}}" {{if eq .ID $g.Provider}}selected{{end}}>{{.Label}}</option>{{end}}
+      </select></label>{{end}}
     </div>
     <details class="members">
       <summary><b>{{t "Mitglieder"}}</b> <span class="chip num">{{len .Members}}</span>
@@ -436,7 +444,7 @@
   <div class="panel-head"><h2>{{t "Konto-Sicherheit"}}</h2><button class="btn sm primary">{{t "Speichern"}}</button></div>
   <div class="panel-pad stack">
     {{if not .Data.Sec.MailReady}}<p class="muted">{{t "Ohne E-Mail-Einstellungen sind Bestätigung, Passwort-Zurücksetzen und Anmelde-Hinweise nicht verfügbar."}}</p>{{end}}
-    {{if not .Data.Sec.PublicURL}}<p class="muted">{{t "Tipp: Trage in den Einstellungen die öffentliche Adresse ein, damit Links in E-Mails nicht aus der Anfrage abgeleitet werden."}}</p>{{end}}
+    {{if not .Data.Sec.PublicURL}}<p class="muted">{{t "Ohne die öffentliche Adresse in den Einstellungen verschickt Cubeherd keine Bestätigung, kein Passwort-Zurücksetzen und keine Anmelde-Hinweise: der Link in der Mail dürfte sonst aus einer beliebigen Anfrage stammen."}}</p>{{end}}
     <div class="grid-2">
       <label class="field"><span>{{t "Selbstregistrierung"}}</span><select class="input" name="registration">
         <option value="closed" {{if eq $s.Registration "closed"}}selected{{end}}>{{t "Aus"}}</option>

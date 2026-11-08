@@ -71,9 +71,14 @@ func (a *App) setCookie(w http.ResponseWriter, r *http.Request, name, value stri
 
 // ---------------- Mail ----------------
 
-// mailBase is the address used in links inside e-mails. The configured public address is preferred: without it
-// the link follows the Host header of the request, which a caller can choose.
+// mailBase is the address used in links inside e-mails: the configured public address. Callers that build a link
+// from it must first check linksReady, because without a configured address this would otherwise fall back to the
+// Host header of the request, which is not authenticated and a caller can choose freely.
 func (a *App) mailBase(r *http.Request) string { return a.publicBase(r) }
+
+// linksReady reports whether a mail with a link to the dashboard may be sent: SMTP is configured and the public
+// address is set, so the link never comes from the request that triggered the mail.
+func (a *App) linksReady() bool { return a.mailReady() && strings.TrimRight(a.Cfg.Get().PublicURL, "/") != "" }
 
 // mailAsync sends a mail without making the request wait, and logs a failure. Callers that must not reveal whether
 // an address is known use it so the response time does not depend on the outcome.
@@ -217,7 +222,7 @@ func (a *App) startSessionVia(w http.ResponseWriter, r *http.Request, u access.U
 func (a *App) signInNotice(w http.ResponseWriter, r *http.Request, u access.User, method string, first bool) {
 	st := a.store()
 	mode := st.Security().Notice
-	if mode == "off" || u.Email == "" || !u.EmailVerified || !a.mailReady() {
+	if mode == "off" || u.Email == "" || !u.EmailVerified || !a.linksReady() {
 		return
 	}
 	device := ""
@@ -356,7 +361,7 @@ func (a *App) login2Post(w http.ResponseWriter, r *http.Request) {
 // ---------------- Password reset ----------------
 
 func (a *App) forgotPage(w http.ResponseWriter, r *http.Request) {
-	if !a.mailReady() {
+	if !a.linksReady() {
 		a.authPage(w, r, authData{Kind: "noreset"}, a.t("Passwort zurücksetzen"))
 		return
 	}
@@ -364,7 +369,7 @@ func (a *App) forgotPage(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *App) forgotPost(w http.ResponseWriter, r *http.Request) {
-	if !a.mailReady() {
+	if !a.linksReady() {
 		a.authPage(w, r, authData{Kind: "noreset"}, a.t("Passwort zurücksetzen"))
 		return
 	}
@@ -528,7 +533,7 @@ func (a *App) registerPost(w http.ResponseWriter, r *http.Request) {
 		show(a.t("Zu viele Registrierungen von dieser Adresse. Bitte versuche es später noch einmal."))
 		return
 	}
-	if sec.RequireVerified && !a.mailReady() {
+	if sec.RequireVerified && !a.linksReady() {
 		show(a.t("Die Registrierung ist im Moment nicht möglich."))
 		return
 	}
@@ -558,7 +563,7 @@ func (a *App) registerPost(w http.ResponseWriter, r *http.Request) {
 	}
 	if existing, err := st.UserByEmail(email); err == nil {
 		// no new account, and no hint to the person at the keyboard that the address is taken
-		if a.mailReady() {
+		if a.linksReady() {
 			a.mailAsync(existing.Email, a.t("Du hast schon ein Cubeherd-Konto"), a.t("Hallo %s,\n\njemand hat sich mit deiner E-Mail-Adresse bei Cubeherd registriert. Du hast aber schon ein Konto (Name: %s). Hast du dein Passwort vergessen, kannst du es hier zurücksetzen:\n%s/forgot", existing.Name, existing.Name, a.mailBase(r)))
 		}
 		a.authPage(w, r, authData{Kind: "registered", Info: state}, a.t("Registrieren"))
@@ -624,7 +629,7 @@ func (a *App) resendPage(w http.ResponseWriter, r *http.Request) {
 
 func (a *App) resendPost(w http.ResponseWriter, r *http.Request) {
 	email := strings.ToLower(strings.TrimSpace(r.FormValue("email")))
-	if a.mailReady() && email != "" && a.rw.Allow("resend-ip:"+clientAddr(r), 6, time.Hour) && a.rw.Allow("resend-mail:"+email, 3, time.Hour) {
+	if a.linksReady() && email != "" && a.rw.Allow("resend-ip:"+clientAddr(r), 6, time.Hour) && a.rw.Allow("resend-mail:"+email, 3, time.Hour) {
 		base := a.mailBase(r)
 		go func() {
 			st := a.store()

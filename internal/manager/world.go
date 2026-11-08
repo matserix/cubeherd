@@ -220,9 +220,15 @@ func (m *Manager) ImportWorld(s *server.Server, zipPath string) error {
 			}}
 			pw.CloseWithError(zipToTar(&zr.Reader, root, name, prog))
 		}()
+		// zipSize's total is the ZIP's own, unverified claim; a crafted entry can inflate to far more than
+		// that while extracting, so the quota (if any) caps the tar stream itself, not just the upload.
+		limited, err := m.limitedBy(s, pr)
+		if err != nil {
+			return err
+		}
 		script := `set -e; cd /data; rm -rf -- "$N" "${N}_nether" "${N}_the_end"; tar -xf - --no-same-permissions; chown -R 1000:1000 "$N"`
 		var out bytes.Buffer
-		if err := m.dataShell(ctx, s, script, map[string]string{"N": name}, pr, &out, false); err != nil {
+		if err := m.dataShell(ctx, s, script, map[string]string{"N": name}, limited, &out, false); err != nil {
 			return fmt.Errorf(m.t("Entpacken fehlgeschlagen: %w"), err)
 		}
 		o.add("[cubeherd] " + m.t("Welt eingespielt"))

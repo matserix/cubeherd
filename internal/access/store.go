@@ -289,18 +289,19 @@ func (s *Store) Unlink(userID, identityID int64) error {
 // ---------------- Groups ----------------
 
 type Group struct {
-	ID      int64
-	Name    string
-	OIDC    string // value of the identity provider's group claim that maps to this group
-	Members []User
+	ID       int64
+	Name     string
+	OIDC     string // value of the identity provider's group claim that maps to this group
+	Provider string // "" matches that claim from any provider; a provider id scopes it to just that one
+	Members  []User
 }
 
-func (s *Store) CreateGroup(name, oidc string) (int64, error) {
+func (s *Store) CreateGroup(name, oidc, provider string) (int64, error) {
 	name = strings.TrimSpace(name)
 	if name == "" {
 		return 0, errors.New("a group name is required")
 	}
-	r, err := s.db.Exec("INSERT INTO groups(name, oidc_value) VALUES(?,?)", name, strings.TrimSpace(oidc))
+	r, err := s.db.Exec("INSERT INTO groups(name, oidc_value, oidc_provider) VALUES(?,?,?)", name, strings.TrimSpace(oidc), strings.TrimSpace(provider))
 	if isUnique(err) {
 		return 0, ErrExists
 	}
@@ -310,8 +311,8 @@ func (s *Store) CreateGroup(name, oidc string) (int64, error) {
 	return r.LastInsertId()
 }
 
-func (s *Store) UpdateGroup(id int64, name, oidc string) error {
-	r, err := s.db.Exec("UPDATE groups SET name=?, oidc_value=? WHERE id=?", strings.TrimSpace(name), strings.TrimSpace(oidc), id)
+func (s *Store) UpdateGroup(id int64, name, oidc, provider string) error {
+	r, err := s.db.Exec("UPDATE groups SET name=?, oidc_value=?, oidc_provider=? WHERE id=?", strings.TrimSpace(name), strings.TrimSpace(oidc), strings.TrimSpace(provider), id)
 	if isUnique(err) {
 		return ErrExists
 	}
@@ -335,14 +336,14 @@ func (s *Store) DeleteGroup(id int64) error {
 }
 
 func (s *Store) ListGroups() ([]Group, error) {
-	rows, err := s.db.Query("SELECT id, name, oidc_value FROM groups ORDER BY name")
+	rows, err := s.db.Query("SELECT id, name, oidc_value, oidc_provider FROM groups ORDER BY name")
 	if err != nil {
 		return nil, err
 	}
 	var out []Group
 	for rows.Next() {
 		var g Group
-		if err := rows.Scan(&g.ID, &g.Name, &g.OIDC); err != nil {
+		if err := rows.Scan(&g.ID, &g.Name, &g.OIDC, &g.Provider); err != nil {
 			rows.Close()
 			return nil, err
 		}
@@ -381,7 +382,7 @@ func (s *Store) RemoveMember(groupID, userID int64) error {
 
 // UserGroups returns the groups a user belongs to.
 func (s *Store) UserGroups(userID int64) ([]Group, error) {
-	rows, err := s.db.Query("SELECT id, name, oidc_value FROM groups WHERE id IN (SELECT group_id FROM group_members WHERE user_id=?) ORDER BY name", userID)
+	rows, err := s.db.Query("SELECT id, name, oidc_value, oidc_provider FROM groups WHERE id IN (SELECT group_id FROM group_members WHERE user_id=?) ORDER BY name", userID)
 	if err != nil {
 		return nil, err
 	}
@@ -389,7 +390,7 @@ func (s *Store) UserGroups(userID int64) ([]Group, error) {
 	var out []Group
 	for rows.Next() {
 		var g Group
-		if err := rows.Scan(&g.ID, &g.Name, &g.OIDC); err != nil {
+		if err := rows.Scan(&g.ID, &g.Name, &g.OIDC, &g.Provider); err != nil {
 			return nil, err
 		}
 		out = append(out, g)
@@ -397,8 +398,11 @@ func (s *Store) UserGroups(userID int64) ([]Group, error) {
 	return out, rows.Err()
 }
 
-// SetMappedGroups makes the groups that an identity provider names the user's mapped memberships.
-func (s *Store) SetMappedGroups(userID int64, claimValues []string) error {
+// SetMappedGroups makes the groups that providerID's group claim names the user's mapped memberships. A group
+// only matches a claim value from providerID when its own Provider is "" (any provider, the old behaviour,
+// harmless with a single provider configured) or equal to providerID: otherwise two providers that happen to
+// send the same claim value could map a sign-in through either one onto a group meant for just one of them.
+func (s *Store) SetMappedGroups(userID int64, providerID string, claimValues []string) error {
 	return s.guarded(func(tx *sql.Tx) error {
 		if _, err := tx.Exec("DELETE FROM group_members WHERE user_id=? AND mapped=1", userID); err != nil {
 			return err
@@ -407,7 +411,7 @@ func (s *Store) SetMappedGroups(userID int64, claimValues []string) error {
 			if v == "" {
 				continue
 			}
-			if _, err := tx.Exec("INSERT OR IGNORE INTO group_members(group_id, user_id, mapped) SELECT id, ?, 1 FROM groups WHERE oidc_value=?", userID, v); err != nil {
+			if _, err := tx.Exec("INSERT OR IGNORE INTO group_members(group_id, user_id, mapped) SELECT id, ?, 1 FROM groups WHERE oidc_value=? AND (oidc_provider='' OR oidc_provider=?)", userID, v, providerID); err != nil {
 				return err
 			}
 		}

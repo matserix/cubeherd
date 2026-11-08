@@ -725,11 +725,12 @@ func (m *Manager) ReadDataFile(s *server.Server, name string) ([]byte, error) {
 	if m.Store.DataDir(s) == "" {
 		return nil, os.ErrNotExist // data in a Docker volume is not readable from the host
 	}
-	p, err := m.hostPath(s, name) // refuses symlinks that leave the data folder
+	dir, leaf, err := m.hostLeaf(s, name) // refuses symlinks that leave the data folder, race-safely
 	if err != nil {
 		return nil, err
 	}
-	f, err := openRegular(p)
+	defer dir.Close()
+	f, err := openRegularAt(dir, leaf)
 	if err != nil {
 		return nil, err
 	}

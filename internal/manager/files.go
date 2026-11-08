@@ -43,10 +43,12 @@ func CleanRel(rel string) (string, error) {
 
 var errNotRegular = errors.New("keine reguläre Datei")
 
-// openRegular opens p for reading without blocking on FIFOs and refuses everything but regular files,
-// since the server (a container the admin does not fully control) can plant FIFOs and devices in /data.
-func openRegular(p string) (*os.File, error) {
-	f, err := os.OpenFile(p, os.O_RDONLY|syscall.O_NONBLOCK, 0)
+// openRegularAt opens name inside dir for reading without blocking on FIFOs (O_NONBLOCK) and refuses
+// everything but regular files, since the server (a container the admin does not fully control) can plant
+// FIFOs and devices in /data. dir and name come from hostLeaf, so the open below never follows a symlink
+// planted after hostLeaf's walk resolved its directory (see safefs_unix.go).
+func openRegularAt(dir *os.File, name string) (*os.File, error) {
+	f, err := openLeafAt(dir, name, os.O_RDONLY|syscall.O_NONBLOCK, 0)
 	if err != nil {
 		return nil, err
 	}
@@ -60,6 +62,13 @@ func openRegular(p string) (*os.File, error) {
 		return nil, errNotRegular
 	}
 	return f, nil
+}
+
+// splitDirLeaf splits a clean relative path (as CleanRel returns it) into its parent directory and leaf
+// name. rel must not be "".
+func splitDirLeaf(rel string) (dir, leaf string) {
+	dir, leaf = path.Split(rel)
+	return strings.TrimSuffix(dir, "/"), leaf
 }
 
 // limitWriter stops a copy once more than n bytes arrive and calls cancel to end the producer.
@@ -80,33 +89,18 @@ func (l *limitWriter) Write(p []byte) (int, error) {
 	return l.w.Write(p)
 }
 
-// hostPath resolves rel inside the server's host data folder, refusing symlinks that leave it.
-func (m *Manager) hostPath(s *server.Server, rel string) (string, error) {
+// openDataDir opens the directory rel inside the server's host data folder, by file descriptor and without
+// ever following a symlink along the way (see safefs_unix.go); rel == "" opens the data folder itself.
+func (m *Manager) openDataDir(s *server.Server, rel string) (*os.File, error) {
 	root := m.Store.DataDir(s)
 	if root == "" {
-		return "", errors.New("no host folder")
+		return nil, errors.New("no host folder")
 	}
 	rootReal, err := filepath.EvalSymlinks(root)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
-	p := filepath.Join(rootReal, filepath.FromSlash(rel))
-	// Resolve the deepest existing ancestor and make sure it stays inside the root.
-	check := p
-	for {
-		if real, err := filepath.EvalSymlinks(check); err == nil {
-			if real != rootReal && !strings.HasPrefix(real, rootReal+string(filepath.Separator)) {
-				return "", ErrOutside
-			}
-			break
-		}
-		parent := filepath.Dir(check)
-		if parent == check {
-			break
-		}
-		check = parent
-	}
-	return p, nil
+	return openDirAt(rootReal, rel)
 }
 
 // dataShell runs a shell script with /data mounted: inside the running container or a throwaway one.
@@ -147,23 +141,21 @@ func (m *Manager) dataShell(ctx context.Context, s *server.Server, script string
 func (m *Manager) List(ctx context.Context, s *server.Server, rel string) ([]Entry, bool, error) {
 	var out []Entry
 	if m.Store.DataDir(s) != "" {
-		p, err := m.hostPath(s, rel)
+		dir, err := m.openDataDir(s, rel)
 		if err != nil {
 			return nil, false, err
 		}
-		des, err := os.ReadDir(p)
+		defer dir.Close()
+		des, err := dir.ReadDir(-1)
 		if err != nil {
 			return nil, false, err
 		}
 		for _, d := range des {
+			// A symlink is listed as itself, not resolved: Cubeherd never follows one inside /data, the
+			// container that owns the folder can swap one in concurrently (see safefs_unix.go).
 			e := Entry{Name: d.Name(), Dir: d.IsDir()}
 			if info, err := d.Info(); err == nil {
 				e.Size, e.ModTime = info.Size(), info.ModTime()
-				if info.Mode()&os.ModeSymlink != 0 {
-					if st, err := os.Stat(filepath.Join(p, d.Name())); err == nil {
-						e.Dir = st.IsDir()
-					}
-				}
 			}
 			out = append(out, e)
 		}
@@ -200,15 +192,16 @@ func (m *Manager) List(ctx context.Context, s *server.Server, rel string) ([]Ent
 // Stat returns size information for a single file.
 func (m *Manager) Stat(ctx context.Context, s *server.Server, rel string) (Entry, error) {
 	if m.Store.DataDir(s) != "" {
-		p, err := m.hostPath(s, rel)
+		dir, leaf, err := m.hostLeaf(s, rel)
 		if err != nil {
 			return Entry{}, err
 		}
-		info, err := os.Stat(p)
+		defer dir.Close()
+		size, modTime, isDir, err := statLeaf(dir, leaf)
 		if err != nil {
 			return Entry{}, err
 		}
-		return Entry{Name: info.Name(), Dir: info.IsDir(), Size: info.Size(), ModTime: info.ModTime()}, nil
+		return Entry{Name: leaf, Dir: isDir, Size: size, ModTime: modTime}, nil
 	}
 	var buf bytes.Buffer
 	if err := m.dataShell(ctx, s, `stat -L -c '%F|%s|%Y' "/data/$P"`, map[string]string{"P": rel}, nil, &buf, true); err != nil {
@@ -226,11 +219,12 @@ func (m *Manager) Stat(ctx context.Context, s *server.Server, rel string) (Entry
 // Open streams a file to w.
 func (m *Manager) Open(ctx context.Context, s *server.Server, rel string, w io.Writer) error {
 	if m.Store.DataDir(s) != "" {
-		p, err := m.hostPath(s, rel)
+		dir, leaf, err := m.hostLeaf(s, rel)
 		if err != nil {
 			return err
 		}
-		f, err := openRegular(p)
+		defer dir.Close()
+		f, err := openRegularAt(dir, leaf)
 		if err != nil {
 			return err
 		}
@@ -269,15 +263,11 @@ func (m *Manager) ReadText(ctx context.Context, s *server.Server, rel string) (s
 	return string(b), true, nil
 }
 
-// WriteFile replaces or creates a file inside /data.
+// WriteFile replaces or creates a file inside /data. rel's containment is checked by writeDataFile itself,
+// race-safely (see safefs_unix.go), which is also why there is no separate check here.
 func (m *Manager) WriteFile(ctx context.Context, s *server.Server, rel string, r io.Reader) error {
 	if rel == "" {
 		return ErrOutside
-	}
-	if m.Store.DataDir(s) != "" {
-		if _, err := m.hostPath(s, rel); err != nil {
-			return err
-		}
 	}
 	return m.writeDataFile(ctx, s, rel, r)
 }
@@ -288,11 +278,12 @@ func (m *Manager) Remove(ctx context.Context, s *server.Server, rel string) erro
 		return ErrOutside
 	}
 	if m.Store.DataDir(s) != "" {
-		p, err := m.hostPath(s, rel)
+		dir, leaf, err := m.hostLeaf(s, rel)
 		if err != nil {
 			return err
 		}
-		return os.RemoveAll(p)
+		defer dir.Close()
+		return removeAt(dir, leaf)
 	}
 	return m.dataShell(ctx, s, `rm -rf -- "/data/$P"`, map[string]string{"P": rel}, nil, io.Discard, false)
 }

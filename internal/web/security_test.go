@@ -45,8 +45,10 @@ func cookieNamed(rec *httptest.ResponseRecorder, name string) *http.Cookie {
 	return nil
 }
 
-// withMail points the dashboard at a fresh sink.
-func withMail(t *testing.T, st *access.Store) *smtpSink {
+// withMail points the dashboard at a fresh sink and gives it a public address, so a mail that carries a link
+// (linksReady) is actually sent; TestForgotWithoutMailSaysSo and TestResetLinksUseThePublicAddress cover the
+// two cases this skips (no mail at all, and a caller-chosen address overriding this default).
+func withMail(t *testing.T, d *dashboard, st *access.Store) *smtpSink {
 	t.Helper()
 	sink := newSMTPSink(t)
 	var port int
@@ -54,6 +56,9 @@ func withMail(t *testing.T, st *access.Store) *smtpSink {
 		port = port*10 + int(c-'0')
 	}
 	if err := st.SaveMailConfig(mailer.Config{Host: "127.0.0.1", Port: port, Security: "none", From: "noreply@example.com"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := d.app.Cfg.Update(func(s *config.Settings) { s.PublicURL = "https://cubeherd.example.com" }); err != nil {
 		t.Fatal(err)
 	}
 	return sink
@@ -270,7 +275,7 @@ func TestGracePeriodShowsABannerInsteadOfBlocking(t *testing.T) {
 
 func TestPasswordResetByMail(t *testing.T) {
 	d, st := newAccounts(t)
-	sink := withMail(t, st)
+	sink := withMail(t, d, st)
 	u := newUserWithPassword(t, st, "lena", "lena@example.com", goodPW)
 	oldSession := d.cookieFor(t, st, "lena")
 
@@ -322,7 +327,7 @@ func TestPasswordResetByMail(t *testing.T) {
 func TestForgotWithoutMailSaysSo(t *testing.T) {
 	d, _ := newAccounts(t)
 	rec := d.guest("GET", "/forgot", nil)
-	if rec.Code != 200 || !strings.Contains(rec.Body.String(), "cannot send e-mail") {
+	if rec.Code != 200 || !strings.Contains(rec.Body.String(), "cannot send you a link") {
 		t.Fatalf("%d", rec.Code)
 	}
 	if rec := d.guest("GET", "/login", nil); strings.Contains(rec.Body.String(), "/forgot") {
@@ -330,9 +335,36 @@ func TestForgotWithoutMailSaysSo(t *testing.T) {
 	}
 }
 
+// TestForgotNeedsPublicURLToo covers the other half of linksReady: mail alone is not enough. Without a
+// configured public address, a reset link would otherwise come from the request's Host header.
+func TestForgotNeedsPublicURLToo(t *testing.T) {
+	d, st := newAccounts(t)
+	sink := newSMTPSink(t)
+	var port int
+	for _, c := range sink.port() {
+		port = port*10 + int(c-'0')
+	}
+	if err := st.SaveMailConfig(mailer.Config{Host: "127.0.0.1", Port: port, Security: "none", From: "noreply@example.com"}); err != nil {
+		t.Fatal(err)
+	}
+	newUserWithPassword(t, st, "lena", "lena@example.com", goodPW)
+	if rec := d.guest("GET", "/forgot", nil); !strings.Contains(rec.Body.String(), "cannot send you a link") {
+		t.Fatal("mail without a public address must still show noreset")
+	}
+	req := httptest.NewRequest("POST", "/forgot", strings.NewReader(url.Values{"email": {"lena@example.com"}}.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.Header.Set("Origin", "http://evil.test")
+	req.Host = "evil.test"
+	d.h.ServeHTTP(httptest.NewRecorder(), req)
+	time.Sleep(150 * time.Millisecond)
+	if sink.received() != 0 {
+		t.Fatalf("a reset mail was sent without a public address: %q", sink.last())
+	}
+}
+
 func TestResetLinksUseThePublicAddress(t *testing.T) {
 	d, st := newAccounts(t)
-	sink := withMail(t, st)
+	sink := withMail(t, d, st)
 	newUserWithPassword(t, st, "lena", "lena@example.com", goodPW)
 	if err := d.app.Cfg.Update(func(s *config.Settings) { s.PublicURL = "https://cubeherd.example.net" }); err != nil {
 		t.Fatal(err)
@@ -351,7 +383,7 @@ func TestResetLinksUseThePublicAddress(t *testing.T) {
 
 func TestNotMeLinkLocksTheAccount(t *testing.T) {
 	d, st := newAccounts(t)
-	withMail(t, st)
+	withMail(t, d, st)
 	u := newUserWithPassword(t, st, "lena", "lena@example.com", goodPW)
 	sess := d.cookieFor(t, st, "lena")
 	tok, _ := st.NewToken(u.ID, access.TokenNotMe, time.Hour, "")
@@ -375,7 +407,7 @@ func TestNotMeLinkLocksTheAccount(t *testing.T) {
 
 func TestSignInNoticesFollowTheSetting(t *testing.T) {
 	d, st := newAccounts(t)
-	sink := withMail(t, st)
+	sink := withMail(t, d, st)
 	newUserWithPassword(t, st, "lena", "lena@example.com", goodPW)
 	login := func(cs ...*http.Cookie) *httptest.ResponseRecorder {
 		return d.guest("POST", "/login", url.Values{"user": {"lena"}, "password": {goodPW}}, cs...)
@@ -469,7 +501,7 @@ func TestRegistrationModes(t *testing.T) {
 
 func TestRegistrationWithVerificationAndApproval(t *testing.T) {
 	d, st := newAccounts(t)
-	sink := withMail(t, st)
+	sink := withMail(t, d, st)
 	_ = st.SaveSecurity(access.Security{Registration: "approval", RequireVerified: true, Notice: "off", TwoFA: "off"})
 	d.guest("POST", "/register", url.Values{"name": {"nina"}, "email": {"nina@example.com"}, "password": {goodPW}, "password2": {goodPW}})
 	u, _, err := st.UserByName("nina")
@@ -543,7 +575,7 @@ func TestRejectingARegistrationRemovesIt(t *testing.T) {
 
 func TestRegisteringWithAnExistingAddressRevealsNothing(t *testing.T) {
 	d, st := newAccounts(t)
-	withMail(t, st)
+	withMail(t, d, st)
 	newUserWithPassword(t, st, "lena", "lena@example.com", goodPW)
 	_ = st.SaveSecurity(access.Security{Registration: "open", Notice: "off", TwoFA: "off"})
 	fresh := d.guest("POST", "/register", url.Values{"name": {"neu"}, "email": {"neu@example.com"}, "password": {goodPW}, "password2": {goodPW}}).Body.String()
@@ -609,7 +641,7 @@ func TestSecuritySettingsAreValidatedAndAudited(t *testing.T) {
 	if rec := post(url.Values{"registration": {"open"}, "requireVerified": {"on"}, "notice": {"off"}, "twofa": {"off"}}); !strings.Contains(rec.Header().Get("HX-Trigger"), "crit") {
 		t.Fatal("verification accepted without mail")
 	}
-	withMail(t, st)
+	withMail(t, d, st)
 	post(url.Values{"registration": {"approval"}, "requireVerified": {"on"}, "notice": {"new"}, "twofa": {"privileged"}, "graceDays": {"14"}, "domains": {"corp.test"}})
 	s := st.Security()
 	if s.Registration != "approval" || !s.RequireVerified || s.Notice != "new" || s.TwoFA != "privileged" || s.GraceDays != 14 || s.Domains != "corp.test" {

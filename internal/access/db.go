@@ -197,6 +197,11 @@ CREATE TABLE devices (
 INSERT OR IGNORE INTO role_perms(role_id, perm) SELECT role_id, 'server.resources' FROM role_perms WHERE perm='server.settings';
 INSERT OR IGNORE INTO role_perms(role_id, perm) SELECT role_id, 'server.network' FROM role_perms WHERE perm='server.settings';
 INSERT OR IGNORE INTO role_perms(role_id, perm) SELECT role_id, 'server.advanced' FROM role_perms WHERE perm='server.settings';
+`, `
+-- A group's mapped claim value used to be matched against every configured provider, so two providers that
+-- happen to send the same group claim value could map a sign-in through either of them onto the same group.
+-- "" keeps matching any provider (a single-provider setup is unaffected); a non-empty value scopes the match.
+ALTER TABLE groups ADD COLUMN oidc_provider TEXT NOT NULL DEFAULT '';
 `}
 
 func (s *Store) migrate() error {

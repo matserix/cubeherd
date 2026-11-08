@@ -13,7 +13,7 @@
   {{else if eq $d.Kind "noreset"}}
   <div class="panel">
     <div class="brand">{{template "brand" .}}</div>
-    <div><h1>{{t "Passwort zurücksetzen"}}</h1><p class="muted" style="margin-top:4px">{{t "Dieses Dashboard kann keine E-Mails senden. Bitte einen Admin, dein Passwort zu ändern."}}</p></div>
+    <div><h1>{{t "Passwort zurücksetzen"}}</h1><p class="muted" style="margin-top:4px">{{t "Dieses Dashboard kann dir keinen Link schicken: E-Mail ist nicht eingerichtet oder es fehlt die öffentliche Adresse in den Einstellungen. Bitte einen Admin, dein Passwort zu ändern."}}</p></div>
     <a class="btn" href="/login">{{t "Zur Anmeldung"}}</a>
   </div>
 

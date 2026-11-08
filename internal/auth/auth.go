@@ -84,7 +84,8 @@ func (s Sessions) Valid(r *http.Request) bool {
 	return err == nil && time.Now().Unix() < exp
 }
 
-// Limiter slows down repeated failed logins per client IP.
+// Limiter slows down repeated failed logins per client IP or other caller-chosen key (such as a user name,
+// which a caller supplies and so does not control what keys exist, but does control their number).
 type Limiter struct {
 	mu   sync.Mutex
 	fail map[string]*attempt
@@ -94,6 +95,11 @@ type attempt struct {
 	n    int
 	last time.Time
 }
+
+// maxKeys bounds memory under a flood of distinct keys (for example made-up user names on /login). Once it is
+// reached, FailKey makes room by evicting one entry via evict, which never removes a key that is already being
+// throttled while a key that is not yet throttled remains, so a flood of new keys cannot clear a lockout early.
+const maxKeys = 1000
 
 func NewLimiter() *Limiter { return &Limiter{fail: map[string]*attempt{}} }
 
@@ -117,12 +123,15 @@ func (l *Limiter) WaitKey(key string) time.Duration {
 	return l.wait(key)
 }
 
+// blockThreshold is how many failures a key may have before it is throttled at all.
+const blockThreshold = 5
+
 func (l *Limiter) wait(key string) time.Duration {
 	a := l.fail[key]
-	if a == nil || a.n < 5 {
+	if a == nil || a.n < blockThreshold {
 		return 0
 	}
-	block := time.Duration(1<<min(a.n-5, 8)) * time.Second
+	block := time.Duration(1<<min(a.n-blockThreshold, 8)) * time.Second
 	if d := time.Until(a.last.Add(block)); d > 0 {
 		return d
 	}
@@ -135,19 +144,42 @@ func (l *Limiter) ResetKey(key string) {
 	delete(l.fail, key)
 }
 
-func (l *Limiter) FailKey(ip string) {
+func (l *Limiter) FailKey(key string) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
-	a := l.fail[ip]
+	a := l.fail[key]
 	if a == nil {
-		if len(l.fail) > 1000 {
-			l.fail = map[string]*attempt{}
+		if len(l.fail) >= maxKeys {
+			l.evict()
 		}
 		a = &attempt{}
-		l.fail[ip] = a
+		l.fail[key] = a
 	}
 	a.n++
 	a.last = time.Now()
+}
+
+// evict makes room for one new key by dropping an existing one: preferably the oldest key that is not yet
+// throttled (n < blockThreshold), so a flood of brand-new, still-untouched keys cannot push out a key whose
+// lockout is already running. Only once every key is already throttled does it fall back to the oldest of those.
+func (l *Limiter) evict() {
+	var victim string
+	var victimLast time.Time
+	victimBlocking := true
+	for k, a := range l.fail {
+		blocking := a.n >= blockThreshold
+		switch {
+		case victim == "":
+			victim, victimLast, victimBlocking = k, a.last, blocking
+		case victimBlocking && !blocking:
+			victim, victimLast, victimBlocking = k, a.last, blocking
+		case blocking == victimBlocking && a.last.Before(victimLast):
+			victim, victimLast = k, a.last
+		}
+	}
+	if victim != "" {
+		delete(l.fail, victim)
+	}
 }
 
 func (l *Limiter) Reset(r *http.Request) { l.ResetKey(clientIP(r)) }

@@ -195,7 +195,7 @@ func (a *App) ssoCallback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if p.GroupClaim != "" {
-		_ = st.SetMappedGroups(u.ID, claims.Groups)
+		_ = st.SetMappedGroups(u.ID, p.ID, claims.Groups)
 	}
 	if u.Status == access.StatusPending {
 		a.ssoFail(w, r, p, errors.New(a.t("Dein Konto wartet auf die Freigabe durch einen Admin.")), false)
