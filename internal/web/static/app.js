@@ -405,8 +405,146 @@
   document.addEventListener('click', e => {
     const b = e.target.closest && e.target.closest('[data-reset]'); if (!b) return;
     const inp = b.parentNode.querySelector('input[type=color]');
-    inp.value = inp.dataset.def; paint(inp);
+    inp.value = inp.dataset.def;
+    inp.dispatchEvent(new Event('input', { bubbles: true })); // paint() above, and the color picker's own swatch below
   });
+})();
+
+/* ---------------- Custom Color Picker ----------------
+   Enhances each input[type=color][data-var]. The native input stays in the form as the value holder (its
+   value, and the input/change events the white-label preview and the reset button above already rely on),
+   hidden behind a swatch button that opens a saturation/value area plus a hue slider and a hex field. */
+(function () {
+  const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+  function hexToHsv(hex) {
+    const n = /^#?([0-9a-f]{6})$/i.test(hex || '') ? parseInt(hex.replace('#', ''), 16) : 0;
+    const r = (n >> 16 & 255) / 255, g = (n >> 8 & 255) / 255, b = (n & 255) / 255;
+    const max = Math.max(r, g, b), min = Math.min(r, g, b), d = max - min;
+    let h = 0;
+    if (d) {
+      if (max === r) h = ((g - b) / d) % 6;
+      else if (max === g) h = (b - r) / d + 2;
+      else h = (r - g) / d + 4;
+      h *= 60; if (h < 0) h += 360;
+    }
+    return { h, s: max === 0 ? 0 : d / max, v: max };
+  }
+  function hsvToHex(h, s, v) {
+    const c = v * s, x = c * (1 - Math.abs((h / 60) % 2 - 1)), m = v - c;
+    const [r, g, b] = h < 60 ? [c, x, 0] : h < 120 ? [x, c, 0] : h < 180 ? [0, c, x] : h < 240 ? [0, x, c] : h < 300 ? [x, 0, c] : [c, 0, x];
+    const to255 = n => Math.round((n + m) * 255).toString(16).padStart(2, '0');
+    return '#' + to255(r) + to255(g) + to255(b);
+  }
+
+  let cp = null; // { inp, btn, pop, h, s, v }
+
+  function swatch(btn, hex) { const sw = btn.querySelector('.cp-sw'); if (sw) sw.style.background = hex; }
+
+  function enhanceColor(inp) {
+    inp.dataset.cp = '1';
+    const wrap = document.createElement('span'); wrap.className = 'cpick';
+    const btn = document.createElement('button');
+    btn.type = 'button'; btn.className = 'cp-btn'; btn.setAttribute('aria-haspopup', 'dialog'); btn.setAttribute('aria-expanded', 'false');
+    btn.setAttribute('aria-label', inp.getAttribute('aria-label') || 'Farbe');
+    btn.innerHTML = '<span class="cp-sw"></span>';
+    swatch(btn, inp.value);
+    inp.before(wrap); wrap.append(btn, inp);
+    inp.tabIndex = -1; inp.setAttribute('aria-hidden', 'true');
+  }
+
+  function place() {
+    if (!cp) return;
+    const r = cp.btn.getBoundingClientRect();
+    cp.pop.style.left = Math.max(8, Math.min(r.left, innerWidth - cp.pop.offsetWidth - 8)) + 'px';
+    const below = innerHeight - r.bottom - 8;
+    if (below < cp.pop.offsetHeight && r.top - 8 > below) { cp.pop.style.top = ''; cp.pop.style.bottom = (innerHeight - r.top + 6) + 'px'; }
+    else { cp.pop.style.bottom = ''; cp.pop.style.top = (r.bottom + 6) + 'px'; }
+  }
+
+  function render() {
+    const { pop, h, s, v } = cp;
+    pop.querySelector('.cp-area').style.setProperty('--cp-h', h);
+    pop.querySelector('.cp-cursor').style.left = (s * 100) + '%';
+    pop.querySelector('.cp-cursor').style.top = ((1 - v) * 100) + '%';
+    pop.querySelector('.cp-hue-cursor').style.left = (h / 360 * 100) + '%';
+    const hex = hsvToHex(h, s, v);
+    pop.querySelector('.cp-hex').value = hex.slice(1);
+    pop.querySelector('.cp-pv').style.background = hex;
+  }
+
+  function commit() {
+    const hex = hsvToHex(cp.h, cp.s, cp.v);
+    if (cp.inp.value !== hex) {
+      cp.inp.value = hex;
+      cp.inp.dispatchEvent(new Event('input', { bubbles: true }));
+      cp.inp.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+    swatch(cp.btn, hex);
+  }
+
+  function open(btn) {
+    if (cp && cp.btn === btn) return close();
+    close();
+    const inp = btn.nextElementSibling;
+    const { h, s, v } = hexToHsv(inp.value);
+    const pop = document.createElement('div');
+    pop.className = 'cp-pop'; pop.setAttribute('role', 'dialog');
+    pop.innerHTML = '<div class="cp-area"><div class="cp-cursor"></div></div>' +
+      '<div class="cp-hue"><div class="cp-hue-cursor"></div></div>' +
+      '<div class="cp-hex-row"><span class="cp-pv"></span><span class="cp-hash">#</span>' +
+      '<input class="cp-hex" maxlength="7" spellcheck="false" autocomplete="off" aria-label="Hex"></div>';
+    document.body.appendChild(pop);
+    btn.setAttribute('aria-expanded', 'true');
+    cp = { inp, btn, pop, h, s, v };
+    render(); place();
+    pop.querySelector('.cp-hex').addEventListener('input', e => {
+      const t = e.target.value.replace(/^#/, '');
+      if (!/^[0-9a-f]{6}$/i.test(t)) return;
+      Object.assign(cp, hexToHsv('#' + t));
+      render(); commit();
+    });
+    const drag = (track, onMove) => {
+      track.addEventListener('pointerdown', e => {
+        e.preventDefault();
+        track.setPointerCapture(e.pointerId);
+        const move = ev => { onMove(ev, track.getBoundingClientRect()); render(); commit(); };
+        move(e);
+        const up = () => { track.removeEventListener('pointermove', move); track.removeEventListener('pointerup', up); };
+        track.addEventListener('pointermove', move);
+        track.addEventListener('pointerup', up, { once: true });
+      });
+    };
+    drag(pop.querySelector('.cp-area'), (e, r) => {
+      cp.s = clamp((e.clientX - r.left) / r.width, 0, 1);
+      cp.v = clamp(1 - (e.clientY - r.top) / r.height, 0, 1);
+    });
+    drag(pop.querySelector('.cp-hue'), (e, r) => { cp.h = clamp((e.clientX - r.left) / r.width, 0, 1) * 360; });
+    btn.focus();
+  }
+  function close() { if (cp) { cp.pop.remove(); cp.btn.setAttribute('aria-expanded', 'false'); cp = null; } }
+
+  document.addEventListener('click', e => {
+    const btn = e.target.closest('.cp-btn');
+    if (btn) return open(btn);
+    if (cp && !e.target.closest('.cp-pop')) close();
+  });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape' && cp) { close(); } });
+  window.addEventListener('scroll', () => place(), true);
+  window.addEventListener('resize', () => place());
+  // the reset button and a hand-edited .value both go through a real input event (see above), so re-reading
+  // the value here keeps the swatch (and an open popover) in sync without the picker needing to know why it changed.
+  document.addEventListener('input', e => {
+    const t = e.target;
+    if (!(t.matches && t.matches('input[type=color][data-cp]'))) return;
+    const btn = t.previousElementSibling;
+    if (btn && btn.classList.contains('cp-btn')) swatch(btn, t.value);
+    if (cp && cp.inp === t) { Object.assign(cp, hexToHsv(t.value)); render(); }
+  });
+  new MutationObserver(() => {
+    document.querySelectorAll('input[type=color][data-var]:not([data-cp])').forEach(enhanceColor);
+    if (cp && !cp.btn.isConnected) close();
+  }).observe(document.body, { childList: true, subtree: true });
+  document.querySelectorAll('input[type=color][data-var]').forEach(enhanceColor);
 })();
 
 // Custom file picker: the native <input type=file class=input> stays in the form as the value holder (submit, htmx,

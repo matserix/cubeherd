@@ -673,7 +673,25 @@ details.members .member-filter { margin: 12px 0 8px; max-width: 320px; }
 .brand-tbl td { padding: 6px 10px; vertical-align: middle; }
 .brand-group td { font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--faint); padding-top: 14px; }
 .brand-pick { display: inline-flex; align-items: center; gap: 4px; }
-.brand-pick input[type=color] { width: 44px; height: 28px; padding: 0; border: 1px solid var(--line-strong); border-radius: 4px; background: none; cursor: pointer; }
+
+/* Custom color picker: the native input[type=color] becomes an invisible, focusable value holder behind
+   a swatch button (see "Custom Color Picker" in app.js). */
+.cpick { position: relative; display: inline-flex; }
+.cpick input[type=color] { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; pointer-events: none; }
+.cp-btn { width: 44px; height: 28px; padding: 2px; border: 1px solid var(--line-strong); border-radius: 4px; background: var(--surface-2); cursor: pointer; }
+.cp-btn:hover { border-color: var(--faint); }
+.cp-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.cp-sw { display: block; width: 100%; height: 100%; border-radius: 2px; background-image: linear-gradient(45deg, var(--surface-3) 25%, transparent 25%, transparent 75%, var(--surface-3) 75%), linear-gradient(45deg, var(--surface-3) 25%, transparent 25%, transparent 75%, var(--surface-3) 75%); background-size: 8px 8px; background-position: 0 0, 4px 4px; }
+.cp-pop { position: fixed; z-index: 80; width: 200px; padding: 12px; background: var(--surface); border: 1px solid var(--line-strong); border-radius: var(--r); box-shadow: var(--shadow); animation: csin .12s ease-out; }
+.cp-area { position: relative; width: 100%; height: 120px; border-radius: 6px; overflow: hidden; cursor: crosshair; touch-action: none; background: hsl(var(--cp-h, 0) 100% 50%); background-image: linear-gradient(to top, #000, transparent), linear-gradient(to right, #fff, transparent); }
+.cp-cursor { position: absolute; width: 12px; height: 12px; margin: -6px; border-radius: 50%; border: 2px solid #fff; box-shadow: 0 0 0 1px rgba(0, 0, 0, .45); pointer-events: none; }
+.cp-hue { position: relative; height: 12px; border-radius: 6px; margin-top: 10px; cursor: pointer; touch-action: none; background: linear-gradient(to right, #f00, #ff0, #0f0, #0ff, #00f, #f0f, #f00); }
+.cp-hue-cursor { position: absolute; top: -2px; width: 16px; height: 16px; margin-left: -8px; border-radius: 50%; border: 2px solid #fff; box-shadow: 0 0 0 1px rgba(0, 0, 0, .45); background: transparent; pointer-events: none; }
+.cp-hex-row { display: flex; align-items: center; gap: 6px; margin-top: 10px; }
+.cp-pv { width: 22px; height: 22px; border-radius: 4px; border: 1px solid var(--line-strong); flex: none; }
+.cp-hash { color: var(--muted); }
+.cp-hex { flex: 1; min-width: 0; background: var(--surface-2); border: 1px solid var(--line-strong); border-radius: 4px; color: var(--fg); padding: 5px 8px; font-family: var(--font-mono); text-transform: uppercase; }
+.cp-hex:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
 .brand-up { display: flex; align-items: center; gap: 12px; }
 .brand-up .filepick { flex: 1; }
 .brand-thumb { max-height: 36px; max-width: 120px; object-fit: contain; background: var(--surface-2); border-radius: 4px; padding: 2px; }
