@@ -155,6 +155,12 @@ func (m *Manager) VerifyBackup(id, name string) error {
 			return fmt.Errorf(m.t("Archiv beschädigt: %s"), err.Error())
 		}
 		o.add("[cubeherd] " + m.t("Archiv ist in Ordnung"))
+		// Fills the index for archives it does not know yet, e.g. after moving a server's files.
+		if m.loadMeta(id)[name] == nil {
+			if sn, err := m.readSnapshot(ctx, s, m.BackupDir(s), name); err == nil {
+				m.recordSnapshot(id, name, sn)
+			}
+		}
 		if list, _ := m.BackupsAll(ctx, s); len(list) > 0 && list[0].Name == name {
 			m.recordOK(id) // the newest archive is readable, which clears an earlier "damaged" report
 		}
@@ -251,10 +257,12 @@ func (m *Manager) BackupHealth(s *server.Server, running bool) Health {
 	return Health{Level: "ok", Title: m.t("Backups sind in Ordnung"), Detail: m.t("Letztes erfolgreiches Backup: %s.", m.stamp(lastOK)) + extra}
 }
 
-// annotate fills the verification result of each archive from the stored state.
+// annotate fills the verification result and software snapshot of each archive from the stored state.
 func (m *Manager) annotate(s *server.Server, list []Backup) {
 	st := m.loadHealth(s.ID)
+	meta := m.loadMeta(s.ID)
 	for i := range list {
+		list[i].Snapshot = meta[list[i].Name]
 		if c, ok := st.Checks[list[i].Name]; ok {
 			list[i].Check, list[i].CheckErr = "ok", ""
 			if !c.OK {

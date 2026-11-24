@@ -3,6 +3,7 @@ package manager
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -29,6 +30,8 @@ type Backup struct {
 	UploadErr error
 	// Check is the stored verification result: "" (never checked), ok or bad.
 	Check, CheckErr string
+	// Snapshot is the server software at the time of the backup; nil if unknown.
+	Snapshot *server.Snapshot
 }
 
 const (
@@ -110,7 +113,11 @@ func (m *Manager) DeleteBackup(s *server.Server, name string) error {
 	if err != nil {
 		return err
 	}
-	return os.Remove(p)
+	if err := os.Remove(p); err != nil {
+		return err
+	}
+	m.forgetSnapshot(s, name)
+	return nil
 }
 
 // BackupNow creates a backup in the background as the server's current operation.
@@ -182,8 +189,13 @@ func (m *Manager) backupRun(ctx context.Context, s *server.Server, o *Op, reason
 
 	c := m.inspect(ctx, s)
 	running := c != nil && c.State.Running
-	tarArgs := append([]string{"-n", "19", "ionice", "-c3", "tar", "-I", "zstd -3 -T1"}, excludes(s)...)
-	tarArgs = append(tarArgs, "-cf", "-", "-C", "/data", ".")
+	snapshot := s.Snapshot()
+	meta, err := json.Marshal(snapshot)
+	if err != nil {
+		return Backup{}, err
+	}
+	env := "SNAPSHOT=" + string(meta)
+	tarArgs := append([]string{"-n", "19", "sh", "-c", archiveScript, "sh"}, excludes(s)...)
 
 	var cmd *exec.Cmd
 	if running {
@@ -202,9 +214,9 @@ func (m *Manager) backupRun(ctx context.Context, s *server.Server, o *Op, reason
 				o.add("[cubeherd] " + m.t("RCON nicht erreichbar, sichere den aktuellen Stand auf der Platte"))
 			}
 		}
-		cmd = exec.CommandContext(ctx, "docker", append([]string{"exec", s.Container(), "nice"}, tarArgs...)...)
+		cmd = exec.CommandContext(ctx, "docker", append([]string{"exec", "-e", env, s.Container(), "nice"}, tarArgs...)...)
 	} else {
-		cmd = exec.CommandContext(ctx, "docker", append([]string{"run", "--rm", "--entrypoint", "nice",
+		cmd = exec.CommandContext(ctx, "docker", append([]string{"run", "--rm", "-e", env, "--entrypoint", "nice",
 			"-v", m.dataMount(s) + ":/data:ro", s.ImageRef()}, tarArgs...)...)
 	}
 	o.add("[cubeherd] " + m.t("Erstelle Backup %s", name))
@@ -231,11 +243,14 @@ func (m *Manager) backupRun(ctx context.Context, s *server.Server, o *Op, reason
 		return Backup{}, err
 	}
 	info, _ := os.Stat(final)
-	b := Backup{Name: name, Time: now, Reason: reason}
+	b := Backup{Name: name, Time: now, Reason: reason, Snapshot: snapshot}
 	if info != nil {
 		b.Size = info.Size()
 	}
 	o.add("[cubeherd] " + m.t("Backup fertig: %s (%.1f MB, %s)", name, float64(b.Size)/(1<<20), time.Since(now).Round(time.Second)))
+	if prefix == "" {
+		m.recordSnapshot(s.ID, name, snapshot)
+	}
 	if !s.Plan().NoVerify {
 		o.add("[cubeherd] " + m.t("Prüfe Archiv"))
 		if err := m.verifyArchive(ctx, s, destDir, name); err != nil {
@@ -314,6 +329,7 @@ func (m *Manager) prune(s *server.Server) int {
 		}
 		if auto++; auto > keep {
 			if os.Remove(filepath.Join(m.BackupDir(s), b.Name)) == nil {
+				m.forgetSnapshot(s, b.Name)
 				n++
 			}
 		}
@@ -325,8 +341,8 @@ func (m *Manager) prune(s *server.Server) int {
 // Everything the archive does not contain (e.g. modpack mods) stays untouched.
 const restoreScript = `set -e
 cd /data
-tar -I zstd -tf "/b/$F" | cut -d/ -f2 | sort -u | grep -v -e '^$' -e '^\.$' -e '^\.\.$' | while IFS= read -r n; do rm -rf -- "./$n"; done
-tar -I zstd -xf "/b/$F"`
+tar -I zstd -tf "/b/$F" | cut -d/ -f2 | sort -u | grep -v -e '^$' -e '^\.$' -e '^\.\.$' -e '^\.cubeherd-backup\.json$' | while IFS= read -r n; do rm -rf -- "./$n"; done
+tar -I zstd --exclude=./` + snapshotFile + ` -xf "/b/$F"`
 
 // Restore replaces the world and configuration with a backup. The current state is saved first.
 func (m *Manager) Restore(id, name string) error {

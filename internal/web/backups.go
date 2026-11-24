@@ -196,7 +196,8 @@ func (a *App) restoreModal(w http.ResponseWriter, r *http.Request) {
 	list, _ := a.M.BackupsAll(r.Context(), s)
 	for _, b := range list {
 		if b.Name == name {
-			a.partial(w, "server", "restoreModal", map[string]any{"S": s, "B": b, "Pack": s.Pack != nil, "Download": !b.Local})
+			a.partial(w, "server", "restoreModal", map[string]any{"S": s, "B": b, "Pack": s.Pack != nil, "Download": !b.Local,
+				"Now": s.Snapshot(), "Differs": b.Snapshot != nil && !b.Snapshot.SameSoftware(s.Snapshot())})
 			return
 		}
 	}

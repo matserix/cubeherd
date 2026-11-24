@@ -53,7 +53,7 @@ func (a *Agent) wakeScheduler(w http.ResponseWriter, r *http.Request) {
 }
 
 func toWire(b manager.Backup) api.Backup {
-	w := api.Backup{Name: b.Name, Time: b.Time, Reason: b.Reason, Size: b.Size, Local: b.Local, Remote: b.Remote, Check: b.Check, CheckErr: b.CheckErr}
+	w := api.Backup{Name: b.Name, Time: b.Time, Reason: b.Reason, Size: b.Size, Local: b.Local, Remote: b.Remote, Check: b.Check, CheckErr: b.CheckErr, Snapshot: b.Snapshot}
 	if b.UploadErr != nil {
 		w.UploadErr = b.UploadErr.Error()
 	}

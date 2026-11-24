@@ -167,13 +167,18 @@ func (m *Manager) pruneRemote(ctx context.Context, c *s3.Client, s *server.Serve
 	}
 	sort.Slice(auto, func(i, j int) bool { return auto[i].time.After(auto[j].time) })
 	keep, n := max(s.Plan().Keep, 1), 0
+	var deleted []string
 	for i := keep; i < len(auto); i++ {
 		if c.Delete(ctx, auto[i].key) == nil {
+			deleted = append(deleted, strings.TrimPrefix(auto[i].key, m.remotePrefix(c, s)))
 			n++
 		}
 	}
 	if n > 0 {
 		m.InvalidateRemote()
+		for _, name := range deleted {
+			m.forgetSnapshot(s, name)
+		}
 	}
 	return n
 }
@@ -243,6 +248,7 @@ func (m *Manager) DeleteBackupEverywhere(ctx context.Context, s *server.Server, 
 			errs = append(errs, err)
 		}
 		m.InvalidateRemote()
+		m.forgetSnapshot(s, name)
 	}
 	return errors.Join(errs...)
 }

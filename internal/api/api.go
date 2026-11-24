@@ -242,4 +242,5 @@ type Backup struct {
 	UploadErr string
 	Check     string
 	CheckErr  string
+	Snapshot  *server.Snapshot `json:",omitempty"`
 }

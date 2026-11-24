@@ -172,6 +172,14 @@ func renderPartials(t *testing.T, lang string) {
 	if _, err := a.renderString("server", "restoreModal", map[string]any{"S": s, "B": bd.List[0], "Pack": true}); err != nil {
 		t.Error(err)
 	}
+	bd.List[0].Snapshot = &server.Snapshot{Pack: &server.Pack{Name: "ATM10", Version: "a", VersionLabel: "4.12", MC: "1.21.1"}}
+	for name, data := range map[string]any{"backupList": bd, "restoreModal": map[string]any{"S": s, "B": bd.List[0], "Pack": true, "Differs": true, "Now": s.Snapshot()}} {
+		if out, err := a.renderString("server", name, data); err != nil {
+			t.Error(err)
+		} else if !strings.Contains(out, "ATM10 4.12 · MC 1.21.1") {
+			t.Errorf("%s does not show the version in the backup", name)
+		}
+	}
 	if _, err := a.renderString("server", "updateModal", updateData{S: s, Mode: "pack", Modes: []tab{{Key: "pack"}}}); err != nil {
 		t.Error(err)
 	}

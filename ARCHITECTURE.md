@@ -213,6 +213,10 @@ internal/web          handlers, templates, SSE, static assets
 - If the server is running: `save-off` → `save-all flush` → `docker exec … nice ionice tar | zstd -3 -T1` → `save-on`.
   If stopped or paused: the same via `docker run --rm` with the server image and `/data` mounted read-only.
 - Excluded is whatever itzg downloads again: logs, caches, libraries, server JARs; for modpacks also `mods/`.
+- The first member of every archive is `./.cubeherd-backup.json`, the software snapshot (kind, type, Minecraft version, Java tag, modpack).
+  It is never extracted into `/data`. A local index (`servers/<id>/backup-meta.json`) holds the same facts per archive name, so the backup
+  tab can show them without reading archives. "Check" fills missing index entries from the archive. Archives from before the feature have no
+  snapshot. Restoring does not change the definition.
 - Restoring stops the server, backs up the current state, deletes only the entries contained in the archive and unpacks it.
 - The next run is searched after the newest scheduled backup or attempt, and for a server that never had one after its creation. (Anchoring at
   "now" would skip the very first run for good: the timer fires a moment after the planned time and "the next run after now" is tomorrow.)

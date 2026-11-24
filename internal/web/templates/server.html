@@ -163,7 +163,7 @@
     <span class="muted" style="font-size:12px">{{if .List}}{{t "%s lokal belegt" (mb .Total)}} · {{end}}{{if .Next.IsZero}}{{t "Kein Zeitplan"}}{{else}}{{t "Nächstes geplant: %s" (dt .Next)}}{{end}}{{if .Busy}} · <span class="spin-on-req" style="display:inline-block;vertical-align:-2px"></span> {{t "Aktion läuft"}}{{end}}</span></div>
   {{if .RemoteError}}<div class="callout warn"><div><b>{{t "Externer Speicher nicht erreichbar"}}</b><span class="muted">{{.RemoteError}}</span></div></div>{{end}}
   <div class="tbl-wrap"><table class="tbl"><thead><tr><th>{{t "Zeitpunkt"}}</th><th>{{t "Anlass"}}</th><th class="hide-sm">{{t "Größe"}}</th>{{if .Remote}}<th class="hide-sm">{{t "Speicherort"}}</th>{{end}}<th class="hide-sm">{{t "Prüfung"}}</th><th class="right"></th></tr></thead><tbody>
-  {{range .List}}<tr><td class="num">{{dt .Time}}</td><td>{{t .Label}}</td><td class="hide-sm num">{{mb .Size}}</td>
+  {{range .List}}<tr><td class="num">{{dt .Time}}</td><td>{{t .Label}}{{with .Snapshot}}<div class="muted" style="font-size:12px">{{.Label}}</div>{{end}}</td><td class="hide-sm num">{{mb .Size}}</td>
     {{if $.Remote}}<td class="hide-sm">{{if and .Local .Remote}}{{t "Lokal + extern"}}{{else if .Remote}}{{t "Extern"}}{{else}}{{t "Lokal"}}{{end}}</td>{{end}}
     <td class="hide-sm">{{if eq .Check "ok"}}<span class="pill ok">{{t "Geprüft"}}</span>{{else if eq .Check "bad"}}<span class="pill crit" title="{{.CheckErr}}">{{t "Defekt"}}</span>{{else}}<span class="pill warn" title="{{t "Noch nicht geprüft"}}">{{t "Ungeprüft"}}</span>{{end}}</td>
     <td class="right"><div class="actions" style="justify-content:flex-end">
@@ -183,6 +183,8 @@
 <form hx-post="/servers/{{.S.ID}}/backups/{{.B.Name}}/restore">
 <div class="modal-body">
   <p>{{t "%s wird gestoppt, und Welt sowie Konfiguration werden durch den Stand vom %s (%s) ersetzt." .S.Name (dt .B.Time) (t .B.Label)}}</p>
+  {{with .B.Snapshot}}<p>{{t "Stand im Backup:"}} <b>{{.Label}}</b></p>{{end}}
+  {{if .Differs}}<div class="callout warn"><div><b>{{t "Die Version wird nicht zurückgesetzt"}}</b><span class="muted">{{t "Der Server bleibt auf %s. Welt und Konfiguration stammen aus einem anderen Stand; stelle die passende Version bei Bedarf über „Update“ ein." .Now.Label}}</span></div></div>{{end}}
   {{if .Download}}<p class="muted">{{t "Das Backup liegt nur im externen Speicher und wird zuerst heruntergeladen."}}</p>{{end}}
   <div class="callout info"><div><b>{{t "Vorher wird gesichert"}}</b><span class="muted">{{t "Vom aktuellen Stand entsteht automatisch ein Backup „Vor Wiederherstellung“."}}{{if .Pack}} {{t "Die Mods des Modpacks bleiben unverändert."}}{{end}}</span></div></div>
 </div>

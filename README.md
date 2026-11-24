@@ -209,7 +209,7 @@ Agents add a second entry point with the same reach as an administrator: protect
 - **Uninstall:** keep the data or delete everything.
 - **Adopt** existing itzg containers (per node).
 - **Several hosts:** one dashboard for any number of agents, servers grouped by node, per-node ports and addresses, clear behaviour when a node is unreachable.
-- **Backups:** manual, scheduled, automatic before updates, restore, download. Optionally uploaded to S3-compatible storage (AWS S3, Backblaze B2, Hetzner, Wasabi, Cloudflare R2, MinIO), and optionally kept only there.
+- **Backups:** manual, scheduled, automatic before updates, restore, download. Each backup shows the Minecraft or modpack version it was made with. Optionally uploaded to S3-compatible storage (AWS S3, Backblaze B2, Hetzner, Wasabi, Cloudflare R2, MinIO), and optionally kept only there.
 - **Backup checks:** every archive is read back after it is made, damaged ones are flagged, and a banner warns when backups fail or stay overdue.
 - **Performance:** live TPS, tick time (MSPT), CPU and memory with a short history, per dimension on Forge and NeoForge. Queried over RCON only while the tab is open.
 - **Statistics (optional):** history of node and server load, players and TPS recorded on each node, with events and availability, rights per node and server, and a Prometheus endpoint. See [Statistics](#statistics).

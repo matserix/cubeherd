@@ -160,7 +160,7 @@ func (c *Client) BackupsAll(ctx context.Context, s *server.Server) ([]manager.Ba
 	}
 	out := make([]manager.Backup, len(l))
 	for i, b := range l {
-		out[i] = manager.Backup{Name: b.Name, Time: b.Time, Reason: b.Reason, Size: b.Size, Local: b.Local, Remote: b.Remote, Check: b.Check, CheckErr: b.CheckErr}
+		out[i] = manager.Backup{Name: b.Name, Time: b.Time, Reason: b.Reason, Size: b.Size, Local: b.Local, Remote: b.Remote, Check: b.Check, CheckErr: b.CheckErr, Snapshot: b.Snapshot}
 		if b.UploadErr != "" {
 			out[i].UploadErr = errors.New(b.UploadErr)
 		}
