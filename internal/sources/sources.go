@@ -73,6 +73,9 @@ func (c *Client) getJSON(ctx context.Context, u string, hdr map[string]string, o
 	if resp.StatusCode == http.StatusForbidden || resp.StatusCode == http.StatusUnauthorized {
 		return ErrUnauthorized
 	}
+	if resp.StatusCode == http.StatusNotFound {
+		return fmt.Errorf("%s: %s: %w", req.URL.Host, resp.Status, errNotFound)
+	}
 	if resp.StatusCode >= 400 {
 		return fmt.Errorf("%s: %s", req.URL.Host, resp.Status)
 	}
@@ -80,6 +83,8 @@ func (c *Client) getJSON(ctx context.Context, u string, hdr map[string]string, o
 }
 
 var ErrUnauthorized = errors.New("API-Key ungültig oder fehlt")
+
+var errNotFound = errors.New("not found")
 
 // ---------------- Mojang ----------------
 
@@ -285,6 +290,25 @@ func (c *Client) ModrinthVersions(ctx context.Context, slug string) ([]PackVersi
 		return nil, err
 	}
 	return v.([]PackVersion), nil
+}
+
+// PackVersionExists asks for one pack version by id (the version lists only hold the newest ones). It reports
+// false without an error when the source no longer has it.
+func (c *Client) PackVersionExists(ctx context.Context, curseforge bool, projectID, versionID string) (bool, error) {
+	u, hdr := "https://api.modrinth.com/v2/version/"+url.PathEscape(versionID), map[string]string(nil)
+	if curseforge {
+		h, err := c.cfHeader()
+		if err != nil {
+			return false, err
+		}
+		u, hdr = cfBase+"/mods/"+url.PathEscape(projectID)+"/files/"+url.PathEscape(versionID), h
+	}
+	var res struct{}
+	err := c.getJSON(ctx, u, hdr, &res)
+	if errors.Is(err, errNotFound) {
+		return false, nil
+	}
+	return err == nil, err
 }
 
 // CurseForge ------------------------------------------------------------

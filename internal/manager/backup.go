@@ -339,13 +339,46 @@ func (m *Manager) prune(s *server.Server) int {
 
 // restoreScript removes the top-level entries contained in the archive and extracts it.
 // Everything the archive does not contain (e.g. modpack mods) stays untouched.
+// For modpacks ($PACK) itzg's manifests that already exist are kept: they list the mods that are on disk, which
+// the archive does not carry. An older manifest would leave newer mods behind next to the older ones.
 const restoreScript = `set -e
 cd /data
-tar -I zstd -tf "/b/$F" | cut -d/ -f2 | sort -u | grep -v -e '^$' -e '^\.$' -e '^\.\.$' -e '^\.cubeherd-backup\.json$' | while IFS= read -r n; do rm -rf -- "./$n"; done
-tar -I zstd --exclude=./` + snapshotFile + ` -xf "/b/$F"`
+keep='` + snapshotFile + `'
+set -- --exclude=./` + snapshotFile + `
+if [ -n "$PACK" ]; then
+  for f in .*manifest.json; do
+    [ -f "$f" ] || continue
+    keep="$keep
+$f"
+    set -- "$@" "--exclude=./$f"
+  done
+fi
+tar -I zstd -tf "/b/$F" | cut -d/ -f2 | sort -u | grep -v -e '^$' -e '^\.$' -e '^\.\.$' | grep -vxF -e "$keep" | while IFS= read -r n; do rm -rf -- "./$n"; done
+tar -I zstd "$@" -xf "/b/$F"`
 
-// Restore replaces the world and configuration with a backup. The current state is saved first.
-func (m *Manager) Restore(id, name string) error {
+// rollbackTarget returns the definition the server gets when archive name is restored together with its software
+// version. The local index is preferred; without an entry the local archive is asked.
+func (m *Manager) rollbackTarget(ctx context.Context, s *server.Server, name string) (*server.Server, error) {
+	sn := m.loadMeta(s.ID)[name]
+	if sn == nil {
+		sn, _ = m.readSnapshot(ctx, s, m.BackupDir(s), name)
+	}
+	if !s.CanRollback(sn) {
+		return nil, errors.New(m.t("Die Version aus diesem Backup lässt sich nicht wiederherstellen"))
+	}
+	return s.Rollback(sn), nil
+}
+
+// installPack lets the image install the modpack version of s without starting the server. itzg replaces the mods
+// of the installed version and overwrites the pack's configuration files, so it runs before the backup is extracted.
+func (m *Manager) installPack(ctx context.Context, s *server.Server, o *Op) error {
+	o.add("[cubeherd] " + m.t("Installiere %s", s.Snapshot().Label()))
+	return m.compose(ctx, s, o, "run", "--rm", "--no-deps", "-T", "-e", "SETUP_ONLY=true", "mc")
+}
+
+// Restore replaces the world and configuration with a backup. The current state is saved first. With rollback the
+// server also goes back to the software version the backup was made with.
+func (m *Manager) Restore(id, name string, rollback bool) error {
 	s, err := m.Store.Get(id)
 	if err != nil {
 		return err
@@ -354,6 +387,11 @@ func (m *Manager) Restore(id, name string) error {
 	if localErr != nil && !m.hasRemoteBackup(s, name) {
 		return errors.New(m.t("Backup nicht gefunden"))
 	}
+	if rollback {
+		if err := m.mayStart(s); err != nil {
+			return err
+		}
+	}
 	return m.run(id, server.StatusRestoring, func(o *Op) error {
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Hour)
 		defer cancel()
@@ -361,6 +399,18 @@ func (m *Manager) Restore(id, name string) error {
 			if err := m.fetch(ctx, s, o, name); err != nil {
 				return fmt.Errorf(m.t("Download aus dem externen Speicher fehlgeschlagen: %w"), err)
 			}
+			if s.Plan().RemoteOnly {
+				defer os.Remove(filepath.Join(m.BackupDir(s), name)) // fetched only for this restore
+			}
+		}
+		// Decided before anything changes, so a backup without a usable version leaves the server running.
+		var target *server.Server
+		if rollback {
+			t, err := m.rollbackTarget(ctx, s, name)
+			if err != nil {
+				return err
+			}
+			target = t
 		}
 		c := m.inspect(ctx, s)
 		wasUp := c != nil && c.State.Running
@@ -373,26 +423,46 @@ func (m *Manager) Restore(id, name string) error {
 		if _, err := m.backup(ctx, s, o, ReasonRestore, m.BackupDir(s), ""); err != nil {
 			return fmt.Errorf(m.t("Sicherung des aktuellen Stands fehlgeschlagen, Wiederherstellung abgebrochen: %w"), err)
 		}
+		cur := s
+		if target != nil && target.Pack != nil {
+			if err := m.Store.Save(target, m.globals()); err != nil {
+				return err
+			}
+			if err := m.installPack(ctx, target, o); err != nil {
+				return errors.Join(fmt.Errorf(m.t("Die Version aus dem Backup ließ sich nicht installieren. Der Server bleibt gestoppt, der Stand davor liegt im Backup „Vor Wiederherstellung“: %w"), err),
+					m.Store.Save(s, m.globals()))
+			}
+			cur = target
+		}
 		o.add("[cubeherd] " + m.t("Stelle %s wieder her", name))
-		cmd := exec.CommandContext(ctx, "docker", "run", "--rm", "-e", "F="+name, "-v", m.dataMount(s)+":/data",
-			"-v", m.BackupDir(s)+":/b:ro", "--entrypoint", "sh", s.ImageRef(), "-c", restoreScript)
+		pack := ""
+		if cur.Pack != nil {
+			pack = "1"
+		}
+		cmd := exec.CommandContext(ctx, "docker", "run", "--rm", "-e", "F="+name, "-e", "PACK="+pack, "-v", m.dataMount(cur)+":/data",
+			"-v", m.BackupDir(cur)+":/b:ro", "--entrypoint", "sh", cur.ImageRef(), "-c", restoreScript)
 		var stderr bytes.Buffer
 		cmd.Stdout, cmd.Stderr = io.Discard, &stderr
 		if err := cmd.Run(); err != nil {
-			if localErr != nil && s.Plan().RemoteOnly {
-				os.Remove(filepath.Join(m.BackupDir(s), name))
-			}
 			return fmt.Errorf(m.t("Wiederherstellung fehlgeschlagen: %s"), firstLine(stderr.String(), err))
 		}
-		if localErr != nil && s.Plan().RemoteOnly {
-			os.Remove(filepath.Join(m.BackupDir(s), name)) // fetched only for this restore
+		if target != nil {
+			cur = target
+			if err := m.Store.Save(cur, m.globals()); err != nil {
+				return err
+			}
+			m.event(id, "update", "")
 		}
 		o.add("[cubeherd] " + m.t("Wiederherstellung abgeschlossen"))
 		if wasUp {
-			if err := m.Store.Save(s, m.globals()); err != nil {
+			if err := m.Store.Save(cur, m.globals()); err != nil {
 				return err
 			}
-			return m.compose(ctx, s, o, "up", "-d")
+			return m.compose(ctx, cur, o, "up", "-d")
+		}
+		if target != nil && c != nil {
+			// Replace the stopped container, so nothing can start it with the newer version.
+			return m.compose(ctx, cur, o, "up", "--no-start")
 		}
 		return nil
 	})

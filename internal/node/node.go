@@ -102,7 +102,7 @@ type Backups interface {
 	DeleteBackupEverywhere(ctx context.Context, s *server.Server, name string) error
 	VerifyBackup(id, name string) error
 	UploadBackup(id, name string) error
-	Restore(id, name string) error
+	Restore(id, name string, rollback bool) error
 	// OpenBackup opens an archive for download. A local file is an io.ReadSeeker, so it can be served with ranges.
 	OpenBackup(ctx context.Context, s *server.Server, name string) (body io.ReadCloser, size int64, mod time.Time, err error)
 	HasRemote() bool

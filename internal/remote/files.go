@@ -186,7 +186,9 @@ func (c *Client) backupAction(id, name, action string) error {
 
 func (c *Client) VerifyBackup(id, name string) error { return c.backupAction(id, name, "verify") }
 func (c *Client) UploadBackup(id, name string) error { return c.backupAction(id, name, "upload") }
-func (c *Client) Restore(id, name string) error      { return c.backupAction(id, name, "restore") }
+func (c *Client) Restore(id, name string, rollback bool) error {
+	return c.quick(http.MethodPost, "/v1/servers/"+esc(id)+"/backups/"+esc(name)+"/restore?"+flag("rollback", rollback), nil, nil)
+}
 
 func (c *Client) DeleteBackupEverywhere(ctx context.Context, s *server.Server, name string) error {
 	return c.send(ctx, http.MethodDelete, srv(s)+"/backups/"+esc(name), nil, nil)

@@ -136,7 +136,7 @@ func (a *Agent) backupAction(w http.ResponseWriter, r *http.Request) {
 	case "upload":
 		fn = a.B.UploadBackup
 	case "restore":
-		fn = a.B.Restore
+		fn = func(id, name string) error { return a.B.Restore(id, name, flag(r, "rollback")) }
 	default:
 		writeErr(w, http.StatusNotFound, "", "unknown action")
 		return

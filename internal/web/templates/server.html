@@ -184,9 +184,13 @@
 <div class="modal-body">
   <p>{{t "%s wird gestoppt, und Welt sowie Konfiguration werden durch den Stand vom %s (%s) ersetzt." .S.Name (dt .B.Time) (t .B.Label)}}</p>
   {{with .B.Snapshot}}<p>{{t "Stand im Backup:"}} <b>{{.Label}}</b></p>{{end}}
-  {{if .Differs}}<div class="callout warn"><div><b>{{t "Die Version wird nicht zurückgesetzt"}}</b><span class="muted">{{t "Der Server bleibt auf %s. Welt und Konfiguration stammen aus einem anderen Stand; stelle die passende Version bei Bedarf über „Update“ ein." .Now.Label}}</span></div></div>{{end}}
+  {{if .Rollback}}
+  <label class="switch"><input type="checkbox" name="rollback" {{if not .Gone}}checked{{end}}><span class="txt">{{t "Auch die Version zurücksetzen"}}<small>{{t "Der Server läuft danach mit %s statt %s. Ohne diese Option bleibt die Version, nur Welt und Konfiguration werden ersetzt." .B.Snapshot.Label .Now.Label}}</small></span></label>
+  {{if .Gone}}<div class="callout warn"><div><b>{{t "Diese Version wird nicht mehr angeboten"}}</b><span class="muted">{{t "Die Quelle des Modpacks kennt sie nicht mehr. Das Zurücksetzen schlägt dann voraussichtlich fehl."}}</span></div></div>{{end}}
+  {{if .Unchecked}}<p class="muted">{{t "Ob die Quelle des Modpacks diese Version noch anbietet, ließ sich nicht prüfen."}}</p>{{end}}
+  {{else if .Differs}}<div class="callout warn"><div><b>{{t "Die Version wird nicht zurückgesetzt"}}</b><span class="muted">{{t "Der Server bleibt auf %s. Welt und Konfiguration stammen aus einem anderen Stand." .Now.Label}}</span></div></div>{{end}}
   {{if .Download}}<p class="muted">{{t "Das Backup liegt nur im externen Speicher und wird zuerst heruntergeladen."}}</p>{{end}}
-  <div class="callout info"><div><b>{{t "Vorher wird gesichert"}}</b><span class="muted">{{t "Vom aktuellen Stand entsteht automatisch ein Backup „Vor Wiederherstellung“."}}{{if .Pack}} {{t "Die Mods des Modpacks bleiben unverändert."}}{{end}}</span></div></div>
+  <div class="callout info"><div><b>{{t "Vorher wird gesichert"}}</b><span class="muted">{{t "Vom aktuellen Stand entsteht automatisch ein Backup „Vor Wiederherstellung“."}}{{if and .S.Pack (not .Rollback)}} {{t "Die Mods des Modpacks bleiben unverändert."}}{{end}}</span></div></div>
 </div>
 <div class="modal-foot"><button class="btn ghost" type="button" data-close>{{t "Abbrechen"}}</button><button class="btn primary">{{t "Wiederherstellen"}} <span class="spin-on-req"></span></button></div>
 </form>

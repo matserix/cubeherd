@@ -196,12 +196,35 @@ func (a *App) restoreModal(w http.ResponseWriter, r *http.Request) {
 	list, _ := a.M.BackupsAll(r.Context(), s)
 	for _, b := range list {
 		if b.Name == name {
-			a.partial(w, "server", "restoreModal", map[string]any{"S": s, "B": b, "Pack": s.Pack != nil, "Download": !b.Local,
-				"Now": s.Snapshot(), "Differs": b.Snapshot != nil && !b.Snapshot.SameSoftware(s.Snapshot())})
+			a.partial(w, "server", "restoreModal", a.restoreData(r.Context(), s, b))
 			return
 		}
 	}
 	a.fail(w, "Backup nicht gefunden.")
+}
+
+type restoreData struct {
+	S        *server.Server
+	B        manager.Backup
+	Download bool
+	Now      *server.Snapshot
+	Differs  bool // the backup was made with other software than the server runs now
+	Rollback bool // that version can be restored along with the files
+	// Gone: the modpack source no longer has the version. Unchecked: the source could not be asked.
+	Gone, Unchecked bool
+}
+
+func (a *App) restoreData(ctx context.Context, s *server.Server, b manager.Backup) restoreData {
+	d := restoreData{S: s, B: b, Download: !b.Local, Now: s.Snapshot()}
+	d.Differs = b.Snapshot != nil && !b.Snapshot.SameSoftware(d.Now)
+	d.Rollback = a.caps(ctx, s.ID).Update && s.CanRollback(b.Snapshot)
+	if d.Rollback && b.Snapshot.Pack != nil {
+		ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+		defer cancel()
+		ok, err := a.Sources.PackVersionExists(ctx, s.Kind == server.KindCurseForge, s.Pack.ProjectID, b.Snapshot.Pack.Version)
+		d.Gone, d.Unchecked = err == nil && !ok, err != nil
+	}
+	return d
 }
 
 func (a *App) restorePost(w http.ResponseWriter, r *http.Request) {
@@ -209,7 +232,12 @@ func (a *App) restorePost(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	if err := a.M.Restore(s.ID, r.PathValue("name")); err != nil {
+	rollback := checked(r, "rollback")
+	if rollback && !a.caps(r.Context(), s.ID).Update {
+		a.fail(w, "Zum Zurücksetzen der Version fehlt dir das Recht, den Server zu aktualisieren.")
+		return
+	}
+	if err := a.M.Restore(s.ID, r.PathValue("name"), rollback); err != nil {
 		fail(w, a.t(err.Error()))
 		return
 	}

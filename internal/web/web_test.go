@@ -169,16 +169,31 @@ func renderPartials(t *testing.T, lang string) {
 	if _, err := a.renderString("server", "tabPerf", serverPage{Perf: a.perfView(s, nil, nil, 0, 0, "loading", "")}); err != nil {
 		t.Error(err)
 	}
-	if _, err := a.renderString("server", "restoreModal", map[string]any{"S": s, "B": bd.List[0], "Pack": true}); err != nil {
+	if _, err := a.renderString("server", "restoreModal", restoreData{S: s, B: bd.List[0], Now: s.Snapshot()}); err != nil {
 		t.Error(err)
 	}
 	bd.List[0].Snapshot = &server.Snapshot{Pack: &server.Pack{Name: "ATM10", Version: "a", VersionLabel: "4.12", MC: "1.21.1"}}
-	for name, data := range map[string]any{"backupList": bd, "restoreModal": map[string]any{"S": s, "B": bd.List[0], "Pack": true, "Differs": true, "Now": s.Snapshot()}} {
-		if out, err := a.renderString("server", name, data); err != nil {
+	for _, d := range []restoreData{{Differs: true}, {Differs: true, Rollback: true}, {Differs: true, Rollback: true, Gone: true}, {Differs: true, Rollback: true, Unchecked: true}} {
+		d.S, d.B, d.Now = s, bd.List[0], s.Snapshot()
+		out, err := a.renderString("server", "restoreModal", d)
+		if err != nil {
 			t.Error(err)
-		} else if !strings.Contains(out, "ATM10 4.12 · MC 1.21.1") {
-			t.Errorf("%s does not show the version in the backup", name)
+			continue
 		}
+		if !strings.Contains(out, "ATM10 4.12 · MC 1.21.1") {
+			t.Errorf("restoreModal does not show the version in the backup: %+v", d)
+		}
+		if got := strings.Contains(out, `name="rollback"`); got != d.Rollback {
+			t.Errorf("rollback switch shown = %v: %+v", got, d)
+		}
+		if got := strings.Contains(out, `name="rollback" checked`); got != (d.Rollback && !d.Gone) {
+			t.Errorf("rollback switch checked = %v: %+v", got, d)
+		}
+	}
+	if out, err := a.renderString("server", "backupList", bd); err != nil {
+		t.Error(err)
+	} else if !strings.Contains(out, "ATM10 4.12 · MC 1.21.1") {
+		t.Error("backupList does not show the version in the backup")
 	}
 	if _, err := a.renderString("server", "updateModal", updateData{S: s, Mode: "pack", Modes: []tab{{Key: "pack"}}}); err != nil {
 		t.Error(err)
