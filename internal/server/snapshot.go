@@ -2,6 +2,7 @@ package server
 
 import (
 	"regexp"
+	"slices"
 	"strings"
 )
 
@@ -76,10 +77,45 @@ var (
 	snapJavaTag = regexp.MustCompile(`^java\d{1,2}(-[a-z0-9]+)*$`)
 )
 
+// softwareKeys are the variables that decide which software and version the image installs.
+var softwareKeys = []string{"TYPE", "VERSION", "MODPACK", "MODRINTH_MODPACK", "MODRINTH_VERSION", "CF_SLUG", "CF_FILE_ID",
+	"CF_PAGE_URL", "CF_FILENAME_MATCHER"}
+
+// VersionOverridden reports whether extra variables decide the software, so the definition does not tell which
+// version is installed.
+func (s *Server) VersionOverridden() bool {
+	return slices.ContainsFunc(s.ExtraEnv, func(kv KV) bool { return slices.Contains(softwareKeys, kv.Key) })
+}
+
+// RunsAs reports whether a container with this environment installs the software of the definition. It differs
+// after a change that has not recreated the container, for example a failed update.
+func (s *Server) RunsAs(env []string, g Globals) bool {
+	has := map[string]string{}
+	for _, e := range env {
+		k, v, _ := strings.Cut(e, "=")
+		has[k] = v
+	}
+	want := map[string]string{}
+	for _, kv := range s.Env(g) {
+		want[kv.Key] = kv.Value
+	}
+	for _, k := range softwareKeys {
+		w, set := want[k]
+		switch {
+		case set && !strings.EqualFold(w, has[k]):
+			return false
+		// The image has defaults for TYPE and VERSION, but never pins a pack version on its own.
+		case !set && (k == "MODRINTH_VERSION" || k == "CF_FILE_ID") && has[k] != "":
+			return false
+		}
+	}
+	return true
+}
+
 // CanRollback reports whether the server can be set back to the software of sn: it must differ from the current
 // one, be of the same kind (and the same modpack) and name exact versions.
 func (s *Server) CanRollback(sn *Snapshot) bool {
-	if sn == nil || sn.Kind != s.Kind || (sn.Pack == nil) != (s.Pack == nil) || sn.SameSoftware(s.Snapshot()) {
+	if sn == nil || s.VersionOverridden() || sn.Kind != s.Kind || (sn.Pack == nil) != (s.Pack == nil) || sn.SameSoftware(s.Snapshot()) {
 		return false
 	}
 	if !snapType.MatchString(sn.Type) || (sn.JavaTag != "" && !snapJavaTag.MatchString(sn.JavaTag)) {
@@ -92,18 +128,23 @@ func (s *Server) CanRollback(sn *Snapshot) bool {
 	return exact(sn.Version)
 }
 
-// Rollback returns a copy of the definition that runs the software of sn; s stays as it is. Everything else,
-// including the modpack's name and icon, is kept. It must only be called when CanRollback is true.
+// Rollback returns a copy of the definition that runs the software of sn; s stays as it is.
 func (s *Server) Rollback(sn *Snapshot) *Server {
 	out := *s
-	out.Type, out.Version = sn.Type, sn.Version
+	out.ApplyRollback(sn)
+	return &out
+}
+
+// ApplyRollback sets the software of sn. Everything else, including the modpack's name and icon, is kept. It must
+// only be used when CanRollback is true.
+func (s *Server) ApplyRollback(sn *Snapshot) {
+	s.Type, s.Version = sn.Type, sn.Version
 	if sn.JavaTag != "" {
-		out.JavaTag = sn.JavaTag
+		s.JavaTag = sn.JavaTag
 	}
 	if s.Pack != nil && sn.Pack != nil {
-		p := *s.Pack
+		p := *s.Pack // never change a Pack another copy of the definition points to
 		p.Version, p.VersionLabel, p.MC, p.Loader = sn.Pack.Version, sn.Pack.VersionLabel, sn.Pack.MC, sn.Pack.Loader
-		out.Pack = &p
+		s.Pack = &p
 	}
-	return &out
 }

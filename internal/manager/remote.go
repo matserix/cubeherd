@@ -142,14 +142,14 @@ func (m *Manager) upload(ctx context.Context, s *server.Server, o *Op, name stri
 	}
 	m.InvalidateRemote()
 	o.add("[cubeherd] " + m.t("Upload fertig (%s)", time.Since(start).Round(time.Second)))
-	if n := m.pruneRemote(ctx, c, s); n > 0 {
+	if n := m.pruneRemote(ctx, c, s, o.pinned); n > 0 {
 		o.add("[cubeherd] " + m.t("%d alte automatische Backups im externen Speicher gelöscht", n))
 	}
 	return nil
 }
 
 // pruneRemote deletes automatic archives beyond the plan's Keep value in the external storage.
-func (m *Manager) pruneRemote(ctx context.Context, c *s3.Client, s *server.Server) int {
+func (m *Manager) pruneRemote(ctx context.Context, c *s3.Client, s *server.Server, pinned string) int {
 	objs, err := m.remoteObjects(ctx, s, true)
 	if err != nil {
 		return 0
@@ -169,6 +169,9 @@ func (m *Manager) pruneRemote(ctx context.Context, c *s3.Client, s *server.Serve
 	keep, n := max(s.Plan().Keep, 1), 0
 	var deleted []string
 	for i := keep; i < len(auto); i++ {
+		if strings.TrimPrefix(auto[i].key, m.remotePrefix(c, s)) == pinned {
+			continue
+		}
 		if c.Delete(ctx, auto[i].key) == nil {
 			deleted = append(deleted, strings.TrimPrefix(auto[i].key, m.remotePrefix(c, s)))
 			n++

@@ -100,6 +100,22 @@ func (st *Store) Exists(id string) bool {
 func (st *Store) Save(s *Server, g Globals) error {
 	st.mu.Lock()
 	defer st.mu.Unlock()
+	return st.save(s, g)
+}
+
+// Update changes the stored definition in one step, so changes saved in the meantime are kept.
+func (st *Store) Update(id string, g Globals, change func(*Server)) (*Server, error) {
+	st.mu.Lock()
+	defer st.mu.Unlock()
+	s, err := st.read(id)
+	if err != nil {
+		return nil, err
+	}
+	change(s)
+	return s, st.save(s, g)
+}
+
+func (st *Store) save(s *Server, g Globals) error {
 	dir := st.Dir(s.ID)
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return err

@@ -219,12 +219,19 @@ internal/web          handlers, templates, SSE, static assets
   snapshot.
 - Restoring can also roll the definition back to the snapshot (a switch in the dialog, on by default; needs the update permission). Only
   type, Minecraft version, Java tag and the pack version change, only for the same kind and modpack, and only with plain identifiers,
-  because the values come from a file and end up in the compose file. For modpacks the image first installs that version
-  (`compose run` with `SETUP_ONLY=true`), then the archive is extracted: itzg overwrites the pack's configuration files while installing,
-  so the backup's copies have to come last. If the installation fails, the definition is reverted and nothing is extracted.
+  because the values come from a file and end up in the compose file. It is not offered when extra variables decide the version.
+- A backup only gets a snapshot when the definition can be trusted to describe `/data`: no such extra variables, an existing container was
+  made for the same software (not so after a failed update), and a Modrinth pack manifest on disk names the same version.
+- Restoring first reads the whole archive, then stops the server, backs up the current state, deletes only the entries contained in the
+  archive and unpacks it. Retention never deletes the archive that is being restored.
+- For a rollback of a modpack the image installs that version first (`compose run` with `SETUP_ONLY=true`, from a temporary compose file):
+  itzg overwrites the pack's configuration files while installing, so the backup's copies have to come last. The stored definition changes
+  only after everything has worked, and only its software fields, so a suspension saved meanwhile stays and keeps the server stopped.
+- If installing or unpacking fails, the safety backup is unpacked again. `/data/.cubeherd-restore` holds what that backup does not carry
+  (new top-level entries to remove; for pack rollbacks a copy of the mods and manifests). It is removed afterwards and never backed up.
+  Nothing undoes a restore that is cut off by a restart of Cubeherd.
 - A modpack restore keeps the existing `.*manifest.json` files of itzg. They list the mods on disk, which the archive does not carry; an
   older manifest would leave newer mods next to the older ones.
-- Restoring stops the server, backs up the current state, deletes only the entries contained in the archive and unpacks it.
 - The next run is searched after the newest scheduled backup or attempt, and for a server that never had one after its creation. (Anchoring at
   "now" would skip the very first run for good: the timer fires a moment after the planned time and "the next run after now" is tomorrow.)
 - The schedule is a single timer in the dashboard that sleeps until the next backup is due. Missed runs are caught up 2 minutes after startup.

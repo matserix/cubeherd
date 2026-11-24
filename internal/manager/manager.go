@@ -205,6 +205,7 @@ type Op struct {
 	notify chan struct{}
 	done   bool
 	Err    error
+	pinned string // backup that retention must keep while this operation runs
 }
 
 func (o *Op) add(l string) {
@@ -284,8 +285,12 @@ func (m *Manager) run(id string, st server.Status, fn func(o *Op) error) error {
 }
 
 func (m *Manager) compose(ctx context.Context, s *server.Server, o *Op, args ...string) error {
+	return m.composeFile(ctx, s, o, filepath.Join(m.Store.Dir(s.ID), "compose.yml"), args...)
+}
+
+func (m *Manager) composeFile(ctx context.Context, s *server.Server, o *Op, file string, args ...string) error {
 	dir := m.Store.Dir(s.ID)
-	full := append([]string{"compose", "--progress", "plain", "-f", filepath.Join(dir, "compose.yml"), "--project-directory", dir}, args...)
+	full := append([]string{"compose", "--progress", "plain", "-f", file, "--project-directory", dir}, args...)
 	o.add("[cubeherd] docker " + strings.Join(args, " "))
 	cmd := exec.CommandContext(ctx, "docker", full...)
 	pr, pw := io.Pipe()

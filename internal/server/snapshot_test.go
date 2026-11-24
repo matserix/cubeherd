@@ -68,3 +68,22 @@ func TestRollback(t *testing.T) {
 		t.Error("rollback to LATEST would not pin a version")
 	}
 }
+
+func TestRunsAs(t *testing.T) {
+	s := &Server{Kind: KindModrinth, Type: "FABRIC", Version: "1.20.4", Pack: &Pack{Slug: "p", Version: "b"}}
+	// The image adds defaults of its own, which must not count.
+	if !s.RunsAs([]string{"TYPE=MODRINTH", "MODRINTH_MODPACK=p", "MODRINTH_VERSION=b", "VERSION=LATEST"}, Globals{}) {
+		t.Error("matching container rejected")
+	}
+	if s.RunsAs([]string{"TYPE=MODRINTH", "MODRINTH_MODPACK=p", "MODRINTH_VERSION=a"}, Globals{}) {
+		t.Error("container of an older pack version accepted")
+	}
+	soft := &Server{Kind: KindSoftware, Type: "PAPER", Version: "1.21.1"}
+	if !soft.RunsAs([]string{"TYPE=paper", "VERSION=1.21.1"}, Globals{}) || soft.RunsAs([]string{"TYPE=PAPER", "VERSION=1.20.4"}, Globals{}) {
+		t.Error("software version not compared")
+	}
+	soft.ExtraEnv = []KV{{Key: "VERSION", Value: "1.19.4"}}
+	if !soft.VersionOverridden() || soft.CanRollback(&Snapshot{Kind: KindSoftware, Type: "PAPER", Version: "1.20.4"}) {
+		t.Error("an overridden version allows a rollback")
+	}
+}

@@ -10,6 +10,7 @@ import (
 	"os/exec"
 	"path/filepath"
 
+	"cubeherd/internal/docker"
 	"cubeherd/internal/server"
 )
 
@@ -30,6 +31,26 @@ ionice -c3 tar -I 'zstd -3 -T1' -cf - "$@" -C /data .
 rc=$?
 if [ -n "$d" ]; then rm -rf "$d"; fi
 exit $rc`
+
+// installedSnapshot describes the software whose files are in /data. It returns nil when the definition cannot be
+// trusted to name it: extra variables decide the version, the container was made for another one (a failed
+// update), or the Modrinth pack on disk is a different version.
+func (m *Manager) installedSnapshot(ctx context.Context, s *server.Server, c *docker.ContainerJSON) *server.Snapshot {
+	if s.VersionOverridden() || (c != nil && !s.RunsAs(c.Config.Env, m.globals())) {
+		return nil
+	}
+	if s.Kind == server.KindModrinth && s.Pack != nil && s.Pack.Version != "" {
+		if text, ok, err := m.ReadText(ctx, s, ".modrinth-modpack-manifest.json"); err == nil && ok {
+			var installed struct {
+				VersionID string `json:"versionId"`
+			}
+			if json.Unmarshal([]byte(text), &installed) == nil && installed.VersionID != "" && installed.VersionID != s.Pack.Version {
+				return nil
+			}
+		}
+	}
+	return s.Snapshot()
+}
 
 // snapshotScript prints the snapshot of an archive and stops reading right after it.
 const snapshotScript = `tar -I zstd --occurrence=1 -xOf "/b/$F" ./` + snapshotFile

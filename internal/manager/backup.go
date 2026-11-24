@@ -142,7 +142,7 @@ func excludes(s *server.Server) []string {
 	ex := []string{"--no-wildcards-match-slash"}
 	for _, p := range []string{"./logs", "./crash-reports", "./debug", "./cache", "./.cache", "./versions", "./libraries", "./libraries-*",
 		"./*.jar", "./.paused", "./.rcon-cli.*", "./.mixin.out", "./backups",
-		"./.fabric/server", "./.fabric/remappedJars"} {
+		"./.fabric/server", "./.fabric/remappedJars", "./" + restoreStash} {
 		ex = append(ex, "--exclude="+p)
 	}
 	if s.Pack != nil {
@@ -189,10 +189,14 @@ func (m *Manager) backupRun(ctx context.Context, s *server.Server, o *Op, reason
 
 	c := m.inspect(ctx, s)
 	running := c != nil && c.State.Running
-	snapshot := s.Snapshot()
-	meta, err := json.Marshal(snapshot)
-	if err != nil {
-		return Backup{}, err
+	snapshot := m.installedSnapshot(ctx, s, c)
+	// An unknown version is written as an empty object: it still shadows a file of that name in /data.
+	meta := []byte("{}")
+	if snapshot != nil {
+		var err error
+		if meta, err = json.Marshal(snapshot); err != nil {
+			return Backup{}, err
+		}
 	}
 	env := "SNAPSHOT=" + string(meta)
 	tarArgs := append([]string{"-n", "19", "sh", "-c", archiveScript, "sh"}, excludes(s)...)
@@ -248,7 +252,7 @@ func (m *Manager) backupRun(ctx context.Context, s *server.Server, o *Op, reason
 		b.Size = info.Size()
 	}
 	o.add("[cubeherd] " + m.t("Backup fertig: %s (%.1f MB, %s)", name, float64(b.Size)/(1<<20), time.Since(now).Round(time.Second)))
-	if prefix == "" {
+	if prefix == "" && snapshot != nil {
 		m.recordSnapshot(s.ID, name, snapshot)
 	}
 	if !s.Plan().NoVerify {
@@ -267,7 +271,7 @@ func (m *Manager) backupRun(ctx context.Context, s *server.Server, o *Op, reason
 		o.add("[cubeherd] " + m.t("Archiv ist in Ordnung"))
 	}
 	if prefix == "" && b.Automatic() {
-		if n := m.prune(s); n > 0 {
+		if n := m.prune(s, o.pinned); n > 0 {
 			o.add("[cubeherd] " + m.t("%d alte automatische Backups gelöscht", n))
 		}
 	}
@@ -312,8 +316,9 @@ func firstLine(s string, err error) string {
 	return l
 }
 
-// prune deletes automatic backups beyond the plan's Keep value.
-func (m *Manager) prune(s *server.Server) int {
+// prune deletes automatic backups beyond the plan's Keep value. The archive named pinned is being restored and
+// stays.
+func (m *Manager) prune(s *server.Server, pinned string) int {
 	list, err := m.Backups(s)
 	if err != nil {
 		return 0
@@ -327,7 +332,7 @@ func (m *Manager) prune(s *server.Server) int {
 		if !b.Automatic() {
 			continue
 		}
-		if auto++; auto > keep {
+		if auto++; auto > keep && b.Name != pinned {
 			if os.Remove(filepath.Join(m.BackupDir(s), b.Name)) == nil {
 				m.forgetSnapshot(s, b.Name)
 				n++
@@ -338,7 +343,8 @@ func (m *Manager) prune(s *server.Server) int {
 }
 
 // restoreScript removes the top-level entries contained in the archive and extracts it.
-// Everything the archive does not contain (e.g. modpack mods) stays untouched.
+// Everything the archive does not contain (e.g. modpack mods) stays untouched. The archive is listed completely
+// before anything is removed.
 // For modpacks ($PACK) itzg's manifests that already exist are kept: they list the mods that are on disk, which
 // the archive does not carry. An older manifest would leave newer mods behind next to the older ones.
 const restoreScript = `set -e
@@ -353,12 +359,91 @@ $f"
     set -- "$@" "--exclude=./$f"
   done
 fi
-tar -I zstd -tf "/b/$F" | cut -d/ -f2 | sort -u | grep -v -e '^$' -e '^\.$' -e '^\.\.$' | grep -vxF -e "$keep" | while IFS= read -r n; do rm -rf -- "./$n"; done
+list=$(mktemp)
+tar -I zstd -tf "/b/$F" >"$list"
+cut -d/ -f2 "$list" | sort -u | grep -v -e '^$' -e '^\.$' -e '^\.\.$' | grep -vxF -e "$keep" | while IFS= read -r n; do rm -rf -- "./$n"; done
+rm -f "$list"
 tar -I zstd "$@" -xf "/b/$F"`
 
-// rollbackTarget returns the definition the server gets when archive name is restored together with its software
-// version. The local index is preferred; without an entry the local archive is asked.
-func (m *Manager) rollbackTarget(ctx context.Context, s *server.Server, name string) (*server.Server, error) {
+// restoreStash is the folder in /data that holds what is needed to undo a restore. It is never backed up.
+const restoreStash = ".cubeherd-restore"
+
+// stashScript notes which entries exist before a restore. With $MODS it also copies what the safety backup does
+// not carry and a modpack installation changes: the mods and itzg's manifests.
+const stashScript = `set -e
+cd /data
+d=` + restoreStash + `
+rm -rf "$d"
+mkdir "$d"
+ls -A >"$d/entries"
+if [ -n "$MODS" ]; then
+  if [ -d mods ]; then cp -a mods "$d/mods"; fi
+  for f in .*manifest.json; do
+    if [ -f "$f" ]; then cp -a "$f" "$d/"; fi
+  done
+  touch "$d/with-mods"
+fi`
+
+// revertScript removes entries a failed restore added and puts the stashed mods and manifests back. The files of
+// the safety backup are extracted afterwards.
+const revertScript = `set -e
+cd /data
+d=` + restoreStash + `
+test -f "$d/entries"
+ls -A | { grep -vxF -f "$d/entries" || true; } | while IFS= read -r n; do rm -rf -- "./$n"; done
+if [ -f "$d/with-mods" ]; then
+  rm -rf mods
+  rm -f .*manifest.json
+  if [ -d "$d/mods" ]; then cp -a "$d/mods" mods; fi
+  for f in "$d"/.*manifest.json; do
+    if [ -f "$f" ]; then cp -a "$f" .; fi
+  done
+fi`
+
+const dropStashScript = `rm -rf /data/` + restoreStash
+
+// extract unpacks a local archive into the server's data.
+func (m *Manager) extract(ctx context.Context, s *server.Server, name string) error {
+	pack := ""
+	if s.Pack != nil {
+		pack = "1"
+	}
+	cmd := exec.CommandContext(ctx, "docker", "run", "--rm", "-e", "F="+name, "-e", "PACK="+pack, "-v", m.dataMount(s)+":/data",
+		"-v", m.BackupDir(s)+":/b:ro", "--entrypoint", "sh", s.ImageRef(), "-c", restoreScript)
+	var stderr bytes.Buffer
+	cmd.Stdout, cmd.Stderr = io.Discard, &stderr
+	if err := cmd.Run(); err != nil {
+		return errors.New(firstLine(stderr.String(), err))
+	}
+	return nil
+}
+
+// revert brings the data back to the state before a restore that failed with cause, using the stash and the safety
+// backup. It has its own time limit, because the restore may have failed by running out of time.
+func (m *Manager) revert(s *server.Server, o *Op, safety string, cause error) error {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Hour)
+	defer cancel()
+	o.add("[cubeherd] " + m.t("Fehlgeschlagen, spiele den Stand davor zurück"))
+	err := m.dataShell(ctx, s, revertScript, nil, nil, io.Discard, false)
+	if err == nil {
+		err = m.extract(ctx, s, safety)
+	}
+	if err != nil {
+		return errors.Join(fmt.Errorf(m.t("Wiederherstellung fehlgeschlagen, und der Stand davor ließ sich nicht zurückspielen. Er liegt im Backup „Vor Wiederherstellung“: %w"), cause), err)
+	}
+	m.dropStash(ctx, s, o)
+	return fmt.Errorf(m.t("Wiederherstellung fehlgeschlagen, der Stand davor wurde zurückgespielt. Der Server bleibt gestoppt: %w"), cause)
+}
+
+func (m *Manager) dropStash(ctx context.Context, s *server.Server, o *Op) {
+	if err := m.dataShell(ctx, s, dropStashScript, nil, nil, io.Discard, false); err != nil {
+		o.add("[cubeherd] " + m.t("Warnung: %s", err.Error()))
+	}
+}
+
+// rollbackSnapshot returns the software version of archive name if the server can be set back to it. The local
+// index is preferred; without an entry the local archive is asked.
+func (m *Manager) rollbackSnapshot(ctx context.Context, s *server.Server, name string) (*server.Snapshot, error) {
 	sn := m.loadMeta(s.ID)[name]
 	if sn == nil {
 		sn, _ = m.readSnapshot(ctx, s, m.BackupDir(s), name)
@@ -366,18 +451,24 @@ func (m *Manager) rollbackTarget(ctx context.Context, s *server.Server, name str
 	if !s.CanRollback(sn) {
 		return nil, errors.New(m.t("Die Version aus diesem Backup lässt sich nicht wiederherstellen"))
 	}
-	return s.Rollback(sn), nil
+	return sn, nil
 }
 
 // installPack lets the image install the modpack version of s without starting the server. itzg replaces the mods
 // of the installed version and overwrites the pack's configuration files, so it runs before the backup is extracted.
+// It uses its own compose file: the stored definition only changes once the whole restore has worked.
 func (m *Manager) installPack(ctx context.Context, s *server.Server, o *Op) error {
 	o.add("[cubeherd] " + m.t("Installiere %s", s.Snapshot().Label()))
-	return m.compose(ctx, s, o, "run", "--rm", "--no-deps", "-T", "-e", "SETUP_ONLY=true", "mc")
+	file := filepath.Join(m.Store.Dir(s.ID), "compose.setup.yml")
+	if err := os.WriteFile(file, []byte(server.Compose(s, m.globals())), 0o600); err != nil {
+		return err
+	}
+	defer os.Remove(file)
+	return m.composeFile(ctx, s, o, file, "run", "--rm", "--no-deps", "-T", "-e", "SETUP_ONLY=true", "mc")
 }
 
-// Restore replaces the world and configuration with a backup. The current state is saved first. With rollback the
-// server also goes back to the software version the backup was made with.
+// Restore replaces the world and configuration with a backup. The current state is saved first and brought back
+// if the restore fails. With rollback the server also goes back to the software version of the backup.
 func (m *Manager) Restore(id, name string, rollback bool) error {
 	s, err := m.Store.Get(id)
 	if err != nil {
@@ -395,6 +486,7 @@ func (m *Manager) Restore(id, name string, rollback bool) error {
 	return m.run(id, server.StatusRestoring, func(o *Op) error {
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Hour)
 		defer cancel()
+		o.pinned = name // retention must not delete the archive that is being restored
 		if localErr != nil {
 			if err := m.fetch(ctx, s, o, name); err != nil {
 				return fmt.Errorf(m.t("Download aus dem externen Speicher fehlgeschlagen: %w"), err)
@@ -403,14 +495,22 @@ func (m *Manager) Restore(id, name string, rollback bool) error {
 				defer os.Remove(filepath.Join(m.BackupDir(s), name)) // fetched only for this restore
 			}
 		}
-		// Decided before anything changes, so a backup without a usable version leaves the server running.
+		// Everything that can rule the restore out is checked before the server is touched.
+		o.add("[cubeherd] " + m.t("Prüfe %s", name))
+		err := m.verifyArchive(ctx, s, m.BackupDir(s), name)
+		if ctx.Err() == nil {
+			m.recordCheck(id, name, err)
+		}
+		if err != nil {
+			return fmt.Errorf(m.t("Archiv beschädigt, nichts wurde verändert: %w"), err)
+		}
 		var target *server.Server
+		var sn *server.Snapshot
 		if rollback {
-			t, err := m.rollbackTarget(ctx, s, name)
-			if err != nil {
+			if sn, err = m.rollbackSnapshot(ctx, s, name); err != nil {
 				return err
 			}
-			target = t
+			target = s.Rollback(sn)
 		}
 		c := m.inspect(ctx, s)
 		wasUp := c != nil && c.State.Running
@@ -420,47 +520,50 @@ func (m *Manager) Restore(id, name string, rollback bool) error {
 				return err
 			}
 		}
-		if _, err := m.backup(ctx, s, o, ReasonRestore, m.BackupDir(s), ""); err != nil {
+		safety, err := m.backup(ctx, s, o, ReasonRestore, m.BackupDir(s), "")
+		if err != nil {
 			return fmt.Errorf(m.t("Sicherung des aktuellen Stands fehlgeschlagen, Wiederherstellung abgebrochen: %w"), err)
 		}
-		cur := s
-		if target != nil && target.Pack != nil {
-			if err := m.Store.Save(target, m.globals()); err != nil {
-				return err
-			}
+		install := target != nil && target.Pack != nil
+		mods := ""
+		if install {
+			mods = "1"
+		}
+		if err := m.dataShell(ctx, s, stashScript, map[string]string{"MODS": mods}, nil, io.Discard, false); err != nil {
+			m.dropStash(ctx, s, o)
+			return fmt.Errorf(m.t("Sicherung des aktuellen Stands fehlgeschlagen, Wiederherstellung abgebrochen: %w"), err)
+		}
+		if install {
 			if err := m.installPack(ctx, target, o); err != nil {
-				return errors.Join(fmt.Errorf(m.t("Die Version aus dem Backup ließ sich nicht installieren. Der Server bleibt gestoppt, der Stand davor liegt im Backup „Vor Wiederherstellung“: %w"), err),
-					m.Store.Save(s, m.globals()))
+				return m.revert(s, o, safety.Name, err)
 			}
-			cur = target
+		}
+		files := s
+		if target != nil {
+			files = target
 		}
 		o.add("[cubeherd] " + m.t("Stelle %s wieder her", name))
-		pack := ""
-		if cur.Pack != nil {
-			pack = "1"
+		if err := m.extract(ctx, files, name); err != nil {
+			return m.revert(s, o, safety.Name, err)
 		}
-		cmd := exec.CommandContext(ctx, "docker", "run", "--rm", "-e", "F="+name, "-e", "PACK="+pack, "-v", m.dataMount(cur)+":/data",
-			"-v", m.BackupDir(cur)+":/b:ro", "--entrypoint", "sh", cur.ImageRef(), "-c", restoreScript)
-		var stderr bytes.Buffer
-		cmd.Stdout, cmd.Stderr = io.Discard, &stderr
-		if err := cmd.Run(); err != nil {
-			return fmt.Errorf(m.t("Wiederherstellung fehlgeschlagen: %s"), firstLine(stderr.String(), err))
-		}
-		if target != nil {
-			cur = target
-			if err := m.Store.Save(cur, m.globals()); err != nil {
-				return err
+		// Only the software changes; whatever was saved while the restore ran (e.g. a suspension) stays.
+		cur, err := m.Store.Update(id, m.globals(), func(d *server.Server) {
+			if sn != nil {
+				d.ApplyRollback(sn)
 			}
+		})
+		if err != nil {
+			return m.revert(s, o, safety.Name, err)
+		}
+		m.dropStash(ctx, cur, o)
+		if sn != nil {
 			m.event(id, "update", "")
 		}
 		o.add("[cubeherd] " + m.t("Wiederherstellung abgeschlossen"))
-		if wasUp {
-			if err := m.Store.Save(cur, m.globals()); err != nil {
-				return err
-			}
+		if wasUp && !cur.Suspended {
 			return m.compose(ctx, cur, o, "up", "-d")
 		}
-		if target != nil && c != nil {
+		if sn != nil && c != nil {
 			// Replace the stopped container, so nothing can start it with the newer version.
 			return m.compose(ctx, cur, o, "up", "--no-start")
 		}

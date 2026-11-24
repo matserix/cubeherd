@@ -216,7 +216,7 @@ type restoreData struct {
 
 func (a *App) restoreData(ctx context.Context, s *server.Server, b manager.Backup) restoreData {
 	d := restoreData{S: s, B: b, Download: !b.Local, Now: s.Snapshot()}
-	d.Differs = b.Snapshot != nil && !b.Snapshot.SameSoftware(d.Now)
+	d.Differs = b.Snapshot != nil && !s.VersionOverridden() && !b.Snapshot.SameSoftware(d.Now)
 	d.Rollback = a.caps(ctx, s.ID).Update && s.CanRollback(b.Snapshot)
 	if d.Rollback && b.Snapshot.Pack != nil {
 		ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
