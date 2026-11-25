@@ -221,7 +221,7 @@ internal/web          handlers, templates, SSE, static assets
   type, Minecraft version, Java tag and the pack version change, only for the same kind and modpack, and only with plain identifiers,
   because the values come from a file and end up in the compose file. It is not offered when extra variables decide the version.
 - A backup only gets a snapshot when the definition can be trusted to describe `/data`: no such extra variables, an existing container was
-  made for the same software (not so after a failed update), and a Modrinth pack manifest on disk names the same version.
+  made for the same software (not so after a failed update), and the pack manifest itzg left on disk (Modrinth or CurseForge) names the same version.
 - Restoring first reads the whole archive, then stops the server, backs up the current state, deletes only the entries contained in the
   archive and unpacks it. Retention never deletes the archive that is being restored.
 - For a rollback of a modpack the image installs that version first (`compose run` with `SETUP_ONLY=true`, from a temporary compose file):

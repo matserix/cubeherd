@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 
 	"cubeherd/internal/docker"
 	"cubeherd/internal/server"
@@ -34,22 +35,56 @@ exit $rc`
 
 // installedSnapshot describes the software whose files are in /data. It returns nil when the definition cannot be
 // trusted to name it: extra variables decide the version, the container was made for another one (a failed
-// update), or the Modrinth pack on disk is a different version.
+// update), or the modpack on disk is a different version.
 func (m *Manager) installedSnapshot(ctx context.Context, s *server.Server, c *docker.ContainerJSON) *server.Snapshot {
 	if s.VersionOverridden() || (c != nil && !s.RunsAs(c.Config.Env, m.globals())) {
 		return nil
 	}
-	if s.Kind == server.KindModrinth && s.Pack != nil && s.Pack.Version != "" {
-		if text, ok, err := m.ReadText(ctx, s, ".modrinth-modpack-manifest.json"); err == nil && ok {
-			var installed struct {
-				VersionID string `json:"versionId"`
-			}
-			if json.Unmarshal([]byte(text), &installed) == nil && installed.VersionID != "" && installed.VersionID != s.Pack.Version {
-				return nil
-			}
+	if s.Pack != nil && s.Pack.Version != "" {
+		if v := m.installedPackVersion(ctx, s); v != "" && v != s.Pack.Version {
+			return nil
 		}
 	}
 	return s.Snapshot()
+}
+
+// packManifest is the file in /data in which itzg notes the installed modpack version.
+var packManifest = map[string]string{
+	server.KindModrinth:   ".modrinth-modpack-manifest.json",
+	server.KindCurseForge: ".curseforge-manifest.json",
+}
+
+// manifestLimit bounds a pack manifest; it lists every file of the pack, which is more than the editor reads.
+const manifestLimit = 32 << 20
+
+// installedPackVersion returns the version id (Modrinth) or file id (CurseForge) of the pack on disk, or "" if
+// there is no readable manifest.
+func (m *Manager) installedPackVersion(ctx context.Context, s *server.Server) string {
+	name := packManifest[s.Kind]
+	if name == "" {
+		return ""
+	}
+	// The container owns the file, so the read is capped like the other reads from /data.
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	var buf bytes.Buffer
+	if err := m.Open(ctx, s, name, &limitWriter{w: &buf, n: manifestLimit, cancel: cancel}); err != nil {
+		return ""
+	}
+	var installed struct {
+		VersionID string `json:"versionId"` // Modrinth
+		FileID    int64  `json:"fileId"`    // CurseForge
+	}
+	if json.Unmarshal(buf.Bytes(), &installed) != nil {
+		return ""
+	}
+	if s.Kind == server.KindCurseForge {
+		if installed.FileID <= 0 {
+			return ""
+		}
+		return strconv.FormatInt(installed.FileID, 10)
+	}
+	return installed.VersionID
 }
 
 // snapshotScript prints the snapshot of an archive and stops reading right after it.
