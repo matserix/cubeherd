@@ -307,7 +307,12 @@ func (m *Manager) composeFile(ctx context.Context, s *server.Server, o *Op, file
 			last = l
 		}
 	}
-	if err := sc.Err(); err != nil {
+	err := sc.Err()
+	if errors.Is(err, bufio.ErrTooLong) {
+		// Keep reading until the command has ended, so it never runs on behind the caller's back.
+		_, err = io.Copy(io.Discard, pr)
+	}
+	if err != nil {
 		var ee *exec.ExitError
 		if errors.As(err, &ee) {
 			return fmt.Errorf(m.t("docker compose %s fehlgeschlagen (Exit %d)"), args[0], ee.ExitCode())

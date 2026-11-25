@@ -15,6 +15,7 @@ import (
 	"strings"
 	"time"
 
+	"cubeherd/internal/docker"
 	"cubeherd/internal/server"
 )
 
@@ -142,7 +143,7 @@ func excludes(s *server.Server) []string {
 	ex := []string{"--no-wildcards-match-slash"}
 	for _, p := range []string{"./logs", "./crash-reports", "./debug", "./cache", "./.cache", "./versions", "./libraries", "./libraries-*",
 		"./*.jar", "./.paused", "./.rcon-cli.*", "./.mixin.out", "./backups",
-		"./.fabric/server", "./.fabric/remappedJars", "./" + restoreStash} {
+		"./.fabric/server", "./.fabric/remappedJars", "./" + restoreStash + "*"} {
 		ex = append(ex, "--exclude="+p)
 	}
 	if s.Pack != nil {
@@ -365,15 +366,15 @@ cut -d/ -f2 "$list" | sort -u | grep -v -e '^$' -e '^\.$' -e '^\.\.$' | grep -vx
 rm -f "$list"
 tar -I zstd "$@" -xf "/b/$F"`
 
-// restoreStash is the folder in /data that holds what is needed to undo a restore. It is never backed up.
-const restoreStash = ".cubeherd-restore"
+// restoreStash starts the name of the folder in /data that holds what is needed to undo a restore. Every restore
+// has its own ($D), so a later one never removes what a failed one left behind. It is never backed up.
+const restoreStash = ".cubeherd-restore-"
 
 // stashScript notes which entries exist before a restore. With $MODS it also copies what the safety backup does
 // not carry and a modpack installation changes: the mods and itzg's manifests.
 const stashScript = `set -e
 cd /data
-d=` + restoreStash + `
-rm -rf "$d"
+d="$D"
 mkdir "$d"
 ls -A >"$d/entries"
 if [ -n "$MODS" ]; then
@@ -384,23 +385,67 @@ if [ -n "$MODS" ]; then
   touch "$d/with-mods"
 fi`
 
-// revertScript removes entries a failed restore added and puts the stashed mods and manifests back. The files of
-// the safety backup are extracted afterwards.
+// revertScript puts the stashed mods and manifests back and removes entries a failed restore added. The files of
+// the safety backup are extracted afterwards. The mods go first and are moved, which needs no disk space.
 const revertScript = `set -e
 cd /data
-d=` + restoreStash + `
+d="$D"
 test -f "$d/entries"
-ls -A | { grep -vxF -f "$d/entries" || true; } | while IFS= read -r n; do rm -rf -- "./$n"; done
 if [ -f "$d/with-mods" ]; then
   rm -rf mods
-  rm -f .*manifest.json
-  if [ -d "$d/mods" ]; then cp -a "$d/mods" mods; fi
-  for f in "$d"/.*manifest.json; do
-    if [ -f "$f" ]; then cp -a "$f" .; fi
+  if [ -d "$d/mods" ]; then mv "$d/mods" mods; fi
+  for f in .*manifest.json; do
+    if [ -f "$f" ]; then rm -f "$f"; fi
   done
-fi`
+  for f in "$d"/.*manifest.json; do
+    if [ -f "$f" ]; then mv "$f" .; fi
+  done
+fi
+ls -A | { grep -vxF -f "$d/entries" || true; } | while IFS= read -r n; do rm -rf -- "./$n"; done`
 
-const dropStashScript = `rm -rf /data/` + restoreStash
+const dropStashScript = `rm -rf -- "/data/$D"`
+
+// errHelperRuns means a container that writes to /data could not be removed.
+var errHelperRuns = errors.New("a container that writes to the data is still running")
+
+// removeHelper makes sure a one-off container is gone. Ending the docker command that started it, for example
+// by a timeout, does not stop it.
+func (m *Manager) removeHelper(name string) error {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+	defer cancel()
+	for {
+		err := m.Docker.Remove(ctx, name, true)
+		if err == nil || errors.Is(err, docker.ErrNotFound) {
+			return nil
+		}
+		// Docker may be removing it already (--rm), which makes the request fail.
+		if _, ierr := m.Docker.Inspect(ctx, name); errors.Is(ierr, docker.ErrNotFound) {
+			return nil
+		}
+		select {
+		case <-ctx.Done():
+			return err
+		case <-time.After(time.Second):
+		}
+	}
+}
+
+// helperName names a one-off container of a server. Server IDs have no dots, so it never collides with a server.
+func helperName(s *server.Server, task string) string { return s.Container() + "." + task }
+
+// runHelper runs a one-off container through run. When that fails, the container is removed before returning.
+func (m *Manager) runHelper(name string, run func() error) error {
+	if err := m.removeHelper(name); err != nil { // a leftover would block the name
+		return errors.Join(errHelperRuns, err)
+	}
+	err := run()
+	if err != nil {
+		if rerr := m.removeHelper(name); rerr != nil {
+			return errors.Join(errHelperRuns, err, rerr)
+		}
+	}
+	return err
+}
 
 // extract unpacks a local archive into the server's data.
 func (m *Manager) extract(ctx context.Context, s *server.Server, name string) error {
@@ -408,35 +453,57 @@ func (m *Manager) extract(ctx context.Context, s *server.Server, name string) er
 	if s.Pack != nil {
 		pack = "1"
 	}
-	cmd := exec.CommandContext(ctx, "docker", "run", "--rm", "-e", "F="+name, "-e", "PACK="+pack, "-v", m.dataMount(s)+":/data",
-		"-v", m.BackupDir(s)+":/b:ro", "--entrypoint", "sh", s.ImageRef(), "-c", restoreScript)
-	var stderr bytes.Buffer
-	cmd.Stdout, cmd.Stderr = io.Discard, &stderr
-	if err := cmd.Run(); err != nil {
-		return errors.New(firstLine(stderr.String(), err))
-	}
-	return nil
+	helper := helperName(s, "restore")
+	return m.runHelper(helper, func() error {
+		cmd := exec.CommandContext(ctx, "docker", "run", "--rm", "--name", helper, "-e", "F="+name, "-e", "PACK="+pack,
+			"-v", m.dataMount(s)+":/data", "-v", m.BackupDir(s)+":/b:ro", "--entrypoint", "sh", s.ImageRef(), "-c", restoreScript)
+		var stderr bytes.Buffer
+		cmd.Stdout, cmd.Stderr = io.Discard, &stderr
+		if err := cmd.Run(); err != nil {
+			return errors.New(firstLine(stderr.String(), err))
+		}
+		return nil
+	})
 }
 
 // revert brings the data back to the state before a restore that failed with cause, using the stash and the safety
 // backup. It has its own time limit, because the restore may have failed by running out of time.
-func (m *Manager) revert(s *server.Server, o *Op, safety string, cause error) error {
+func (m *Manager) revert(s *server.Server, o *Op, stash, safety string, cause error) error {
+	if errors.Is(cause, errHelperRuns) {
+		return fmt.Errorf(m.t("Ein Hilfscontainer läuft noch, deshalb wurde nichts zurückgespielt. Der Stand davor liegt im Backup „Vor Wiederherstellung“: %w"), cause)
+	}
 	ctx, cancel := context.WithTimeout(context.Background(), time.Hour)
 	defer cancel()
 	o.add("[cubeherd] " + m.t("Fehlgeschlagen, spiele den Stand davor zurück"))
-	err := m.dataShell(ctx, s, revertScript, nil, nil, io.Discard, false)
-	if err == nil {
-		err = m.extract(ctx, s, safety)
-	}
-	if err != nil {
+	// The safety backup is extracted even if the stash cannot be put back: it holds the world.
+	serr := m.dataShell(ctx, s, revertScript, map[string]string{"D": stash}, nil, io.Discard, false)
+	if err := errors.Join(serr, m.extract(ctx, s, safety)); err != nil {
+		o.add("[cubeherd] " + m.t("Was vor der Wiederherstellung zwischengespeichert wurde, liegt noch in %s", "/data/"+stash))
 		return errors.Join(fmt.Errorf(m.t("Wiederherstellung fehlgeschlagen, und der Stand davor ließ sich nicht zurückspielen. Er liegt im Backup „Vor Wiederherstellung“: %w"), cause), err)
 	}
-	m.dropStash(ctx, s, o)
+	m.dropStash(ctx, s, o, stash)
 	return fmt.Errorf(m.t("Wiederherstellung fehlgeschlagen, der Stand davor wurde zurückgespielt. Der Server bleibt gestoppt: %w"), cause)
 }
 
-func (m *Manager) dropStash(ctx context.Context, s *server.Server, o *Op) {
-	if err := m.dataShell(ctx, s, dropStashScript, nil, nil, io.Discard, false); err != nil {
+func (m *Manager) dropStash(ctx context.Context, s *server.Server, o *Op, stash string) {
+	if err := m.dataShell(ctx, s, dropStashScript, map[string]string{"D": stash}, nil, io.Discard, false); err != nil {
+		o.add("[cubeherd] " + m.t("Warnung: %s", err.Error()))
+	}
+}
+
+// startAgain starts a server that a restore stopped and then gave up on before changing anything.
+func (m *Manager) startAgain(id string, o *Op) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
+	defer cancel()
+	s, err := m.Store.Get(id)
+	if err == nil {
+		err = m.mayStart(s)
+	}
+	if err == nil {
+		o.add("[cubeherd] " + m.t("Es wurde noch nichts verändert, der Server wird wieder gestartet"))
+		err = m.compose(ctx, s, o, "up", "-d")
+	}
+	if err != nil {
 		o.add("[cubeherd] " + m.t("Warnung: %s", err.Error()))
 	}
 }
@@ -464,7 +531,26 @@ func (m *Manager) installPack(ctx context.Context, s *server.Server, o *Op) erro
 		return err
 	}
 	defer os.Remove(file)
-	return m.composeFile(ctx, s, o, file, "run", "--rm", "--no-deps", "-T", "-e", "SETUP_ONLY=true", "mc")
+	helper := helperName(s, "setup")
+	return m.runHelper(helper, func() error {
+		return m.composeFile(ctx, s, o, file, "run", "--rm", "--no-deps", "-T", "--name", helper, "-e", "SETUP_ONLY=true", "mc")
+	})
+}
+
+// commitRestore returns the definition the server has after a restore, set to the software of sn if given. before
+// is the definition from the start of the restore; its software comes back if the new one cannot be stored.
+func (m *Manager) commitRestore(id string, before *server.Server, sn *server.Snapshot) (*server.Server, error) {
+	if sn == nil {
+		return m.Store.Get(id)
+	}
+	s, err := m.Store.Update(id, m.globals(), func(d *server.Server) { d.ApplyRollback(sn) })
+	if err != nil {
+		// The definition is written before the compose file, so it may hold the new software already.
+		old := before.Snapshot()
+		_, uerr := m.Store.Update(id, m.globals(), func(d *server.Server) { d.ApplyRollback(old) })
+		return nil, errors.Join(err, uerr)
+	}
+	return s, nil
 }
 
 // Restore replaces the world and configuration with a backup. The current state is saved first and brought back
@@ -512,7 +598,14 @@ func (m *Manager) Restore(id, name string, rollback bool) error {
 			}
 			target = s.Rollback(sn)
 		}
-		c := m.inspect(ctx, s)
+		// Without a reliable answer a running server could be overwritten.
+		c, err := m.Docker.Inspect(ctx, s.Container())
+		if errors.Is(err, docker.ErrNotFound) {
+			c, err = nil, nil
+		}
+		if err != nil {
+			return fmt.Errorf(m.t("Der Zustand des Containers ließ sich nicht abfragen, nichts wurde verändert: %w"), err)
+		}
 		wasUp := c != nil && c.State.Running
 		if wasUp {
 			o.add("[cubeherd] " + m.t("Server wird gestoppt"))
@@ -520,22 +613,30 @@ func (m *Manager) Restore(id, name string, rollback bool) error {
 				return err
 			}
 		}
+		// giveUp ends a restore that has not changed anything yet.
+		giveUp := func(err error) error {
+			if wasUp {
+				m.startAgain(id, o)
+			}
+			return fmt.Errorf(m.t("Sicherung des aktuellen Stands fehlgeschlagen, Wiederherstellung abgebrochen: %w"), err)
+		}
 		safety, err := m.backup(ctx, s, o, ReasonRestore, m.BackupDir(s), "")
 		if err != nil {
-			return fmt.Errorf(m.t("Sicherung des aktuellen Stands fehlgeschlagen, Wiederherstellung abgebrochen: %w"), err)
+			return giveUp(err)
 		}
 		install := target != nil && target.Pack != nil
 		mods := ""
 		if install {
 			mods = "1"
 		}
-		if err := m.dataShell(ctx, s, stashScript, map[string]string{"MODS": mods}, nil, io.Discard, false); err != nil {
-			m.dropStash(ctx, s, o)
-			return fmt.Errorf(m.t("Sicherung des aktuellen Stands fehlgeschlagen, Wiederherstellung abgebrochen: %w"), err)
+		stash := fmt.Sprintf("%s%d", restoreStash, time.Now().UnixNano())
+		if err := m.dataShell(ctx, s, stashScript, map[string]string{"D": stash, "MODS": mods}, nil, io.Discard, false); err != nil {
+			m.dropStash(ctx, s, o, stash)
+			return giveUp(err)
 		}
 		if install {
 			if err := m.installPack(ctx, target, o); err != nil {
-				return m.revert(s, o, safety.Name, err)
+				return m.revert(s, o, stash, safety.Name, err)
 			}
 		}
 		files := s
@@ -544,18 +645,14 @@ func (m *Manager) Restore(id, name string, rollback bool) error {
 		}
 		o.add("[cubeherd] " + m.t("Stelle %s wieder her", name))
 		if err := m.extract(ctx, files, name); err != nil {
-			return m.revert(s, o, safety.Name, err)
+			return m.revert(s, o, stash, safety.Name, err)
 		}
 		// Only the software changes; whatever was saved while the restore ran (e.g. a suspension) stays.
-		cur, err := m.Store.Update(id, m.globals(), func(d *server.Server) {
-			if sn != nil {
-				d.ApplyRollback(sn)
-			}
-		})
+		cur, err := m.commitRestore(id, s, sn)
 		if err != nil {
-			return m.revert(s, o, safety.Name, err)
+			return m.revert(s, o, stash, safety.Name, err)
 		}
-		m.dropStash(ctx, cur, o)
+		m.dropStash(ctx, cur, o, stash)
 		if sn != nil {
 			m.event(id, "update", "")
 		}

@@ -227,9 +227,13 @@ internal/web          handlers, templates, SSE, static assets
 - For a rollback of a modpack the image installs that version first (`compose run` with `SETUP_ONLY=true`, from a temporary compose file):
   itzg overwrites the pack's configuration files while installing, so the backup's copies have to come last. The stored definition changes
   only after everything has worked, and only its software fields, so a suspension saved meanwhile stays and keeps the server stopped.
-- If installing or unpacking fails, the safety backup is unpacked again. `/data/.cubeherd-restore` holds what that backup does not carry
-  (new top-level entries to remove; for pack rollbacks a copy of the mods and manifests). It is removed afterwards and never backed up.
-  Nothing undoes a restore that is cut off by a restart of Cubeherd.
+- If installing or unpacking fails, the safety backup is unpacked again. A `/data/.cubeherd-restore-<n>` folder per restore holds what
+  that backup does not carry (new top-level entries to remove; for pack rollbacks a copy of the mods and manifests, which is moved back).
+  It is removed afterwards, kept if bringing the state back fails, and never backed up. Nothing undoes a restore that is cut off by a
+  restart of Cubeherd.
+- The containers that write to `/data` during a restore have fixed names (`mc-<id>.setup`, `mc-<id>.restore`) and are removed after a
+  failure, because ending the docker command does not stop them. If one cannot be removed, nothing else writes to the data.
+- A restore that fails before changing anything starts a server again that it stopped.
 - A modpack restore keeps the existing `.*manifest.json` files of itzg. They list the mods on disk, which the archive does not carry; an
   older manifest would leave newer mods next to the older ones.
 - The next run is searched after the newest scheduled backup or attempt, and for a server that never had one after its creation. (Anchoring at
